@@ -1,0 +1,198 @@
+import os
+import time
+from datetime import datetime
+from dotenv import load_dotenv
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Load environment variables from .env file
+load_dotenv()
+
+URL = os.getenv("URL")
+USER = os.getenv("USER")
+PASSWORD = os.getenv("PASSWORD")
+
+if not all([URL, USER, PASSWORD]):
+    print("Error: Missing credentials or URL in .env file.")
+    exit(1)
+
+def main():
+    print("Setting up Chrome driver...")
+    # Setup Chrome options
+    options = webdriver.ChromeOptions()
+    # options.add_argument("--headless") # Uncomment this line to run invisibly in the background
+
+    # Configure download directory to be the current directory
+    current_dir = os.getcwd()
+    prefs = {
+        "download.default_directory": current_dir,
+        "download.prompt_for_download": False,
+        "directory_upgrade": True,
+        "safebrowsing.enabled": True
+    }
+    options.add_experimental_option("prefs", prefs)
+
+    # Initialize the Chrome driver using webdriver-manager to automatically download the correct driver
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+
+    try:
+        print(f"Navigating to {URL}...")
+        driver.get(URL)
+
+        # Wait for the password input to be present to ensure the page has loaded
+        wait = WebDriverWait(driver, 15)
+        
+        print("Looking for input fields...")
+        # Usually password input has type="password"
+        password_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='password']")))
+        
+        # Username is usually an input of type text, email, or a generic input before the password
+        inputs = driver.find_elements(By.TAG_NAME, "input")
+        username_input = None
+        for input_element in inputs:
+            input_type = input_element.get_attribute("type")
+            if input_type in ["text", "email"] or not input_type:
+                username_input = input_element
+                break
+        
+        # Fallback if no specific type is found
+        if not username_input:
+            username_input = driver.find_element(By.XPATH, "//input[not(@type='password') and not(@type='hidden')]")
+
+        print("Entering credentials...")
+        username_input.send_keys(USER)
+        password_input.send_keys(PASSWORD)
+
+        print("Submitting the form...")
+        # Try to find a submit button, or fallback to pressing Enter on the password field
+        try:
+            submit_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+            submit_button.click()
+        except:
+            print("Specific submit button not found, pressing Enter on the password field instead.")
+            password_input.submit()
+            
+        print("Login action completed. Waiting for the dashboard to load...")
+        dashboard_wait = WebDriverWait(driver, 30)
+        
+        # 1. Click on Reportes in the left panel
+        try:
+            print("Looking for 'Reportes' link...")
+            reportes_link = dashboard_wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reportes')] | //a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reportes')] | //span[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'reportes')]")
+            ))
+            reportes_link.click()
+            print("Clicked on 'Reportes'.")
+        except Exception as e:
+            print(f"Could not find or click 'Reportes': {e}")
+            
+        # 2. Fill date inputs using the popover calendar
+        try:
+            print("Looking for date button...")
+            time.sleep(3) # Wait for page to render
+            
+            # Click the date button to open popover
+            date_button = dashboard_wait.until(EC.element_to_be_clickable((By.ID, "date")))
+            date_button.click()
+            
+            # Wait for calendar to be fully visible
+            time.sleep(2)
+            
+            def is_month_visible(month_text):
+                try:
+                    driver.find_element(By.XPATH, f"//*[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{month_text}']")
+                    return True
+                except:
+                    return False
+
+            def click_day_in_month(month_text, day_num):
+                # We look for the day button that is chronologically after the month title
+                # We try a few generic patterns used by React date pickers
+                xpath1 = f"(//*[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{month_text}']/ancestor::div[1]/following-sibling::table//button[(text()='{day_num}' or .//span[text()='{day_num}']) and not(contains(@class, 'outside'))])[1]"
+                xpath2 = f"(//*[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{month_text}']/following::table[1]//button[(text()='{day_num}' or .//span[text()='{day_num}']) and not(contains(@class, 'outside'))])[1]"
+                
+                try:
+                    btn = driver.find_element(By.XPATH, xpath1)
+                    btn.click()
+                    return True
+                except:
+                    try:
+                        btn = driver.find_element(By.XPATH, xpath2)
+                        btn.click()
+                        return True
+                    except Exception as e:
+                        print(f"Could not click day {day_num} in {month_text}: {e}")
+                        return False
+                
+            print("Navigating calendar to target start date (mayo 2026)...")
+            target_text = "mayo 2026"
+            
+            for _ in range(24):
+                if is_month_visible(target_text):
+                    break
+                try:
+                    prev_button = driver.find_element(By.XPATH, "//button[@aria-label='Go to the Previous Month' or @name='previous-month' or contains(@class, 'previous') or .//svg[contains(@class, 'chevron-left')]]")
+                    prev_button.click()
+                    time.sleep(0.2)
+                except:
+                    break
+                
+            print(f"Found month {target_text}, clicking day 7...")
+            click_day_in_month(target_text, 7)
+            time.sleep(0.5)
+            
+            print("Navigating calendar to current month...")
+            current_date = datetime.now()
+            month_names = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+            current_text = f"{month_names[current_date.month-1]} {current_date.year}"
+            
+            for _ in range(24):
+                if is_month_visible(current_text):
+                    break
+                try:
+                    next_button = driver.find_element(By.XPATH, "//button[@aria-label='Go to the Next Month' or @name='next-month' or contains(@class, 'next') or .//svg[contains(@class, 'chevron-right')]]")
+                    next_button.click()
+                    time.sleep(0.2)
+                except:
+                    break
+                
+            print(f"Found current month {current_text}, clicking day {current_date.day}...")
+            click_day_in_month(current_text, current_date.day)
+            time.sleep(0.5)
+            
+            # Press escape to close the popover just in case it blocks the export button
+            webdriver.ActionChains(driver).send_keys(u'\ue00c').perform() # Escape key
+            print("Date range selected.")
+                
+        except Exception as e:
+            print(f"Error filling dates via calendar: {e}")
+        
+        # 3. Look for the 'Exportar Excel' button and click it
+        try:
+            print("Looking for 'Exportar Excel' button...")
+            export_button = dashboard_wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exportar excel')] | //a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exportar excel')] | //button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exportar excel')]")
+            ))
+            
+            export_button.click()
+            print("Export button clicked! Waiting for download to complete...")
+            time.sleep(20)
+            print(f"Download should be saved in: {os.getcwd()}")
+            
+        except Exception as export_error:
+            print(f"Could not find or click the 'Exportar Excel' button: {export_error}")
+            time.sleep(15)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("Closing browser...")
+        driver.quit()
+
+if __name__ == "__main__":
+    main()
