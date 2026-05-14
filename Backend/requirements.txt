@@ -1,3 +1,8 @@
 python-dotenv
 selenium
 webdriver-manager
+fastapi
+uvicorn
+pandas
+openpyxl
+pyxlsb

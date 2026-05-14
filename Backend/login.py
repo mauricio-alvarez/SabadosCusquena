@@ -9,27 +9,33 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file in the parent directory
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path)
 
 URL = os.getenv("URL")
 USER = os.getenv("USER")
 PASSWORD = os.getenv("PASSWORD")
 
-if not all([URL, USER, PASSWORD]):
-    print("Error: Missing credentials or URL in .env file.")
-    exit(1)
-
-def main():
+def run_report_extraction():
+    if not all([URL, USER, PASSWORD]):
+        print("Error: Missing credentials or URL in .env file.")
+        raise ValueError("Missing credentials or URL in .env file.")
     print("Setting up Chrome driver...")
     # Setup Chrome options
     options = webdriver.ChromeOptions()
-    # options.add_argument("--headless") # Uncomment this line to run invisibly in the background
+    options.add_argument("--headless=new") # Modern headless mode
+    options.add_argument("--window-size=1920,1080") # Prevent responsive layout issues
+    options.add_argument("--start-maximized")
 
-    # Configure download directory to be the current directory
+    # Configure download directory
     current_dir = os.getcwd()
+    download_dir = os.path.join(current_dir, "downloads")
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
+        
     prefs = {
-        "download.default_directory": current_dir,
+        "download.default_directory": download_dir,
         "download.prompt_for_download": False,
         "directory_upgrade": True,
         "safebrowsing.enabled": True
@@ -181,18 +187,44 @@ def main():
             
             export_button.click()
             print("Export button clicked! Waiting for download to complete...")
-            time.sleep(20)
-            print(f"Download should be saved in: {os.getcwd()}")
+            
+            timeout = 60
+            start_time = time.time()
+            downloaded_file = None
+            
+            while time.time() - start_time < timeout:
+                files = os.listdir(download_dir)
+                crdownloads = [f for f in files if f.endswith('.crdownload') or f.endswith('.tmp')]
+                if not crdownloads:
+                    xlsx_files = [f for f in files if f.endswith('.xlsx')]
+                    if xlsx_files:
+                        xlsx_files_paths = [os.path.join(download_dir, f) for f in xlsx_files]
+                        newest_file = max(xlsx_files_paths, key=os.path.getctime)
+                        if os.path.getctime(newest_file) > start_time - 5:
+                            downloaded_file = newest_file
+                            break
+                time.sleep(1)
+            
+            if downloaded_file:
+                print(f"Download completed: {downloaded_file}")
+                return downloaded_file
+            else:
+                print("Download timed out.")
+                return None
             
         except Exception as export_error:
             print(f"Could not find or click the 'Exportar Excel' button: {export_error}")
             time.sleep(15)
+            return None
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        raise e
     finally:
         print("Closing browser...")
-        driver.quit()
+        if 'driver' in locals():
+            driver.quit()
 
 if __name__ == "__main__":
-    main()
+    result = run_report_extraction()
+    print(f"Result: {result}")
