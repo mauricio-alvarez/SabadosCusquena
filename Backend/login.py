@@ -1,7 +1,8 @@
 import os
+import shutil
 import time
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -11,26 +12,40 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 # Load environment variables from .env file in the parent directory
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+dotenv_values_map = dotenv_values(dotenv_path)
 load_dotenv(dotenv_path)
 
-URL = os.getenv("URL")
-USER = os.getenv("USER")
-PASSWORD = os.getenv("PASSWORD")
+URL = os.getenv("URL") or dotenv_values_map.get("URL")
+REPORT_USER = (
+    os.getenv("REPORT_USER")
+    or os.getenv("PORTAL_USER")
+    or dotenv_values_map.get("REPORT_USER")
+    or dotenv_values_map.get("PORTAL_USER")
+    or dotenv_values_map.get("USER")
+)
+PASSWORD = os.getenv("PASSWORD") or dotenv_values_map.get("PASSWORD")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def run_report_extraction():
-    if not all([URL, USER, PASSWORD]):
-        print("Error: Missing credentials or URL in .env file.")
-        raise ValueError("Missing credentials or URL in .env file.")
+    if not all([URL, REPORT_USER, PASSWORD]):
+        print("Error: Missing URL, REPORT_USER, or PASSWORD.")
+        raise ValueError("Missing URL, REPORT_USER, or PASSWORD.")
     print("Setting up Chrome driver...")
     # Setup Chrome options
     options = webdriver.ChromeOptions()
+    chrome_binary = os.getenv("CHROME_BIN")
+    if chrome_binary:
+        options.binary_location = chrome_binary
+
     options.add_argument("--headless=new") # Modern headless mode
     options.add_argument("--window-size=1920,1080") # Prevent responsive layout issues
     options.add_argument("--start-maximized")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
 
     # Configure download directory
-    current_dir = os.getcwd()
-    download_dir = os.path.join(current_dir, "downloads")
+    download_dir = os.path.join(BASE_DIR, "downloads")
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
         
@@ -42,8 +57,12 @@ def run_report_extraction():
     }
     options.add_experimental_option("prefs", prefs)
 
-    # Initialize the Chrome driver using webdriver-manager to automatically download the correct driver
-    service = Service(ChromeDriverManager().install())
+    chromedriver_path = os.getenv("CHROMEDRIVER_PATH") or shutil.which("chromedriver")
+    if chromedriver_path:
+        service = Service(chromedriver_path)
+    else:
+        service = Service(ChromeDriverManager().install())
+
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
@@ -71,7 +90,7 @@ def run_report_extraction():
             username_input = driver.find_element(By.XPATH, "//input[not(@type='password') and not(@type='hidden')]")
 
         print("Entering credentials...")
-        username_input.send_keys(USER)
+        username_input.send_keys(REPORT_USER)
         password_input.send_keys(PASSWORD)
 
         print("Submitting the form...")

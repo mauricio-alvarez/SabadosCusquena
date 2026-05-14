@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sabados-cusquena
+    runtime: docker
+    autoDeployTrigger: commit
+    healthCheckPath: /api/health
+    envVars:
+      - key: URL
+        sync: false
+      - key: REPORT_USER
+        sync: false
+      - key: PASSWORD
+        sync: false
