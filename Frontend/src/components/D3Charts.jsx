@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 
 export const BarChart = ({ data }) => {
@@ -60,7 +60,7 @@ export const BarChart = ({ data }) => {
       .append('rect')
       .attr('class', 'bar')
       .attr('x', d => x(d.region))
-      .attr('y', d => y(0))
+      .attr('y', y(0))
       .attr('width', x.bandwidth())
       .attr('height', 0)
       .attr('fill', 'var(--cusquena-gold)')

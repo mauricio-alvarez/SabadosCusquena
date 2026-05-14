@@ -1,6 +1,7 @@
 /.env
 /empresas-afiliadas_08-05-2026_21-52-25.xlsx
 /venv
+/.venv
 /Backend/__pycache__
 /node_modules
 dist

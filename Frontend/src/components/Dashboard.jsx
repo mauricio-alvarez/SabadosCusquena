@@ -1,12 +1,14 @@
-import React, { useState, useMemo } from 'react';
-import { Download, Users, TrendingUp, MapPin, AlertCircle, TrendingDown, RefreshCcw, Filter } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Download, Users, TrendingUp, AlertCircle, TrendingDown, RefreshCcw, Filter } from 'lucide-react';
 import MetricCard from './MetricCard';
 import { BarChart, DonutChart } from './D3Charts';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
+const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
-  const [filePath, setFilePath] = useState('');
   const [error, setError] = useState('');
   const [dashboardData, setDashboardData] = useState(null);
 
@@ -22,12 +24,11 @@ const Dashboard = () => {
     setError('');
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/extract-report', {
+      const response = await fetch(apiUrl('/api/extract-report'), {
         method: 'POST',
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'Failed to download report');
-      setFilePath(data.file_path);
       await fetchDashboardData(data.file_path);
     } catch (err) {
       setError(err.message);
@@ -37,15 +38,25 @@ const Dashboard = () => {
   };
 
   const loadLastReport = async () => {
-    const path = "C:\\Users\\asus\\Desktop\\SabadosCusquena\\Backend\\downloads\\canjes-institucion_09-05-2026_18-03-24.xlsx";
-    setFilePath(path);
-    await fetchDashboardData(path);
+    setLoadingData(true);
+    setError('');
+
+    try {
+      const response = await fetch(apiUrl('/api/latest-report'));
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || 'No recent report found');
+      await fetchDashboardData(data.file_path);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingData(false);
+    }
   }
 
   const fetchDashboardData = async (path) => {
     setLoadingData(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/dashboard-data', {
+      const response = await fetch(apiUrl('/api/dashboard-data'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_path: path })
