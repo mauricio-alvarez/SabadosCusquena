@@ -98,9 +98,9 @@ export const DonutChart = ({ data }) => {
   useEffect(() => {
     if (!data || data.length === 0) return;
 
-    const width = 400;
+    const width = 560;
     const height = 300;
-    const radius = Math.min(width, height) / 2;
+    const radius = 112;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
@@ -108,8 +108,9 @@ export const DonutChart = ({ data }) => {
     const g = svg
       .attr('viewBox', `0 0 ${width} ${height}`)
       .append('g')
-      .attr('transform', `translate(${width / 2},${height / 2})`);
+      .attr('transform', 'translate(142,150)');
 
+    const total = d3.sum(data.map(item => item.value));
     const color = d3.scaleOrdinal()
       .domain(data.map(d => d.department))
       .range(['#CFA052', '#a67c33', '#e8c07d', '#8B0000', '#5c0000']);
@@ -120,17 +121,18 @@ export const DonutChart = ({ data }) => {
 
     const arc = d3.arc()
       .innerRadius(radius * 0.6)
-      .outerRadius(radius * 0.8);
+      .outerRadius(radius * 0.72);
 
     const arcHover = d3.arc()
       .innerRadius(radius * 0.6)
-      .outerRadius(radius * 0.85);
+      .outerRadius(radius * 0.78);
 
     const tooltip = d3.select('body').selectAll('.d3-tooltip').data([0]);
     const tt = tooltip.enter().append('div').attr('class', 'd3-tooltip').merge(tooltip);
+    const pieData = pie(data);
 
     const path = g.selectAll('path')
-      .data(pie(data))
+      .data(pieData)
       .enter()
       .append('path')
       .attr('fill', d => color(d.data.department))
@@ -138,7 +140,6 @@ export const DonutChart = ({ data }) => {
       .attr('stroke-width', 2)
       .on('mouseover', function (event, d) {
         d3.select(this).transition().duration(200).attr('d', arcHover);
-        const total = d3.sum(data.map(item => item.value));
         const percent = ((d.data.value / total) * 100).toFixed(1);
         tt.style('opacity', 1)
           .html(`<strong>${d.data.department}</strong><br/>${d.data.value.toLocaleString()} canjes (${percent}%)`);
@@ -157,6 +158,40 @@ export const DonutChart = ({ data }) => {
       .attrTween('d', function(d) {
         const i = d3.interpolate({ startAngle: 0, endAngle: 0 }, d);
         return function(t) { return arc(i(t)); };
+      });
+
+    const legend = svg.append('g')
+      .attr('class', 'donut-legend')
+      .attr('transform', 'translate(295,56)');
+
+    const legendRows = legend.selectAll('g')
+      .data(pieData)
+      .enter()
+      .append('g')
+      .attr('transform', (d, i) => `translate(0,${i * 40})`);
+
+    legendRows.append('rect')
+      .attr('width', 12)
+      .attr('height', 12)
+      .attr('rx', 3)
+      .attr('fill', d => color(d.data.department));
+
+    legendRows.append('text')
+      .attr('x', 20)
+      .attr('y', 2)
+      .attr('fill', '#ffffff')
+      .style('font-size', '12px')
+      .style('font-weight', '700')
+      .text(d => d.data.department.length > 26 ? `${d.data.department.slice(0, 26)}...` : d.data.department);
+
+    legendRows.append('text')
+      .attr('x', 20)
+      .attr('y', 20)
+      .attr('fill', 'var(--text-secondary)')
+      .style('font-size', '11px')
+      .text(d => {
+        const percent = total > 0 ? ((d.data.value / total) * 100).toFixed(1) : '0.0';
+        return `${d.data.value.toLocaleString()} canjes · ${percent}%`;
       });
 
   }, [data]);
