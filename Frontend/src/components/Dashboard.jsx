@@ -150,7 +150,20 @@ const Dashboard = () => {
       lowPerformers,
     };
   }, [filteredClients]);
-
+  
+  const getAdjustedTime = () => {
+    const date = new Date();
+    date.setHours(date.getHours() - 5);
+    
+    return date.toLocaleString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
   const chartConfig = useMemo(() => {
     let barKey = 'direccion';
     let donutKey = 'gerencia';
@@ -204,7 +217,7 @@ const Dashboard = () => {
         <div>
           <h1 className="dashboard-title text-2xl">Panel de Campaña en Tiempo Real - Cusqueña</h1>
           <p className="text-secondary mt-1 text-sm">
-            {lastReport ? `Última actualización: ${lastReport.updated_at_display}` : 'Cargando último reporte...'}
+            {lastReport ? `Última actualización: ${getAdjustedTime()}` : 'Cargando último reporte...'}
           </p>
         </div>
         <div className="flex gap-4">
