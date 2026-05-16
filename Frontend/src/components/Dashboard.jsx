@@ -217,7 +217,7 @@ const Dashboard = () => {
         <div>
           <h1 className="dashboard-title text-2xl">Panel de Campaña en Tiempo Real - Cusqueña</h1>
           <p className="text-secondary mt-1 text-sm">
-            {lastReport ? `Última actualización: ${getAdjustedTime()}` : 'Cargando último reporte...'}
+            {lastReport ? `Última actualización: ${lastReport.updated_at_display}` : 'Cargando último reporte...'}
           </p>
         </div>
         <div className="flex gap-4">
