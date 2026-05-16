@@ -38,8 +38,9 @@ This repo includes a `Dockerfile` and `render.yaml` for a single Render web serv
 2. Use the default `render.yaml`.
 3. When Render asks for environment variables, set:
    - `URL`: login URL for the reporting system.
-   - `REPORT_USER`: reporting system username.
+   - `REPORT_USER`: reporting system username. The backend also accepts `USER`, but `REPORT_USER` is safer because some platforms reserve `USER` for the operating system account.
    - `PASSWORD`: reporting system password.
 4. Deploy the service.
 
 After deployment, open the Render URL and verify `/api/health` returns `{"status":"ok"}`.
+You can also open `/api/config-status` to confirm whether the required environment variables are visible to the running backend. It returns booleans only, not secret values.

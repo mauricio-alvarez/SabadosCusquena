@@ -38,6 +38,10 @@ class DashboardDataRequest(BaseModel):
 def health_check():
     return {"status": "ok"}
 
+@app.get("/api/config-status")
+def config_status():
+    return login.get_config_status()
+
 @app.post("/api/extract-report")
 def extract_report():
     """

@@ -15,21 +15,45 @@ dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 dotenv_values_map = dotenv_values(dotenv_path)
 load_dotenv(dotenv_path)
 
-URL = os.getenv("URL") or dotenv_values_map.get("URL")
-REPORT_USER = (
-    os.getenv("REPORT_USER")
-    or os.getenv("PORTAL_USER")
-    or dotenv_values_map.get("REPORT_USER")
-    or dotenv_values_map.get("PORTAL_USER")
-    or dotenv_values_map.get("USER")
-)
-PASSWORD = os.getenv("PASSWORD") or dotenv_values_map.get("PASSWORD")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def _clean(value):
+    if isinstance(value, str):
+        value = value.strip()
+    return value or None
+
+def _get_config_value(*names):
+    for name in names:
+        value = _clean(os.getenv(name)) or _clean(dotenv_values_map.get(name))
+        if value:
+            return value
+    return None
+
+def get_config_status():
+    return {
+        "URL": bool(_get_config_value("URL")),
+        "REPORT_USER_or_USER": bool(_get_config_value("REPORT_USER", "PORTAL_USER", "USER")),
+        "PASSWORD": bool(_get_config_value("PASSWORD")),
+    }
+
 def run_report_extraction():
-    if not all([URL, REPORT_USER, PASSWORD]):
-        print("Error: Missing URL, REPORT_USER, or PASSWORD.")
-        raise ValueError("Missing URL, REPORT_USER, or PASSWORD.")
+    url = _get_config_value("URL")
+    report_user = _get_config_value("REPORT_USER", "PORTAL_USER", "USER")
+    password = _get_config_value("PASSWORD")
+
+    missing = []
+    if not url:
+        missing.append("URL")
+    if not report_user:
+        missing.append("REPORT_USER (or USER)")
+    if not password:
+        missing.append("PASSWORD")
+
+    if missing:
+        message = f"Missing environment variable(s): {', '.join(missing)}."
+        print(f"Error: {message}")
+        raise ValueError(message)
+
     print("Setting up Chrome driver...")
     # Setup Chrome options
     options = webdriver.ChromeOptions()
@@ -66,8 +90,8 @@ def run_report_extraction():
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
-        print(f"Navigating to {URL}...")
-        driver.get(URL)
+        print(f"Navigating to {url}...")
+        driver.get(url)
 
         # Wait for the password input to be present to ensure the page has loaded
         wait = WebDriverWait(driver, 15)
@@ -90,8 +114,8 @@ def run_report_extraction():
             username_input = driver.find_element(By.XPATH, "//input[not(@type='password') and not(@type='hidden')]")
 
         print("Entering credentials...")
-        username_input.send_keys(REPORT_USER)
-        password_input.send_keys(PASSWORD)
+        username_input.send_keys(report_user)
+        password_input.send_keys(password)
 
         print("Submitting the form...")
         # Try to find a submit button, or fallback to pressing Enter on the password field
