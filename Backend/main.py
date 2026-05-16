@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import login
 import analytics
+from zoneinfo import ZoneInfo
 
 app = FastAPI(title="Report Extractor API")
 
@@ -16,6 +17,7 @@ STATIC_DIR = os.path.join(BASE_DIR, "static")
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 REPORT_MAX_AGE_MINUTES = 20
 REPORT_NAME_RE = re.compile(r"canjes-institucion_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.xlsx$", re.IGNORECASE)
+DISPLAY_TZ = ZoneInfo(os.getenv("DISPLAY_TZ", "America/Lima"))
 
 cors_origins = [
     origin.strip()
@@ -42,12 +44,14 @@ class DashboardDataRequest(BaseModel):
 def _parse_report_timestamp(file_path):
     match = REPORT_NAME_RE.search(os.path.basename(file_path))
     if match:
-        return datetime.strptime(f"{match.group(1)} {match.group(2)}", "%d-%m-%Y %H-%M-%S")
-    return datetime.fromtimestamp(os.path.getmtime(file_path))
+        dt = datetime.strptime(f"{match.group(1)} {match.group(2)}", "%d-%m-%Y %H-%M-%S")
+        return dt.replace(tzinfo=DISPLAY_TZ)
+    return datetime.fromtimestamp(os.path.getmtime(file_path), tz=DISPLAY_TZ)
 
 def _report_payload(file_path):
     updated_at = _parse_report_timestamp(file_path)
-    age_minutes = max(0, (datetime.now() - updated_at).total_seconds() / 60)
+    now_tz = datetime.now(tz=DISPLAY_TZ)
+    age_minutes = max(0, (now_tz - updated_at).total_seconds() / 60)
 
     return {
         "file_path": file_path,
