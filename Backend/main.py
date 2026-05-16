@@ -1,4 +1,6 @@
 import os
+import re
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -11,6 +13,9 @@ app = FastAPI(title="Report Extractor API")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+PROJECT_DIR = os.path.dirname(BASE_DIR)
+REPORT_MAX_AGE_MINUTES = 20
+REPORT_NAME_RE = re.compile(r"canjes-institucion_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.xlsx$", re.IGNORECASE)
 
 cors_origins = [
     origin.strip()
@@ -34,6 +39,48 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 class DashboardDataRequest(BaseModel):
     file_path: str
 
+def _parse_report_timestamp(file_path):
+    match = REPORT_NAME_RE.search(os.path.basename(file_path))
+    if match:
+        return datetime.strptime(f"{match.group(1)} {match.group(2)}", "%d-%m-%Y %H-%M-%S")
+    return datetime.fromtimestamp(os.path.getmtime(file_path))
+
+def _report_payload(file_path):
+    updated_at = _parse_report_timestamp(file_path)
+    age_minutes = max(0, (datetime.now() - updated_at).total_seconds() / 60)
+
+    return {
+        "file_path": file_path,
+        "file_name": os.path.basename(file_path),
+        "updated_at": updated_at.isoformat(timespec="seconds"),
+        "updated_at_display": updated_at.strftime("%d/%m/%Y %H:%M:%S"),
+        "age_minutes": round(age_minutes, 1),
+        "is_recent": age_minutes <= REPORT_MAX_AGE_MINUTES,
+    }
+
+def _report_files():
+    search_dirs = [DOWNLOAD_DIR, PROJECT_DIR]
+    files = []
+
+    for directory in search_dirs:
+        if not os.path.isdir(directory):
+            continue
+
+        for file_name in os.listdir(directory):
+            file_path = os.path.join(directory, file_name)
+            if os.path.isfile(file_path) and REPORT_NAME_RE.search(file_name):
+                files.append(file_path)
+
+    return files
+
+def _latest_report():
+    files = _report_files()
+    if not files:
+        raise HTTPException(status_code=404, detail="No downloaded reports found. Extract a new report first.")
+
+    latest_file = max(files, key=_parse_report_timestamp)
+    return _report_payload(latest_file)
+
 @app.get("/api/health")
 def health_check():
     return {"status": "ok"}
@@ -55,7 +102,7 @@ def extract_report():
             return {
                 "status": "success",
                 "message": "Report downloaded successfully.",
-                "file_path": file_path
+                **_report_payload(file_path)
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to download report or timeout occurred.")
@@ -72,17 +119,35 @@ def get_dashboard_data(request: DashboardDataRequest):
 
 @app.get("/api/latest-report")
 def get_latest_report():
-    xlsx_files = [
-        os.path.join(DOWNLOAD_DIR, file_name)
-        for file_name in os.listdir(DOWNLOAD_DIR)
-        if file_name.endswith(".xlsx")
-    ]
+    return _latest_report()
 
-    if not xlsx_files:
-        raise HTTPException(status_code=404, detail="No downloaded reports found. Extract a new report first.")
+@app.post("/api/refresh-report")
+def refresh_report():
+    try:
+        latest_report = _latest_report()
+        if latest_report["is_recent"]:
+            return {
+                "status": "success",
+                "source": "recent",
+                "message": "Loaded the most recent report.",
+                **latest_report,
+            }
+    except HTTPException as error:
+        if error.status_code != 404:
+            raise
 
-    latest_file = max(xlsx_files, key=os.path.getctime)
-    return {"file_path": latest_file}
+    try:
+        file_path = login.run_report_extraction()
+        if file_path and os.path.exists(file_path):
+            return {
+                "status": "success",
+                "source": "download",
+                "message": "Downloaded a fresh report.",
+                **_report_payload(file_path),
+            }
+        raise HTTPException(status_code=500, detail="Failed to download report or timeout occurred.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def serve_frontend(full_path: str):
