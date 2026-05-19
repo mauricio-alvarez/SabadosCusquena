@@ -5,7 +5,7 @@ RUN corepack enable && corepack prepare pnpm@11.1.2 --activate
 COPY Frontend/package.json Frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY Frontend/ ./
-RUN pnpm run build
+RUN npm run build
 
 FROM python:3.12-slim-bookworm
 
