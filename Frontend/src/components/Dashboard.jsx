@@ -194,7 +194,20 @@ const Dashboard = () => {
       lowPerformers,
     };
   }, [filteredClients]);
-
+  
+  const getAdjustedTime = () => {
+    const date = new Date();
+    date.setHours(date.getHours() - 5);
+    
+    return date.toLocaleString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
   const chartConfig = useMemo(() => {
     let barKey = 'direccion';
     let donutKey = 'gerencia';
