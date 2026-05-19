@@ -1,8 +1,7 @@
 import pandas as pd
 import os
 
-DOWNLOAD_DIR = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(os.path.dirname(__file__), "downloads"))
-FIXED_FILE_PATH = os.path.join(DOWNLOAD_DIR, "Reposiciones Sabados Cusqueña 2026.xlsb")
+FIXED_FILE_PATH = os.path.join(os.path.dirname(__file__), "downloads", "Reposiciones Sabados Cusqueña 2026.xlsb")
 
 def process_dashboard_data(dynamic_file_path: str):
     if not os.path.exists(dynamic_file_path):
