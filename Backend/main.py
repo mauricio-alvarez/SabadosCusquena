@@ -39,6 +39,11 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 class DashboardDataRequest(BaseModel):
     file_path: str
 
+class ComparisonRequest(BaseModel):
+    file_path: str
+    date_a: str  # dd/MM/yyyy
+    date_b: str  # dd/MM/yyyy
+
 def _parse_report_timestamp(file_path):
     lima_tz = timezone(timedelta(hours=-5))
     match = REPORT_NAME_RE.search(os.path.basename(file_path))
@@ -119,6 +124,14 @@ def extract_report():
 def get_dashboard_data(request: DashboardDataRequest):
     try:
         data = analytics.process_dashboard_data(request.file_path)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/compare-dates")
+def compare_dates(request: ComparisonRequest):
+    try:
+        data = analytics.process_comparison(request.file_path, request.date_a, request.date_b)
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

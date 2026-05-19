@@ -31,19 +31,19 @@ const GeneralView = ({ kpis, chartConfig }) => {
               <span className="client-label text-red-light">Inactivos</span>
             </div>
           </div>
-          <p className="metric-note">{kpis.activeRate}% con actividad</p>
+          <p className="metric-note ">{kpis.activeRate}% han redimido al menos una vez</p>
         </div>
         <MetricCard
           title="Promedio Activo"
           value={Number(kpis.avg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          change="Canjes por cliente activo"
+          change="Redenciones por cliente activo"
           isPositive={null}
           icon={AlertCircle}
         />
         <MetricCard
           title="Bajo Rendimiento"
           value={kpis.lowPerformers.toLocaleString()}
-          change={`Q1: ${kpis.q1} canjes · Mediana: ${kpis.median}`}
+          change={`Clientes han redimido menos de ${kpis.q1} unidades`}
           isPositive={false}
           icon={TrendingDown}
         />

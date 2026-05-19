@@ -129,24 +129,24 @@ const Dashboard = () => {
 
   const filteredClients = useMemo(() => {
     if (!dashboardData) return [];
-    
+
     // First apply Date Range Filter to compute valid redemptions
     let clientsWithValidRedemptions = dashboardData.clients;
-    
+
     if (!useAllTimeData && dateRange?.from && dateRange?.to) {
       clientsWithValidRedemptions = dashboardData.clients.map(c => {
         if (!c.redemption_dates || c.redemption_dates.length === 0) return c;
-        
+
         let validCount = 0;
         c.redemption_dates.forEach(dateStr => {
           const dateObj = parse(dateStr, 'dd/MM/yyyy', new Date());
-          dateObj.setHours(0,0,0,0);
-          
+          dateObj.setHours(0, 0, 0, 0);
+
           if (isWithinInterval(dateObj, { start: dateRange.from, end: dateRange.to })) {
             validCount++;
           }
         });
-        
+
         return { ...c, redemptions: validCount };
       });
     }
@@ -194,11 +194,11 @@ const Dashboard = () => {
       lowPerformers,
     };
   }, [filteredClients]);
-  
+
   const getAdjustedTime = () => {
     const date = new Date();
     date.setHours(date.getHours() - 5);
-    
+
     return date.toLocaleString('es-ES', {
       day: '2-digit',
       month: '2-digit',
@@ -273,18 +273,18 @@ const Dashboard = () => {
           </div>
 
           <div className="flex flex-col mt-4">
-             <button onClick={() => setActiveView('general')} className={`sidebar-btn ${activeView === 'general' ? 'active' : ''}`}>
-               <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
-               <span className="sidebar-btn-text">Análisis General</span>
-             </button>
-             <button onClick={() => setActiveView('progress')} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
-               <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
-               <span className="sidebar-btn-text">Progreso en el Tiempo</span>
-             </button>
-             <button onClick={() => setActiveView('rankings')} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
-               <div className="sidebar-btn-icon"><Trophy size={20} /></div>
-               <span className="sidebar-btn-text">Rankings</span>
-             </button>
+            <button onClick={() => setActiveView('general')} className={`sidebar-btn ${activeView === 'general' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
+              <span className="sidebar-btn-text">Análisis General</span>
+            </button>
+            <button onClick={() => setActiveView('progress')} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+              <span className="sidebar-btn-text">Progreso en el Tiempo</span>
+            </button>
+            <button onClick={() => setActiveView('rankings')} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Trophy size={20} /></div>
+              <span className="sidebar-btn-text">Rankings</span>
+            </button>
           </div>
         </div>
       )}
@@ -294,19 +294,19 @@ const Dashboard = () => {
         <div className="side-panel-mobile-overlay animate-fade-in" onClick={() => setShowSideMenu(false)}>
           <div className="side-panel-mobile" onClick={e => e.stopPropagation()}>
             <div className="flex flex-col pt-4">
-               <h3 className="text-gold font-bold uppercase tracking-wider px-4 mb-4 text-sm">Menú</h3>
-               <button onClick={() => { setActiveView('general'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'general' ? 'active' : ''}`}>
-                 <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
-                 <span className="sidebar-btn-text">Análisis General</span>
-               </button>
-               <button onClick={() => { setActiveView('progress'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
-                 <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
-                 <span className="sidebar-btn-text">Progreso en el Tiempo</span>
-               </button>
-               <button onClick={() => { setActiveView('rankings'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
-                 <div className="sidebar-btn-icon"><Trophy size={20} /></div>
-                 <span className="sidebar-btn-text">Rankings</span>
-               </button>
+              <h3 className="text-gold font-bold uppercase tracking-wider px-4 mb-4 text-sm">Menú</h3>
+              <button onClick={() => { setActiveView('general'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'general' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
+                <span className="sidebar-btn-text">Análisis General</span>
+              </button>
+              <button onClick={() => { setActiveView('progress'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+                <span className="sidebar-btn-text">Progreso en el Tiempo</span>
+              </button>
+              <button onClick={() => { setActiveView('rankings'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Trophy size={20} /></div>
+                <span className="sidebar-btn-text">Rankings</span>
+              </button>
             </div>
           </div>
         </div>
@@ -379,11 +379,11 @@ const Dashboard = () => {
                     <h3 className="text-gold font-bold text-lg">Filtros Activos</h3>
                   </div>
                   <div className="flex items-center gap-4 ml-auto">
-                    <DateRangePicker 
-                      useAllTimeData={useAllTimeData} 
-                      setUseAllTimeData={setUseAllTimeData} 
-                      dateRange={dateRange} 
-                      setDateRange={setDateRange} 
+                    <DateRangePicker
+                      useAllTimeData={useAllTimeData}
+                      setUseAllTimeData={setUseAllTimeData}
+                      dateRange={dateRange}
+                      setDateRange={setDateRange}
                     />
                     <button
                       onClick={() => setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All' })}
@@ -418,10 +418,13 @@ const Dashboard = () => {
               <GeneralView kpis={kpis} chartConfig={chartConfig} />
             )}
             {activeView === 'progress' && (
-              <ProgressView progressData={dashboardData.progress_data} />
+              <ProgressView
+                progressData={dashboardData.progress_data}
+                filePath={lastReport?.file_path}
+              />
             )}
             {activeView === 'rankings' && (
-              <RankingsView clients={filteredClients} />
+              <RankingsView allClients={dashboardData.clients} />
             )}
           </div>
         )}

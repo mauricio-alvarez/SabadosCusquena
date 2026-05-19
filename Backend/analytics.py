@@ -71,176 +71,24 @@ def process_dashboard_data(dynamic_file_path: str):
     redemptions_by_date = redemptions_by_date.sort_values('Fecha_dt')
     redemptions_over_time = redemptions_by_date[['Fecha', 'count']].rename(columns={'Fecha': 'date'}).to_dict(orient='records')
 
-    # 2. Performance Comparison (Latest vs Last Week)
+    # Available dates for the frontend date picker
+    available_dates = sorted(
+        [d.strftime('%d/%m/%Y') for d in df_dyn['Fecha_dt'].dropna().unique()],
+        key=lambda x: pd.to_datetime(x, format='%d/%m/%Y')
+    )
+
+    # 2. Default comparison: latest vs 7 days before
     latest_date = df_dyn['Fecha_dt'].max()
     last_week_date = latest_date - pd.Timedelta(days=7) if pd.notnull(latest_date) else None
-    
+
     # Merge dynamic with fixed to get hierarchies
     df_dyn_merged = pd.merge(df_dyn, df_fixed, left_on=ref_col, right_on='cliente_id', how='inner')
-    
-    df_today = df_dyn_merged[df_dyn_merged['Fecha_dt'] == latest_date] if pd.notnull(latest_date) else pd.DataFrame()
-    df_last_week = df_dyn_merged[df_dyn_merged['Fecha_dt'] == last_week_date] if pd.notnull(last_week_date) else pd.DataFrame()
 
-    # --- HOURLY COMPARISON ---
-    hourly_today = []
-    hourly_last_week = []
-    
-    if not df_today.empty and 'Hora' in df_today.columns:
-        df_today_h = df_today.copy()
-        df_today_h['hour'] = pd.to_datetime(df_today_h['Hora'], format='%H:%M:%S', errors='coerce').dt.hour
-        hourly_today_counts = df_today_h.groupby('hour').size()
-        
-    if not df_last_week.empty and 'Hora' in df_last_week.columns:
-        df_lw_h = df_last_week.copy()
-        df_lw_h['hour'] = pd.to_datetime(df_lw_h['Hora'], format='%H:%M:%S', errors='coerce').dt.hour
-        hourly_lw_counts = df_lw_h.groupby('hour').size()
-    else:
-        hourly_lw_counts = pd.Series(dtype=int)
-    
-    if not df_today.empty and 'Hora' in df_today.columns:
-        hourly_lw_counts_safe = hourly_lw_counts
-    else:
-        hourly_today_counts = pd.Series(dtype=int)
-        hourly_lw_counts_safe = pd.Series(dtype=int)
-    
-    # Build hourly data for hours 7-23
-    hourly_comparison = []
-    for h in range(7, 24):
-        hourly_comparison.append({
-            'hour': f'{h:02d}:00',
-            'today': int(hourly_today_counts.get(h, 0)) if not hourly_today_counts.empty else 0,
-            'lastWeek': int(hourly_lw_counts.get(h, 0)) if not hourly_lw_counts.empty else 0
-        })
-
-    # --- CUMULATIVE DATA ---
-    cumulative_today = []
-    cumulative_lw = []
-    running_today = 0
-    running_lw = 0
-    for entry in hourly_comparison:
-        running_today += entry['today']
-        running_lw += entry['lastWeek']
-        cumulative_today.append({'hour': entry['hour'], 'value': running_today})
-        cumulative_lw.append({'hour': entry['hour'], 'value': running_lw})
-
-    # --- KPI DELTAS ---
-    today_total = len(df_today)
-    lw_total = len(df_last_week)
-    redemption_delta = today_total - lw_total
-    redemption_pct = round(((today_total - lw_total) / lw_total) * 100, 1) if lw_total > 0 else 0
-
-    # New unique active clients
-    today_clients = set(df_today[ref_col].unique()) if not df_today.empty else set()
-    lw_clients = set(df_last_week[ref_col].unique()) if not df_last_week.empty else set()
-    new_clients_today = len(today_clients)
-    new_clients_lw = len(lw_clients)
-    client_delta = new_clients_today - new_clients_lw
-
-    # Current rate (redemptions per hour since first redemption today)
-    current_rate = 0
-    if not df_today.empty and 'Hora' in df_today.columns:
-        hours_active = df_today_h['hour'].max() - df_today_h['hour'].min() + 1
-        current_rate = round(today_total / max(hours_active, 1), 1)
-
-    # --- LINEAR PREDICTION ---
-    prediction = None
-    if not df_today.empty and 'Hora' in df_today.columns and len(hourly_today_counts) >= 2:
-        import numpy as np
-        hours_with_data = sorted(hourly_today_counts.index.tolist())
-        values = [int(hourly_today_counts[h]) for h in hours_with_data]
-        
-        # Cumulative values for regression
-        cum_values = []
-        s = 0
-        for v in values:
-            s += v
-            cum_values.append(s)
-        
-        x = np.array(hours_with_data, dtype=float)
-        y = np.array(cum_values, dtype=float)
-        
-        # Linear regression
-        if len(x) >= 2:
-            slope, intercept = np.polyfit(x, y, 1)
-            # Predict at hour 23 (end of day)
-            predicted_total = max(int(slope * 23 + intercept), today_total)
-            # Confidence: R² 
-            y_pred = slope * x + intercept
-            ss_res = np.sum((y - y_pred) ** 2)
-            ss_tot = np.sum((y - np.mean(y)) ** 2)
-            r_squared = round(1 - (ss_res / ss_tot), 2) if ss_tot > 0 else 0
-            
-            # Build prediction line from last known hour to 23
-            prediction_line = []
-            last_known_hour = max(hours_with_data)
-            for h in range(last_known_hour, 24):
-                pred_val = max(int(slope * h + intercept), today_total)
-                prediction_line.append({'hour': f'{h:02d}:00', 'value': pred_val})
-            
-            prediction = {
-                'predictedTotal': predicted_total,
-                'confidence': r_squared,
-                'slope': round(slope, 2),
-                'predictionLine': prediction_line
-            }
-
-    # --- TOP PERFORMERS BY INCREMENT ---
-    performance = {}
-    for level in ['direccion', 'gerencia', 'supervisor', 'BDR']:
-        curr_counts = df_today.groupby(level).size() if not df_today.empty else pd.Series(dtype=int)
-        prev_counts = df_last_week.groupby(level).size() if not df_last_week.empty else pd.Series(dtype=int)
-        
-        # Unique clients per entity
-        curr_clients = df_today.groupby(level)[ref_col].nunique() if not df_today.empty else pd.Series(dtype=int)
-        prev_clients = df_last_week.groupby(level)[ref_col].nunique() if not df_last_week.empty else pd.Series(dtype=int)
-        
-        all_entities = set()
-        if not curr_counts.empty: all_entities.update(curr_counts.index)
-        if not prev_counts.empty: all_entities.update(prev_counts.index)
-        
-        perf_list = []
-        for entity in all_entities:
-            if pd.isna(entity): continue
-            curr = int(curr_counts.get(entity, 0))
-            prev = int(prev_counts.get(entity, 0))
-            curr_cl = int(curr_clients.get(entity, 0))
-            prev_cl = int(prev_clients.get(entity, 0))
-            pct_change = round(((curr - prev) / prev) * 100, 1) if prev > 0 else (100.0 if curr > 0 else 0)
-            
-            perf_list.append({
-                'name': str(entity),
-                'current': curr,
-                'previous': prev,
-                'diff': curr - prev,
-                'pctChange': pct_change,
-                'currentClients': curr_cl,
-                'previousClients': prev_cl,
-                'clientDiff': curr_cl - prev_cl
-            })
-        
-        perf_list.sort(key=lambda x: x['diff'], reverse=True)
-        performance[level] = perf_list
-
-    progress_data = {
-        'redemptionsOverTime': redemptions_over_time,
-        'hourlyComparison': hourly_comparison,
-        'cumulativeToday': cumulative_today,
-        'cumulativeLastWeek': cumulative_lw,
-        'prediction': prediction,
-        'performance': performance,
-        'kpiDeltas': {
-            'todayTotal': today_total,
-            'lastWeekTotal': lw_total,
-            'redemptionDelta': redemption_delta,
-            'redemptionPct': redemption_pct,
-            'newClientsToday': new_clients_today,
-            'newClientsLW': new_clients_lw,
-            'clientDelta': client_delta,
-            'currentRate': current_rate,
-        },
-        'latest_date': latest_date.strftime('%d/%m/%Y') if pd.notnull(latest_date) else None,
-        'last_week_date': last_week_date.strftime('%d/%m/%Y') if pd.notnull(last_week_date) else None
-    }
+    progress_data = _build_comparison(
+        df_dyn_merged, ref_col, latest_date, last_week_date
+    )
+    progress_data['redemptionsOverTime'] = redemptions_over_time
+    progress_data['available_dates'] = available_dates
 
     return {
         'kpis': {
@@ -256,4 +104,163 @@ def process_dashboard_data(dynamic_file_path: str):
         'clients': client_data,
         'progress_data': progress_data
     }
+
+
+def _build_comparison(df_dyn_merged, ref_col, date_a, date_b):
+    """Build hourly comparison, cumulative, KPI deltas, and performance data for two dates."""
+    df_a = df_dyn_merged[df_dyn_merged['Fecha_dt'] == date_a] if pd.notnull(date_a) else pd.DataFrame()
+    df_b = df_dyn_merged[df_dyn_merged['Fecha_dt'] == date_b] if pd.notnull(date_b) else pd.DataFrame()
+
+    # --- HOURLY COMPARISON ---
+    hourly_a_counts = pd.Series(dtype=int)
+    hourly_b_counts = pd.Series(dtype=int)
+    df_a_h = None
+
+    if not df_a.empty and 'Hora' in df_a.columns:
+        df_a_h = df_a.copy()
+        df_a_h['hour'] = pd.to_datetime(df_a_h['Hora'], format='%H:%M:%S', errors='coerce').dt.hour
+        hourly_a_counts = df_a_h.groupby('hour').size()
+
+    if not df_b.empty and 'Hora' in df_b.columns:
+        df_b_h = df_b.copy()
+        df_b_h['hour'] = pd.to_datetime(df_b_h['Hora'], format='%H:%M:%S', errors='coerce').dt.hour
+        hourly_b_counts = df_b_h.groupby('hour').size()
+
+    hourly_comparison = []
+    for h in range(7, 24):
+        hourly_comparison.append({
+            'hour': f'{h:02d}:00',
+            'today': int(hourly_a_counts.get(h, 0)) if not hourly_a_counts.empty else 0,
+            'lastWeek': int(hourly_b_counts.get(h, 0)) if not hourly_b_counts.empty else 0
+        })
+
+    # --- CUMULATIVE DATA ---
+    cumulative_a = []
+    cumulative_b = []
+    running_a = 0
+    running_b = 0
+    for entry in hourly_comparison:
+        running_a += entry['today']
+        running_b += entry['lastWeek']
+        cumulative_a.append({'hour': entry['hour'], 'value': running_a})
+        cumulative_b.append({'hour': entry['hour'], 'value': running_b})
+
+    # --- KPI DELTAS ---
+    a_total = len(df_a)
+    b_total = len(df_b)
+    redemption_delta = a_total - b_total
+    redemption_pct = round(((a_total - b_total) / b_total) * 100, 1) if b_total > 0 else 0
+
+    a_clients = set(df_a[ref_col].unique()) if not df_a.empty else set()
+    b_clients = set(df_b[ref_col].unique()) if not df_b.empty else set()
+    new_clients_a = len(a_clients)
+    new_clients_b = len(b_clients)
+    client_delta = new_clients_a - new_clients_b
+
+    current_rate = 0
+    if df_a_h is not None and not df_a_h.empty:
+        hours_active = df_a_h['hour'].max() - df_a_h['hour'].min() + 1
+        current_rate = round(a_total / max(hours_active, 1), 1)
+
+    # --- TOP PERFORMERS BY INCREMENT ---
+    performance = {}
+    for level in ['direccion', 'gerencia', 'supervisor', 'BDR']:
+        curr_counts = df_a.groupby(level).size() if not df_a.empty else pd.Series(dtype=int)
+        prev_counts = df_b.groupby(level).size() if not df_b.empty else pd.Series(dtype=int)
+
+        curr_clients_g = df_a.groupby(level)[ref_col].nunique() if not df_a.empty else pd.Series(dtype=int)
+        prev_clients_g = df_b.groupby(level)[ref_col].nunique() if not df_b.empty else pd.Series(dtype=int)
+
+        all_entities = set()
+        if not curr_counts.empty: all_entities.update(curr_counts.index)
+        if not prev_counts.empty: all_entities.update(prev_counts.index)
+
+        perf_list = []
+        for entity in all_entities:
+            if pd.isna(entity): continue
+            curr = int(curr_counts.get(entity, 0))
+            prev = int(prev_counts.get(entity, 0))
+            curr_cl = int(curr_clients_g.get(entity, 0))
+            prev_cl = int(prev_clients_g.get(entity, 0))
+            pct_change = round(((curr - prev) / prev) * 100, 1) if prev > 0 else (100.0 if curr > 0 else 0)
+
+            perf_list.append({
+                'name': str(entity),
+                'current': curr,
+                'previous': prev,
+                'diff': curr - prev,
+                'pctChange': pct_change,
+                'currentClients': curr_cl,
+                'previousClients': prev_cl,
+                'clientDiff': curr_cl - prev_cl
+            })
+
+        perf_list.sort(key=lambda x: x['diff'], reverse=True)
+        performance[level] = perf_list
+
+    # Client-level performance (individual clients by nombre_comercial)
+    if 'nombre_comercial' in df_a.columns or 'nombre_comercial' in df_b.columns:
+        client_col = 'nombre_comercial'
+        curr_cl_counts = df_a.groupby(client_col).size() if not df_a.empty and client_col in df_a.columns else pd.Series(dtype=int)
+        prev_cl_counts = df_b.groupby(client_col).size() if not df_b.empty and client_col in df_b.columns else pd.Series(dtype=int)
+
+        all_cl = set()
+        if not curr_cl_counts.empty: all_cl.update(curr_cl_counts.index)
+        if not prev_cl_counts.empty: all_cl.update(prev_cl_counts.index)
+
+        cl_list = []
+        for cl in all_cl:
+            if pd.isna(cl): continue
+            curr = int(curr_cl_counts.get(cl, 0))
+            prev = int(prev_cl_counts.get(cl, 0))
+            pct_change = round(((curr - prev) / prev) * 100, 1) if prev > 0 else (100.0 if curr > 0 else 0)
+            cl_list.append({
+                'name': str(cl),
+                'current': curr,
+                'previous': prev,
+                'diff': curr - prev,
+                'pctChange': pct_change,
+            })
+        cl_list.sort(key=lambda x: x['diff'], reverse=True)
+        performance['cliente'] = cl_list
+
+    return {
+        'hourlyComparison': hourly_comparison,
+        'cumulativeToday': cumulative_a,
+        'cumulativeLastWeek': cumulative_b,
+        'performance': performance,
+        'kpiDeltas': {
+            'todayTotal': a_total,
+            'lastWeekTotal': b_total,
+            'redemptionDelta': redemption_delta,
+            'redemptionPct': redemption_pct,
+            'newClientsToday': new_clients_a,
+            'newClientsLW': new_clients_b,
+            'clientDelta': client_delta,
+            'currentRate': current_rate,
+        },
+        'latest_date': date_a.strftime('%d/%m/%Y') if pd.notnull(date_a) else None,
+        'last_week_date': date_b.strftime('%d/%m/%Y') if pd.notnull(date_b) else None
+    }
+
+
+def process_comparison(dynamic_file_path: str, date_a_str: str, date_b_str: str):
+    """Generate comparison data for two specific dates (format dd/MM/yyyy)."""
+    if not os.path.exists(dynamic_file_path):
+        raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
+
+    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Clientes', engine='pyxlsb')
+    df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+
+    df_dyn = pd.read_excel(dynamic_file_path)
+    ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
+    df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
+
+    df_dyn_merged = pd.merge(df_dyn, df_fixed, left_on=ref_col, right_on='cliente_id', how='inner')
+
+    date_a = pd.to_datetime(date_a_str, format='%d/%m/%Y')
+    date_b = pd.to_datetime(date_b_str, format='%d/%m/%Y')
+
+    return _build_comparison(df_dyn_merged, ref_col, date_a, date_b)
 

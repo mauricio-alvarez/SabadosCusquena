@@ -83,6 +83,25 @@ export const BarChart = ({ data }) => {
       .attr('y', d => y(d.value))
       .attr('height', d => innerHeight - y(d.value));
 
+    // Value labels on top of each bar
+    g.selectAll('.bar-label')
+      .data(data)
+      .enter()
+      .append('text')
+      .attr('class', 'bar-label')
+      .attr('x', d => x(d.region) + x.bandwidth() / 2)
+      .attr('y', d => y(d.value) - 6)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#ffffff')
+      .style('font-size', '11px')
+      .style('font-weight', '600')
+      .text(d => d.value >= 1000 ? (d.value / 1000).toFixed(1) + 'k' : d.value.toLocaleString())
+      .attr('opacity', 0)
+      .transition()
+      .delay(800)
+      .duration(400)
+      .attr('opacity', 1);
+
   }, [data]);
 
   return (
@@ -318,7 +337,7 @@ export const LineChart = ({ data }) => {
   );
 };
 
-export const DualLineChart = ({ data, predictionLine }) => {
+export const DualLineChart = ({ data }) => {
   const svgRef = useRef();
 
   useEffect(() => {
@@ -341,7 +360,6 @@ export const DualLineChart = ({ data, predictionLine }) => {
     const allValues = [
       ...data.map(d => d.today),
       ...data.map(d => d.lastWeek),
-      ...(predictionLine || []).map(d => d.value)
     ];
     const maxVal = d3.max(allValues) || 10;
 
@@ -449,32 +467,11 @@ export const DualLineChart = ({ data, predictionLine }) => {
       .attr('opacity', 0)
       .transition().delay(1200).duration(400).attr('opacity', 1);
 
-    // Prediction dashed line
-    if (predictionLine && predictionLine.length > 1) {
-      const predLine = d3.line()
-        .x(d => x(d.hour) + x.bandwidth() / 2)
-        .y(d => y(d.value))
-        .curve(d3.curveMonotoneX);
-
-      const validPred = predictionLine.filter(d => x(d.hour) !== undefined);
-      if (validPred.length > 1) {
-        g.append('path')
-          .datum(validPred)
-          .attr('fill', 'none')
-          .attr('stroke', '#CFA052')
-          .attr('stroke-width', 2)
-          .attr('stroke-dasharray', '6,4')
-          .attr('stroke-opacity', 0.5)
-          .attr('d', predLine);
-      }
-    }
-
     // Legend
     const legend = g.append('g').attr('transform', `translate(${innerWidth - 180}, 0)`);
     [
-      { label: 'Hoy', color: '#CFA052', dash: null },
-      { label: 'Semana Pasada', color: '#8B0000', dash: null },
-      { label: 'Predicción', color: '#CFA052', dash: '6,4' }
+      { label: 'Fecha A', color: '#CFA052', dash: null },
+      { label: 'Fecha B', color: '#8B0000', dash: null },
     ].forEach((item, i) => {
       const row = legend.append('g').attr('transform', `translate(0, ${i * 18})`);
       row.append('line').attr('x1', 0).attr('x2', 20).attr('y1', 6).attr('y2', 6)
@@ -484,7 +481,7 @@ export const DualLineChart = ({ data, predictionLine }) => {
         .style('font-size', '11px').text(item.label);
     });
 
-  }, [data, predictionLine]);
+  }, [data]);
 
   return (
     <div className="chart-container" style={{ minHeight: '250px', height: '100%' }}>
