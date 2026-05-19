@@ -1,6 +1,6 @@
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -11,7 +11,7 @@ import analytics
 app = FastAPI(title="Report Extractor API")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
+DOWNLOAD_DIR = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(BASE_DIR, "downloads"))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 REPORT_MAX_AGE_MINUTES = 20
@@ -40,14 +40,20 @@ class DashboardDataRequest(BaseModel):
     file_path: str
 
 def _parse_report_timestamp(file_path):
+    lima_tz = timezone(timedelta(hours=-5))
     match = REPORT_NAME_RE.search(os.path.basename(file_path))
     if match:
-        return datetime.strptime(f"{match.group(1)} {match.group(2)}", "%d-%m-%Y %H-%M-%S")
-    return datetime.fromtimestamp(os.path.getmtime(file_path))
+        dt = datetime.strptime(f"{match.group(1)} {match.group(2)}", "%d-%m-%Y %H-%M-%S")
+        return dt.replace(tzinfo=lima_tz)
+    
+    dt_utc = datetime.fromtimestamp(os.path.getmtime(file_path), tz=timezone.utc)
+    return dt_utc.astimezone(lima_tz)
 
 def _report_payload(file_path):
     updated_at = _parse_report_timestamp(file_path)
-    age_minutes = max(0, (datetime.now() - updated_at).total_seconds() / 60)
+    lima_tz = timezone(timedelta(hours=-5))
+    now_lima = datetime.now(lima_tz)
+    age_minutes = max(0, (now_lima - updated_at).total_seconds() / 60)
 
     return {
         "file_path": file_path,

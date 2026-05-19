@@ -69,7 +69,7 @@ def run_report_extraction():
     options.add_argument("--disable-gpu")
 
     # Configure download directory
-    download_dir = os.path.join(BASE_DIR, "downloads")
+    download_dir = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(BASE_DIR, "downloads"))
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
         

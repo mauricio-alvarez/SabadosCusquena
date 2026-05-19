@@ -202,3 +202,428 @@ export const DonutChart = ({ data }) => {
     </div>
   );
 };
+
+export const LineChart = ({ data }) => {
+  const svgRef = useRef();
+
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+
+    const width = 500;
+    const height = 250;
+    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const g = svg
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const parseTime = d3.timeParse("%d/%m/%Y");
+    const parsedData = data.map(d => ({
+      date: parseTime(d.date),
+      value: d.count
+    }));
+
+    const x = d3.scaleTime()
+      .domain(d3.extent(parsedData, d => d.date))
+      .range([0, innerWidth]);
+
+    const y = d3.scaleLinear()
+      .domain([0, d3.max(parsedData, d => d.value) * 1.1]) // 10% padding top
+      .range([innerHeight, 0]);
+
+    // Tooltip
+    const tooltip = d3.select('body').selectAll('.d3-tooltip').data([0]);
+    const tt = tooltip.enter().append('div').attr('class', 'd3-tooltip').merge(tooltip);
+
+    g.append('g')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat("%b %d")))
+      .attr('color', '#aaaaaa')
+      .selectAll('text')
+      .attr('fill', '#ffffff')
+      .style('font-size', '11px');
+
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(5))
+      .attr('color', '#aaaaaa')
+      .selectAll('text')
+      .attr('fill', '#ffffff');
+
+    const line = d3.line()
+      .x(d => x(d.date))
+      .y(d => y(d.value))
+      .curve(d3.curveMonotoneX);
+
+    // Path
+    const path = g.append('path')
+      .datum(parsedData)
+      .attr('fill', 'none')
+      .attr('stroke', 'var(--cusquena-gold)')
+      .attr('stroke-width', 3)
+      .attr('d', line);
+
+    // Animation
+    const totalLength = path.node().getTotalLength();
+    path
+      .attr("stroke-dasharray", totalLength + " " + totalLength)
+      .attr("stroke-dashoffset", totalLength)
+      .transition()
+      .duration(1500)
+      .ease(d3.easeLinear)
+      .attr("stroke-dashoffset", 0);
+
+    // Points
+    g.selectAll('.dot')
+      .data(parsedData)
+      .enter()
+      .append('circle')
+      .attr('class', 'dot')
+      .attr('cx', d => x(d.date))
+      .attr('cy', d => y(d.value))
+      .attr('r', 5)
+      .attr('fill', 'var(--cusquena-gold-light)')
+      .attr('stroke', 'var(--primary-dark)')
+      .attr('stroke-width', 2)
+      .on('mouseover', (event, d) => {
+        d3.select(event.currentTarget).attr('r', 7).attr('fill', '#ffffff');
+        tt.style('opacity', 1)
+          .html(`<strong>${d3.timeFormat("%d/%m/%Y")(d.date)}</strong><br/>${d.value.toLocaleString()} canjes`);
+      })
+      .on('mousemove', (event) => {
+        tt.style('left', (event.pageX + 10) + 'px')
+          .style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', (event) => {
+        d3.select(event.currentTarget).attr('r', 5).attr('fill', 'var(--cusquena-gold-light)');
+        tt.style('opacity', 0);
+      })
+      .attr('opacity', 0)
+      .transition()
+      .delay(1500)
+      .duration(500)
+      .attr('opacity', 1);
+
+  }, [data]);
+
+  return (
+    <div className="chart-container" style={{ minHeight: '200px', height: '100%' }}>
+      <svg ref={svgRef} width="100%" height="100%"></svg>
+    </div>
+  );
+};
+
+export const DualLineChart = ({ data, predictionLine }) => {
+  const svgRef = useRef();
+
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+
+    const width = 600;
+    const height = 280;
+    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const g = svg
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const allValues = [
+      ...data.map(d => d.today),
+      ...data.map(d => d.lastWeek),
+      ...(predictionLine || []).map(d => d.value)
+    ];
+    const maxVal = d3.max(allValues) || 10;
+
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.hour))
+      .range([0, innerWidth])
+      .padding(0.1);
+
+    const y = d3.scaleLinear()
+      .domain([0, maxVal * 1.15])
+      .range([innerHeight, 0]);
+
+    const tooltip = d3.select('body').selectAll('.d3-tooltip').data([0]);
+    const tt = tooltip.enter().append('div').attr('class', 'd3-tooltip').merge(tooltip);
+
+    g.append('g')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(x).tickValues(data.filter((_, i) => i % 2 === 0).map(d => d.hour)))
+      .attr('color', '#aaaaaa')
+      .selectAll('text').attr('fill', '#ffffff').style('font-size', '11px');
+
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(5))
+      .attr('color', '#aaaaaa')
+      .selectAll('text').attr('fill', '#ffffff');
+
+    // Last week line
+    const lwLine = d3.line()
+      .x(d => x(d.hour) + x.bandwidth() / 2)
+      .y(d => y(d.lastWeek))
+      .curve(d3.curveMonotoneX)
+      .defined(d => d.lastWeek > 0);
+
+    g.append('path')
+      .datum(data.filter(d => d.lastWeek > 0))
+      .attr('fill', 'none')
+      .attr('stroke', '#8B0000')
+      .attr('stroke-width', 2.5)
+      .attr('stroke-opacity', 0.7)
+      .attr('d', lwLine);
+
+    // Last week dots
+    g.selectAll('.lw-dot')
+      .data(data.filter(d => d.lastWeek > 0))
+      .enter().append('circle')
+      .attr('cx', d => x(d.hour) + x.bandwidth() / 2)
+      .attr('cy', d => y(d.lastWeek))
+      .attr('r', 4)
+      .attr('fill', '#8B0000')
+      .attr('stroke', '#1a1a1a')
+      .attr('stroke-width', 1.5)
+      .on('mouseover', (event, d) => {
+        tt.style('opacity', 1).html(`<strong>${d.hour} (Sem. Pasada)</strong><br/>${d.lastWeek} canjes`);
+      })
+      .on('mousemove', (event) => {
+        tt.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', () => tt.style('opacity', 0));
+
+    // Today line
+    const todayLine = d3.line()
+      .x(d => x(d.hour) + x.bandwidth() / 2)
+      .y(d => y(d.today))
+      .curve(d3.curveMonotoneX)
+      .defined(d => d.today > 0);
+
+    const todayPath = g.append('path')
+      .datum(data.filter(d => d.today > 0))
+      .attr('fill', 'none')
+      .attr('stroke', '#CFA052')
+      .attr('stroke-width', 3)
+      .attr('d', todayLine);
+
+    // Animate today line
+    const totalLength = todayPath.node()?.getTotalLength() || 0;
+    if (totalLength > 0) {
+      todayPath
+        .attr("stroke-dasharray", totalLength + " " + totalLength)
+        .attr("stroke-dashoffset", totalLength)
+        .transition().duration(1200).ease(d3.easeLinear)
+        .attr("stroke-dashoffset", 0);
+    }
+
+    // Today dots
+    g.selectAll('.today-dot')
+      .data(data.filter(d => d.today > 0))
+      .enter().append('circle')
+      .attr('cx', d => x(d.hour) + x.bandwidth() / 2)
+      .attr('cy', d => y(d.today))
+      .attr('r', 5)
+      .attr('fill', '#CFA052')
+      .attr('stroke', '#1a1a1a')
+      .attr('stroke-width', 2)
+      .on('mouseover', (event, d) => {
+        d3.select(event.currentTarget).attr('r', 7).attr('fill', '#fff');
+        tt.style('opacity', 1).html(`<strong>${d.hour} (Hoy)</strong><br/>${d.today} canjes`);
+      })
+      .on('mousemove', (event) => {
+        tt.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', (event) => {
+        d3.select(event.currentTarget).attr('r', 5).attr('fill', '#CFA052');
+        tt.style('opacity', 0);
+      })
+      .attr('opacity', 0)
+      .transition().delay(1200).duration(400).attr('opacity', 1);
+
+    // Prediction dashed line
+    if (predictionLine && predictionLine.length > 1) {
+      const predLine = d3.line()
+        .x(d => x(d.hour) + x.bandwidth() / 2)
+        .y(d => y(d.value))
+        .curve(d3.curveMonotoneX);
+
+      const validPred = predictionLine.filter(d => x(d.hour) !== undefined);
+      if (validPred.length > 1) {
+        g.append('path')
+          .datum(validPred)
+          .attr('fill', 'none')
+          .attr('stroke', '#CFA052')
+          .attr('stroke-width', 2)
+          .attr('stroke-dasharray', '6,4')
+          .attr('stroke-opacity', 0.5)
+          .attr('d', predLine);
+      }
+    }
+
+    // Legend
+    const legend = g.append('g').attr('transform', `translate(${innerWidth - 180}, 0)`);
+    [
+      { label: 'Hoy', color: '#CFA052', dash: null },
+      { label: 'Semana Pasada', color: '#8B0000', dash: null },
+      { label: 'Predicción', color: '#CFA052', dash: '6,4' }
+    ].forEach((item, i) => {
+      const row = legend.append('g').attr('transform', `translate(0, ${i * 18})`);
+      row.append('line').attr('x1', 0).attr('x2', 20).attr('y1', 6).attr('y2', 6)
+        .attr('stroke', item.color).attr('stroke-width', 2)
+        .attr('stroke-dasharray', item.dash).attr('stroke-opacity', item.dash ? 0.5 : 1);
+      row.append('text').attr('x', 25).attr('y', 10).attr('fill', '#fff')
+        .style('font-size', '11px').text(item.label);
+    });
+
+  }, [data, predictionLine]);
+
+  return (
+    <div className="chart-container" style={{ minHeight: '250px', height: '100%' }}>
+      <svg ref={svgRef} width="100%" height="100%"></svg>
+    </div>
+  );
+};
+
+export const CumulativeChart = ({ todayData, lastWeekData }) => {
+  const svgRef = useRef();
+
+  useEffect(() => {
+    if (!todayData || todayData.length === 0) return;
+
+    const width = 600;
+    const height = 260;
+    const margin = { top: 20, right: 30, bottom: 40, left: 50 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const g = svg
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const allVals = [...todayData.map(d => d.value), ...(lastWeekData || []).map(d => d.value)];
+    const maxVal = d3.max(allVals) || 10;
+
+    const x = d3.scaleBand()
+      .domain(todayData.map(d => d.hour))
+      .range([0, innerWidth])
+      .padding(0.1);
+
+    const y = d3.scaleLinear()
+      .domain([0, maxVal * 1.15])
+      .range([innerHeight, 0]);
+
+    const tooltip = d3.select('body').selectAll('.d3-tooltip').data([0]);
+    const tt = tooltip.enter().append('div').attr('class', 'd3-tooltip').merge(tooltip);
+
+    g.append('g')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(x).tickValues(todayData.filter((_, i) => i % 2 === 0).map(d => d.hour)))
+      .attr('color', '#aaaaaa')
+      .selectAll('text').attr('fill', '#ffffff').style('font-size', '11px');
+
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(5))
+      .attr('color', '#aaaaaa')
+      .selectAll('text').attr('fill', '#ffffff');
+
+    // Last week area
+    if (lastWeekData && lastWeekData.length > 0) {
+      const lwArea = d3.area()
+        .x(d => x(d.hour) + x.bandwidth() / 2)
+        .y0(innerHeight)
+        .y1(d => y(d.value))
+        .curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(lastWeekData.filter(d => d.value > 0))
+        .attr('fill', 'rgba(139, 0, 0, 0.15)')
+        .attr('d', lwArea);
+
+      const lwLine = d3.line()
+        .x(d => x(d.hour) + x.bandwidth() / 2)
+        .y(d => y(d.value))
+        .curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(lastWeekData.filter(d => d.value > 0))
+        .attr('fill', 'none')
+        .attr('stroke', '#8B0000')
+        .attr('stroke-width', 2)
+        .attr('stroke-opacity', 0.6)
+        .attr('d', lwLine);
+    }
+
+    // Today area
+    const todayArea = d3.area()
+      .x(d => x(d.hour) + x.bandwidth() / 2)
+      .y0(innerHeight)
+      .y1(d => y(d.value))
+      .curve(d3.curveMonotoneX);
+
+    g.append('path')
+      .datum(todayData.filter(d => d.value > 0))
+      .attr('fill', 'rgba(207, 160, 82, 0.15)')
+      .attr('d', todayArea);
+
+    const todayLine = d3.line()
+      .x(d => x(d.hour) + x.bandwidth() / 2)
+      .y(d => y(d.value))
+      .curve(d3.curveMonotoneX);
+
+    g.append('path')
+      .datum(todayData.filter(d => d.value > 0))
+      .attr('fill', 'none')
+      .attr('stroke', '#CFA052')
+      .attr('stroke-width', 3)
+      .attr('d', todayLine);
+
+    // Dots on today line
+    g.selectAll('.cum-dot')
+      .data(todayData.filter(d => d.value > 0))
+      .enter().append('circle')
+      .attr('cx', d => x(d.hour) + x.bandwidth() / 2)
+      .attr('cy', d => y(d.value))
+      .attr('r', 4)
+      .attr('fill', '#CFA052')
+      .attr('stroke', '#1a1a1a')
+      .attr('stroke-width', 2)
+      .on('mouseover', (event, d) => {
+        tt.style('opacity', 1).html(`<strong>${d.hour}</strong><br/>${d.value} canjes acumulados`);
+      })
+      .on('mousemove', (event) => {
+        tt.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', () => tt.style('opacity', 0));
+
+    // Legend
+    const legend = g.append('g').attr('transform', `translate(${innerWidth - 150}, 0)`);
+    [
+      { label: 'Hoy', color: '#CFA052' },
+      { label: 'Sem. Pasada', color: '#8B0000' },
+    ].forEach((item, i) => {
+      const row = legend.append('g').attr('transform', `translate(0, ${i * 18})`);
+      row.append('rect').attr('width', 12).attr('height', 12).attr('rx', 3).attr('fill', item.color);
+      row.append('text').attr('x', 18).attr('y', 10).attr('fill', '#fff').style('font-size', '11px').text(item.label);
+    });
+
+  }, [todayData, lastWeekData]);
+
+  return (
+    <div className="chart-container" style={{ minHeight: '230px', height: '100%' }}>
+      <svg ref={svgRef} width="100%" height="100%"></svg>
+    </div>
+  );
+};

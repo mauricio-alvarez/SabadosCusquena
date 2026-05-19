@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Users, TrendingUp, AlertCircle, TrendingDown, RefreshCcw, Filter } from 'lucide-react';
-import MetricCard from './MetricCard';
-import { BarChart, DonutChart } from './D3Charts';
+import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy } from 'lucide-react';
+import { parse, isWithinInterval } from 'date-fns';
+import GeneralView from './GeneralView';
+import ProgressView from './ProgressView';
+import RankingsView from './RankingsView';
+import DateRangePicker from './DateRangePicker';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
@@ -26,6 +29,25 @@ const Dashboard = () => {
     supervisor: 'All',
     BDR: 'All',
   });
+
+  const [useAllTimeData, setUseAllTimeData] = useState(true);
+  const [dateRange, setDateRange] = useState({ from: undefined, to: undefined });
+
+  const [activeView, setActiveView] = useState('general');
+  const [showSideMenu, setShowSideMenu] = useState(window.innerWidth > 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 1024;
+      if (mobile !== isMobile) {
+        setIsMobile(mobile);
+        setShowSideMenu(!mobile); // On mobile, close it by default. On desktop, open it.
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobile]);
 
   const fetchDashboardData = useCallback(async (report) => {
     const filePath = typeof report === 'string' ? report : report.file_path;
@@ -107,14 +129,36 @@ const Dashboard = () => {
 
   const filteredClients = useMemo(() => {
     if (!dashboardData) return [];
-    return dashboardData.clients.filter(c => {
+    
+    // First apply Date Range Filter to compute valid redemptions
+    let clientsWithValidRedemptions = dashboardData.clients;
+    
+    if (!useAllTimeData && dateRange?.from && dateRange?.to) {
+      clientsWithValidRedemptions = dashboardData.clients.map(c => {
+        if (!c.redemption_dates || c.redemption_dates.length === 0) return c;
+        
+        let validCount = 0;
+        c.redemption_dates.forEach(dateStr => {
+          const dateObj = parse(dateStr, 'dd/MM/yyyy', new Date());
+          dateObj.setHours(0,0,0,0);
+          
+          if (isWithinInterval(dateObj, { start: dateRange.from, end: dateRange.to })) {
+            validCount++;
+          }
+        });
+        
+        return { ...c, redemptions: validCount };
+      });
+    }
+
+    return clientsWithValidRedemptions.filter(c => {
       if (filters.direccion !== 'All' && c.direccion !== filters.direccion) return false;
       if (filters.gerencia !== 'All' && c.gerencia !== filters.gerencia) return false;
       if (filters.supervisor !== 'All' && c.supervisor !== filters.supervisor) return false;
       if (filters.BDR !== 'All' && c.BDR !== filters.BDR) return false;
       return true;
     });
-  }, [dashboardData, filters]);
+  }, [dashboardData, filters, useAllTimeData, dateRange]);
 
   const kpis = useMemo(() => {
     if (filteredClients.length === 0) return null;
@@ -200,156 +244,175 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-layout">
-      <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
-        <div>
-          <h1 className="dashboard-title text-2xl">Panel de Campaña en Tiempo Real - Cusqueña</h1>
-          <p className="text-secondary mt-1 text-sm">
-            {lastReport ? `Última actualización: ${lastReport.updated_at_display}` : 'Cargando último reporte...'}
-          </p>
-        </div>
-        <div className="flex gap-4">
-          <button
-            className="btn-gold"
-            onClick={handleRefresh}
-            disabled={refreshing || loadingData}
-            title="Usa un reporte reciente si tiene menos de 20 minutos; si no, descarga uno nuevo."
-          >
-            {refreshing ? (
-              <>
-                <div className="loader"></div>
-                Actualizando...
-              </>
-            ) : (
-              <>
-                <RefreshCcw size={20} />
-                Actualizar Datos
-              </>
-            )}
-          </button>
-        </div>
-      </header>
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <div className={`gemini-sidebar ${!showSideMenu ? 'collapsed' : ''}`}>
+          <div className="gemini-sidebar-header">
+            <button
+              className="btn-secondary flex items-center justify-center"
+              onClick={() => setShowSideMenu(!showSideMenu)}
+              title="Alternar Menú"
+              style={{ padding: '8px', border: 'none', background: 'transparent' }}
+            >
+              <Menu size={24} color="#e5e7eb" />
+            </button>
+            <span className="gemini-logo-text text-gold">Cusqueña</span>
+          </div>
 
-      {error && (
-        <div className="glass-panel p-6 mb-6 animate-fade-in flex items-center gap-4" style={{ borderColor: 'var(--cusquena-red)' }}>
-          <AlertCircle className="text-red" size={24} />
-          <p className="text-red">{error}</p>
+          <div className="flex flex-col mt-4">
+             <button onClick={() => setActiveView('general')} className={`sidebar-btn ${activeView === 'general' ? 'active' : ''}`}>
+               <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
+               <span className="sidebar-btn-text">Análisis General</span>
+             </button>
+             <button onClick={() => setActiveView('progress')} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
+               <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+               <span className="sidebar-btn-text">Progreso en el Tiempo</span>
+             </button>
+             <button onClick={() => setActiveView('rankings')} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
+               <div className="sidebar-btn-icon"><Trophy size={20} /></div>
+               <span className="sidebar-btn-text">Rankings</span>
+             </button>
+          </div>
         </div>
       )}
 
-      {loadingData && (
-        <div className="glass-panel p-6 mb-6 animate-fade-in flex items-center gap-4 justify-center" style={{ borderColor: 'var(--cusquena-gold)' }}>
-          <div className="loader"></div>
-          <p className="text-gold">{dashboardData ? 'Actualizando vista...' : 'Cargando último reporte...'}</p>
+      {/* Mobile Sidebar Overlay */}
+      {isMobile && showSideMenu && (
+        <div className="side-panel-mobile-overlay animate-fade-in" onClick={() => setShowSideMenu(false)}>
+          <div className="side-panel-mobile" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col pt-4">
+               <h3 className="text-gold font-bold uppercase tracking-wider px-4 mb-4 text-sm">Menú</h3>
+               <button onClick={() => { setActiveView('general'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'general' ? 'active' : ''}`}>
+                 <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
+                 <span className="sidebar-btn-text">Análisis General</span>
+               </button>
+               <button onClick={() => { setActiveView('progress'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
+                 <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+                 <span className="sidebar-btn-text">Progreso en el Tiempo</span>
+               </button>
+               <button onClick={() => { setActiveView('rankings'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
+                 <div className="sidebar-btn-icon"><Trophy size={20} /></div>
+                 <span className="sidebar-btn-text">Rankings</span>
+               </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {dashboardData && kpis && (
-        <div className="animate-fade-in flex flex-col flex-1 min-h-0">
-          <div className="glass-panel p-4 mb-4 flex-shrink-0">
-            <div className="flex items-center gap-4 mb-3 pb-2" style={{ borderBottom: '1px solid var(--glass-border)' }}>
-              <div className="flex items-center gap-2">
-                <Filter className="text-gold" size={20} />
-                <h3 className="text-gold font-bold text-lg">Filtros Activos</h3>
-              </div>
+      {/* Main Content Area */}
+      <div className="main-content">
+        <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
+          <div className="flex items-center gap-4">
+            {isMobile && (
               <button
-                onClick={() => setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All' })}
-                className="btn-secondary"
-                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                className="btn-secondary flex items-center justify-center"
+                onClick={() => setShowSideMenu(true)}
+                title="Menú"
+                style={{ padding: '8px 12px', height: 'fit-content' }}
               >
-                Borrar Filtros
+                <Menu size={20} />
               </button>
-            </div>
-            <div className="grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-4">
-              {['direccion', 'gerencia', 'supervisor', 'BDR'].map(f => (
-                <div key={f} className="flex flex-col gap-2">
-                  <label className="text-secondary text-sm font-semibold">{filterLabels[f]}</label>
-                  <select
-                    className="filter-select"
-                    value={filters[f]}
-                    onChange={(e) => handleFilterChange(f, e.target.value)}
-                  >
-                    <option value="All">Todos</option>
-                    {getFilterOptions(f).map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+            )}
+            <div>
+              <h1 className="dashboard-title text-2xl">Panel de Campaña en Tiempo Real - Cusqueña</h1>
+              <p className="text-secondary mt-1 text-sm">
+                {lastReport ? `Última actualización: ${lastReport.updated_at_display}` : 'Cargando último reporte...'}
+              </p>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-4 mb-4 flex-shrink-0">
-            <MetricCard
-              title="Canjes Totales"
-              value={kpis.totalRedemptions.toLocaleString()}
-              change="Redenciones registradas en el reporte"
-              isPositive={null}
-              icon={TrendingUp}
-            />
-            <div className="glass-panel metric-card clients-summary-card p-6 animate-fade-in">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="metric-title">Clientes</h3>
-                <Users size={20} className="text-gold" />
-              </div>
-              <div className="clients-summary">
-                <div>
-                  <span className="client-count">{kpis.active.toLocaleString()}</span>
-                  <span className="client-label text-green">Activos</span>
-                </div>
-                <div>
-                  <span className="client-count">{kpis.inactive.toLocaleString()}</span>
-                  <span className="client-label text-red-light">Inactivos</span>
-                </div>
-              </div>
-              <p className="metric-note">{kpis.activeRate}% con actividad</p>
-            </div>
-            <MetricCard
-              title="Promedio Activo"
-              value={Number(kpis.avg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              change="Canjes por cliente activo"
-              isPositive={null}
-              icon={AlertCircle}
-            />
-            <MetricCard
-              title="Bajo Rendimiento"
-              value={kpis.lowPerformers.toLocaleString()}
-              change={`Q1: ${kpis.q1} canjes · Mediana: ${kpis.median}`}
-              isPositive={false}
-              icon={TrendingDown}
-            />
+          <div className="flex gap-4">
+            <button
+              className="btn-gold"
+              onClick={handleRefresh}
+              disabled={refreshing || loadingData}
+              title="Usa un reporte reciente si tiene menos de 20 minutos; si no, descarga uno nuevo."
+            >
+              {refreshing ? (
+                <>
+                  <div className="loader"></div>
+                  Actualizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCcw size={20} />
+                  Actualizar Datos
+                </>
+              )}
+            </button>
           </div>
+        </header>
 
-          <div className="grid grid-cols-1 grid-cols-lg-2 gap-6 flex-1 min-h-0">
-            <div className="glass-panel flex flex-col h-full" style={{ padding: '1rem', animationDelay: '0.2s' }}>
-              <div className="mb-4 text-center">
-                <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Canjes por {chartConfig.barTitle}</h2>
-                <p className="text-secondary mt-1 text-sm">Distribución de redenciones</p>
-              </div>
-              <div className="flex-1 w-full min-h-0">
-                {chartConfig.barData.length > 0 ? (
-                  <BarChart data={chartConfig.barData} />
-                ) : (
-                  <p className="text-secondary text-center py-10">No hay datos para los filtros actuales</p>
-                )}
-              </div>
-            </div>
-
-            <div className="glass-panel flex flex-col h-full" style={{ padding: '1rem', animationDelay: '0.4s' }}>
-              <div className="mb-4 text-center">
-                <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Participación Top 5 {chartConfig.donutTitle}</h2>
-                <p className="text-secondary mt-1 text-sm">Distribución porcentual</p>
-              </div>
-              <div className="flex-1 w-full min-h-0">
-                {chartConfig.donutData.length > 0 ? (
-                  <DonutChart data={chartConfig.donutData} />
-                ) : (
-                  <p className="text-secondary text-center py-10">No hay datos para los filtros actuales</p>
-                )}
-              </div>
-            </div>
+        {error && (
+          <div className="glass-panel p-6 mb-6 animate-fade-in flex items-center gap-4" style={{ borderColor: 'var(--cusquena-red)' }}>
+            <AlertCircle className="text-red" size={24} />
+            <p className="text-red">{error}</p>
           </div>
-        </div>
-      )}
+        )}
+
+        {loadingData && (
+          <div className="glass-panel p-6 mb-6 animate-fade-in flex items-center gap-4 justify-center" style={{ borderColor: 'var(--cusquena-gold)' }}>
+            <div className="loader"></div>
+            <p className="text-gold">{dashboardData ? 'Actualizando vista...' : 'Cargando último reporte...'}</p>
+          </div>
+        )}
+
+        {dashboardData && kpis && (
+          <div className="animate-fade-in flex flex-col flex-1 min-h-0 w-full">
+            {activeView === 'general' && (
+              <div className="glass-panel p-4 mb-4 flex-shrink-0" style={{ position: 'relative', zIndex: 100 }}>
+                <div className="flex items-center gap-4 mb-3 pb-2" style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <div className="flex items-center gap-2">
+                    <Filter className="text-gold" size={20} />
+                    <h3 className="text-gold font-bold text-lg">Filtros Activos</h3>
+                  </div>
+                  <div className="flex items-center gap-4 ml-auto">
+                    <DateRangePicker 
+                      useAllTimeData={useAllTimeData} 
+                      setUseAllTimeData={setUseAllTimeData} 
+                      dateRange={dateRange} 
+                      setDateRange={setDateRange} 
+                    />
+                    <button
+                      onClick={() => setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All' })}
+                      className="btn-secondary"
+                      style={{ padding: '6px 14px', fontSize: '0.85rem', flexShrink: 0 }}
+                    >
+                      Borrar Filtros
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-4">
+                  {['direccion', 'gerencia', 'supervisor', 'BDR'].map(f => (
+                    <div key={f} className="flex flex-col gap-2">
+                      <label className="text-secondary text-sm font-semibold">{filterLabels[f]}</label>
+                      <select
+                        className="filter-select"
+                        value={filters[f]}
+                        onChange={(e) => handleFilterChange(f, e.target.value)}
+                      >
+                        <option value="All">Todos</option>
+                        {getFilterOptions(f).map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeView === 'general' && (
+              <GeneralView kpis={kpis} chartConfig={chartConfig} />
+            )}
+            {activeView === 'progress' && (
+              <ProgressView progressData={dashboardData.progress_data} />
+            )}
+            {activeView === 'rankings' && (
+              <RankingsView clients={filteredClients} />
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
