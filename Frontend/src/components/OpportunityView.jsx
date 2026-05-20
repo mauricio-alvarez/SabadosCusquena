@@ -514,27 +514,27 @@ const OpportunityView = ({ allClients }) => {
               )}
             </div>
             
-            <div className="flex flex-col text-secondary" style={{ fontSize: '10px', gap: '2px' }}>
+            <div className="flex flex-col text-secondary" style={{ fontSize: '12px', gap: '2px' }}>
               <span>
                 {selectedRegion ? `Filtrado por ${selectedRegion}:` : 'Todo el país:'} <strong>{filteredInactiveClients.length} locales</strong> sin canjes
               </span>
               {filteredInactiveClients.length > displayClients.length && (
-                <span style={{ fontSize: '9px', opacity: 0.7 }}>
+                <span style={{ fontSize: '10.5px', opacity: 0.8 }}>
                   * Mostrando los primeros {displayClients.length} locales.
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 mb-3 bg-white/[0.02] p-2 rounded-lg border border-white/[0.04] flex-shrink-0">
+          <div className="flex flex-col gap-2.5 mb-3 bg-white/[0.02] p-2.5 rounded-lg border border-white/[0.04] flex-shrink-0">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div className="flex flex-col gap-0.5">
-                <label className="text-[10px] text-secondary font-semibold uppercase">Gerencia</label>
+                <label className="text-[11px] text-secondary font-semibold uppercase">Gerencia</label>
                 <select
                   className="filter-select"
                   value={listFilters.gerencia}
                   onChange={(e) => setListFilters(prev => ({ ...prev, gerencia: e.target.value }))}
-                  style={{ padding: '0 1.5rem 0 0.5rem', height: '28px', lineHeight: '26px', fontSize: '11px' }}
+                  style={{ padding: '0 1.5rem 0 0.5rem', height: '32px', lineHeight: '30px', fontSize: '13px' }}
                 >
                   <option value="All">Todos ({listFilterOptions.gerencia.length})</option>
                   {listFilterOptions.gerencia.map(opt => (
@@ -544,12 +544,12 @@ const OpportunityView = ({ allClients }) => {
               </div>
               
               <div className="flex flex-col gap-0.5">
-                <label className="text-[10px] text-secondary font-semibold uppercase">Supervisor</label>
+                <label className="text-[11px] text-secondary font-semibold uppercase">Supervisor</label>
                 <select
                   className="filter-select"
                   value={listFilters.supervisor}
                   onChange={(e) => setListFilters(prev => ({ ...prev, supervisor: e.target.value }))}
-                  style={{ padding: '0 1.5rem 0 0.5rem', height: '28px', lineHeight: '26px', fontSize: '11px' }}
+                  style={{ padding: '0 1.5rem 0 0.5rem', height: '32px', lineHeight: '30px', fontSize: '13px' }}
                 >
                   <option value="All">Todos ({listFilterOptions.supervisor.length})</option>
                   {listFilterOptions.supervisor.map(opt => (
@@ -561,12 +561,12 @@ const OpportunityView = ({ allClients }) => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignItems: 'flex-end' }}>
               <div className="flex flex-col gap-0.5">
-                <label className="text-[10px] text-secondary font-semibold uppercase">BDR</label>
+                <label className="text-[11px] text-secondary font-semibold uppercase">BDR</label>
                 <select
                   className="filter-select w-full"
                   value={listFilters.BDR}
                   onChange={(e) => setListFilters(prev => ({ ...prev, BDR: e.target.value }))}
-                  style={{ padding: '0 1.5rem 0 0.5rem', height: '28px', lineHeight: '26px', fontSize: '11px' }}
+                  style={{ padding: '0 1.5rem 0 0.5rem', height: '32px', lineHeight: '30px', fontSize: '13px' }}
                 >
                   <option value="All">Todos ({listFilterOptions.BDR.length})</option>
                   {listFilterOptions.BDR.map(opt => (
@@ -579,10 +579,10 @@ const OpportunityView = ({ allClients }) => {
                 <button 
                   onClick={handleDownloadExcel}
                   className="btn-gold w-full flex items-center justify-center gap-1.5 cursor-pointer"
-                  style={{ height: '28px', fontSize: '10px', fontWeight: '700', padding: '0 6px', borderRadius: '8px' }}
+                  style={{ height: '32px', fontSize: '12.5px', fontWeight: '700', padding: '0 6px', borderRadius: '8px' }}
                   disabled={filteredInactiveClients.length === 0}
                 >
-                  <Download size={12} />
+                  <Download size={14} />
                   Descargar ({filteredInactiveClients.length})
                 </button>
               </div>
