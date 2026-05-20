@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
 import RankingsView from './RankingsView';
+import OpportunityView from './OpportunityView';
 import DateRangePicker from './DateRangePicker';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
@@ -285,6 +286,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><Trophy size={20} /></div>
               <span className="sidebar-btn-text">Rankings</span>
             </button>
+            <button onClick={() => setActiveView('opportunity')} className={`sidebar-btn ${activeView === 'opportunity' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Target size={20} /></div>
+              <span className="sidebar-btn-text">Oportunidades</span>
+            </button>
           </div>
         </div>
       )}
@@ -307,13 +312,17 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><Trophy size={20} /></div>
                 <span className="sidebar-btn-text">Rankings</span>
               </button>
+              <button onClick={() => { setActiveView('opportunity'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'opportunity' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Target size={20} /></div>
+                <span className="sidebar-btn-text">Oportunidades</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Main Content Area */}
-      <div className="main-content">
+      <div className="main-content" style={{ overflowY: activeView === 'opportunity' ? 'hidden' : 'auto' }}>
         <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
           <div className="flex items-center gap-4">
             {isMobile && (
@@ -425,6 +434,9 @@ const Dashboard = () => {
             )}
             {activeView === 'rankings' && (
               <RankingsView allClients={dashboardData.clients} />
+            )}
+            {activeView === 'opportunity' && (
+              <OpportunityView allClients={dashboardData.clients} />
             )}
           </div>
         )}
