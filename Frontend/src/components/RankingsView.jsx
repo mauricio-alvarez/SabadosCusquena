@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Trophy, Medal, Award, Crown, ChevronDown, ChevronUp, Filter, Users, Download } from 'lucide-react';
 import { parse, isWithinInterval, format } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -104,6 +104,16 @@ const RankingCard = ({ title, icon: Icon, data, expandable = true, statLabel = '
 
 const RankingsView = ({ allClients }) => {
   const [sortBy, setSortBy] = useState('redemptions'); // 'redemptions' or 'activeClients'
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Independent filters for rankings
   const [filters, setFilters] = useState({
@@ -253,48 +263,105 @@ const RankingsView = ({ allClients }) => {
     XLSX.writeFile(wb, `Rankings_Cusquena_${today}.xlsx`);
   }, [rankings]);
 
+  const renderControls = () => (
+    <div 
+      style={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        gap: '12px',
+        marginLeft: isMobile ? '0' : 'auto',
+        width: isMobile ? '100%' : 'auto',
+        justifyContent: 'flex-end',
+      }}
+    >
+      <DateRangePicker
+        useAllTimeData={useAllTimeData}
+        setUseAllTimeData={setUseAllTimeData}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        isMobile={isMobile}
+      />
+      <button
+        onClick={() => setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All' })}
+        className="btn-secondary"
+        style={{ 
+          padding: isMobile ? '10px 14px' : '6px 14px', 
+          fontSize: '0.85rem', 
+          flexShrink: 0,
+          width: isMobile ? '100%' : 'auto'
+        }}
+      >
+        Borrar Filtros
+      </button>
+    </div>
+  );
+
   return (
     <div className="animate-fade-in flex flex-col flex-1 min-h-0 w-full pb-6">
       {/* Filters Panel */}
       <div className="glass-panel p-4 mb-4 flex-shrink-0" style={{ position: 'relative', zIndex: 100 }}>
-        <div className="flex items-center gap-4 mb-3 pb-2" style={{ borderBottom: '1px solid var(--glass-border)' }}>
-          <div className="flex items-center gap-2">
-            <Filter className="text-gold" size={20} />
-            <h3 className="text-gold font-bold text-lg">Filtros Activos</h3>
-          </div>
-          <div className="flex items-center gap-4 ml-auto">
-            <DateRangePicker
-              useAllTimeData={useAllTimeData}
-              setUseAllTimeData={setUseAllTimeData}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
-            />
-            <button
-              onClick={() => setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All' })}
-              className="btn-secondary"
-              style={{ padding: '6px 14px', fontSize: '0.85rem', flexShrink: 0 }}
-            >
-              Borrar Filtros
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-4">
-          {['direccion', 'gerencia', 'supervisor', 'BDR'].map(f => (
-            <div key={f} className="flex flex-col gap-2">
-              <label className="text-secondary text-sm font-semibold">{filterLabels[f]}</label>
-              <select
-                className="filter-select"
-                value={filters[f]}
-                onChange={(e) => handleFilterChange(f, e.target.value)}
-              >
-                <option value="All">Todos</option>
-                {getFilterOptions(f).map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
+        {/* Header row containing title and mobile toggle button */}
+        <div 
+          style={{ 
+            borderBottom: (!isMobile || showFiltersMobile) ? '1px solid var(--glass-border)' : 'none',
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingBottom: (!isMobile || showFiltersMobile) ? '12px' : '0px',
+            marginBottom: (!isMobile || showFiltersMobile) ? '12px' : '0px'
+          }}
+        >
+          <div 
+            className="flex items-center justify-between select-none" 
+            onClick={() => isMobile && setShowFiltersMobile(prev => !prev)}
+            style={{ width: isMobile ? '100%' : 'auto', cursor: isMobile ? 'pointer' : 'default' }}
+          >
+            <div className="flex items-center gap-2">
+              <Filter className="text-gold" size={20} />
+              <h3 className="text-gold font-bold text-lg">Filtros Activos</h3>
             </div>
-          ))}
+            {isMobile && (
+              <button 
+                className="btn-secondary" 
+                style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '8px' }}
+              >
+                {showFiltersMobile ? 'Ocultar' : 'Mostrar'}
+              </button>
+            )}
+          </div>
+          
+          {/* On Desktop, render controls in the header row on the right */}
+          {!isMobile && renderControls()}
         </div>
+
+        {/* Filters Content (Date range, reset button, and select filters) */}
+        {(!isMobile || showFiltersMobile) && (
+          <div className="flex flex-col gap-4 animate-fade-in">
+            {/* On Mobile, render controls inside the collapsible area */}
+            {isMobile && renderControls()}
+
+            {/* Dropdown Filters Grid */}
+            <div className="grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-4">
+              {['direccion', 'gerencia', 'supervisor', 'BDR'].map(f => (
+                <div key={f} className="flex flex-col gap-2">
+                  <label className="text-secondary text-sm font-semibold">{filterLabels[f]}</label>
+                  <select
+                    className="filter-select"
+                    value={filters[f]}
+                    onChange={(e) => handleFilterChange(f, e.target.value)}
+                  >
+                    <option value="All">Todos</option>
+                    {getFilterOptions(f).map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Header */}

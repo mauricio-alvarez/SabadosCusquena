@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
 
 export const BarChart = ({ data }) => {
@@ -113,13 +113,22 @@ export const BarChart = ({ data }) => {
 
 export const DonutChart = ({ data }) => {
   const svgRef = useRef();
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!data || data.length === 0) return;
 
-    const width = 560;
-    const height = 300;
-    const radius = 112;
+    const width = isMobile ? 360 : 560;
+    const height = isMobile ? 450 : 300;
+    const radius = isMobile ? 120 : 112;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
@@ -127,7 +136,7 @@ export const DonutChart = ({ data }) => {
     const g = svg
       .attr('viewBox', `0 0 ${width} ${height}`)
       .append('g')
-      .attr('transform', 'translate(142,150)');
+      .attr('transform', isMobile ? 'translate(180,145)' : 'translate(142,150)');
 
     const total = d3.sum(data.map(item => item.value));
     const color = d3.scaleOrdinal()
@@ -181,13 +190,13 @@ export const DonutChart = ({ data }) => {
 
     const legend = svg.append('g')
       .attr('class', 'donut-legend')
-      .attr('transform', 'translate(295,56)');
+      .attr('transform', isMobile ? 'translate(40,280)' : 'translate(295,56)');
 
     const legendRows = legend.selectAll('g')
       .data(pieData)
       .enter()
       .append('g')
-      .attr('transform', (d, i) => `translate(0,${i * 40})`);
+      .attr('transform', (d, i) => `translate(0,${i * (isMobile ? 34 : 40)})`);
 
     legendRows.append('rect')
       .attr('width', 12)
@@ -213,7 +222,7 @@ export const DonutChart = ({ data }) => {
         return `${d.data.value.toLocaleString()} canjes · ${percent}%`;
       });
 
-  }, [data]);
+  }, [data, isMobile]);
 
   return (
     <div className="chart-container flex justify-center items-center">

@@ -9,7 +9,8 @@ export default function DateRangePicker({
   useAllTimeData, 
   setUseAllTimeData, 
   dateRange, 
-  setDateRange 
+  setDateRange,
+  isMobile
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef(null);
@@ -34,8 +35,25 @@ export default function DateRangePicker({
   };
 
   return (
-    <div className="flex items-center gap-4 ml-auto">
-      <div className="flex items-center gap-2">
+    <div 
+      style={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        gap: '12px',
+        width: isMobile ? '100%' : 'auto',
+        flexWrap: 'wrap'
+      }}
+    >
+      <div 
+        style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: isMobile ? 'space-between' : 'flex-start',
+          gap: '8px',
+          width: isMobile ? '100%' : 'auto'
+        }}
+      >
         <label className="text-secondary text-sm font-semibold cursor-pointer select-none" onClick={() => setUseAllTimeData(!useAllTimeData)}>
           Usar todos los datos
         </label>
@@ -48,11 +66,17 @@ export default function DateRangePicker({
       </div>
 
       {!useAllTimeData && (
-        <div ref={popoverRef} style={{ position: 'relative' }}>
+        <div ref={popoverRef} style={{ position: 'relative', width: isMobile ? '100%' : 'auto' }}>
           <button 
             className="btn-secondary flex items-center gap-2"
             onClick={() => setIsOpen(!isOpen)}
-            style={{ padding: '8px 16px', fontSize: '0.85rem', minWidth: '220px', justifyContent: 'space-between' }}
+            style={{ 
+              padding: '8px 16px', 
+              fontSize: '0.85rem', 
+              width: '100%',
+              minWidth: isMobile ? 'none' : '220px', 
+              justifyContent: 'space-between' 
+            }}
           >
             <div className="flex items-center gap-2">
               <CalendarIcon size={16} />
@@ -64,20 +88,23 @@ export default function DateRangePicker({
             <div className="glass-panel" style={{ 
               position: 'absolute', 
               top: '100%', 
-              left: 0, 
+              left: isMobile ? '50%' : 0, 
+              transform: isMobile ? 'translateX(-50%)' : 'none',
               marginTop: '8px', 
-              zIndex: 50, 
+              zIndex: 1050, 
               padding: '16px', 
               background: '#1c1c1c', 
               border: '1px solid rgba(255,255,255,0.1)', 
               boxShadow: '0 10px 40px rgba(0,0,0,0.8)',
-              width: 'max-content'
+              width: isMobile ? 'calc(100vw - 48px)' : 'max-content',
+              maxWidth: isMobile ? '340px' : 'none',
+              overflowX: 'auto'
             }}>
               <DayPicker
                 mode="range"
                 selected={dateRange}
                 onSelect={setDateRange}
-                numberOfMonths={2}
+                numberOfMonths={isMobile ? 1 : 2}
                 locale={es}
                 className="dark-calendar"
               />

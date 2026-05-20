@@ -1,9 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, TrendingUp, AlertCircle, TrendingDown } from 'lucide-react';
 import MetricCard from './MetricCard';
 import { BarChart, DonutChart } from './D3Charts';
 
 const GeneralView = ({ kpis, chartConfig }) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   if (!kpis) return null;
 
   return (
@@ -69,7 +79,7 @@ const GeneralView = ({ kpis, chartConfig }) => {
             <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Participación Top 5 {chartConfig.donutTitle}</h2>
             <p className="text-secondary mt-1 text-sm">Distribución porcentual</p>
           </div>
-          <div style={{ height: '350px', width: '100%' }}>
+          <div style={{ height: isMobile ? '450px' : '350px', width: '100%' }}>
             {chartConfig.donutData.length > 0 ? (
               <DonutChart data={chartConfig.donutData} />
             ) : (
