@@ -10,6 +10,38 @@ const OpportunityView = ({ allClients }) => {
   const [hoveredRegion, setHoveredRegion] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [useRedemptionVolume, setUseRedemptionVolume] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const formatRegionName = (name) => {
+    if (!name) return '';
+    const specialCases = {
+      'MADRE DE DIOS': 'Madre de Dios',
+      'LA LIBERTAD': 'La Libertad',
+      'SAN MARTIN': 'San Martín',
+      'ANCASH': 'Áncash',
+      'JUNIN': 'Junín',
+      'HUANCAVELICA': 'Huancavelica',
+      'HUANUCO': 'Huánuco',
+      'APURIMAC': 'Apurímac',
+      'AMAZONAS': 'Amazonas'
+    };
+    const upper = name.trim().toUpperCase();
+    if (specialCases[upper]) return specialCases[upper];
+
+    return upper
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
   
   // Filtering states for the client list
   const [listFilters, setListFilters] = useState({
@@ -348,7 +380,7 @@ const OpportunityView = ({ allClients }) => {
         setSelectedRegion(prev => prev === regionName ? null : regionName);
       });
 
-  }, [geoData]);
+  }, [geoData, isMobile]);
 
   // 2. Map Styling & Selection Update
   useEffect(() => {
@@ -478,13 +510,16 @@ const OpportunityView = ({ allClients }) => {
       {/* Main Content Layout - Two columns scaling to fill viewport height */}
       <div 
         className="grid grid-cols-1 grid-cols-md-3 gap-6 flex-1 min-h-0"
-        style={{ height: 'calc(100vh - 240px)', minHeight: '350px' }}
+        style={{ 
+          height: isMobile ? 'auto' : 'calc(100vh - 240px)', 
+          minHeight: isMobile ? 'auto' : '350px' 
+        }}
       >
         
         {/* Heatmap Column (Large panel on the left) */}
         <div 
-          className="col-span-2 glass-panel p-5 flex flex-col relative" 
-          style={{ height: '100%', overflow: 'hidden' }}
+          className="md-col-span-2 glass-panel p-5 flex flex-col relative" 
+          style={{ height: isMobile ? '580px' : '100%', overflow: 'hidden' }}
         >
           <div className="flex justify-between items-center mb-4 flex-wrap gap-2 flex-shrink-0" style={{ marginBottom: '22px' }}>
             <h3 className="text-gold font-bold text-xs p-4" style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -502,12 +537,27 @@ const OpportunityView = ({ allClients }) => {
             )}
           </div>
           
-          <div className="flex-1 flex gap-4 items-center justify-between min-h-0 min-w-0 overflow-hidden relative w-full h-full">
+          <div 
+            className="flex-1 flex gap-4 items-center justify-between min-h-0 min-w-0 overflow-hidden relative w-full h-full"
+            style={{ 
+              flexDirection: isMobile ? 'column' : 'row',
+              height: '100%',
+              overflow: 'hidden'
+            }}
+          >
             
             {/* Left Inner: Gerencia Info Panel */}
             <div 
-              className="glass-panel p-4 flex flex-col justify-between flex-shrink-0 my-auto"
-              style={{ 
+              className="glass-panel p-4 flex flex-col justify-between flex-shrink-0"
+              style={isMobile ? {
+                width: '100%',
+                height: 'auto',
+                minHeight: 'auto',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                padding: '12px',
+                marginBottom: '12px'
+              } : { 
                 width: '28%', 
                 minWidth: '165px',
                 maxWidth: '240px',
@@ -520,39 +570,34 @@ const OpportunityView = ({ allClients }) => {
               }}
             >
               {activeDetailRegion ? (
-                <>
-                  <div className="w-full">
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', flexWrap: 'wrap', gap: isMobile ? '12px' : '16px', width: '100%', alignItems: isMobile ? 'center' : 'stretch', justifyContent: 'space-between' }}>
+                  <div style={{ flex: isMobile ? '1' : 'none', minWidth: '120px' }}>
                     <h4 
-                      className="font-bold text-white truncate text-sm" 
+                      className="font-bold text-white text-sm" 
                       style={{ 
-                        marginBottom: '12px',
+                        marginBottom: isMobile ? '4px' : '12px',
                         borderBottom: '1px solid var(--cusquena-gold)',
-                        paddingBottom: '8px'
+                        paddingBottom: isMobile ? '4px' : '8px',
+                        whiteSpace: 'nowrap'
                       }}
-                      title={activeDetailRegion.name}
+                      title={formatRegionName(activeDetailRegion.name)}
                     >
-                      {activeDetailRegion.name}
+                      {formatRegionName(activeDetailRegion.name)}
                     </h4>
-                    <div className="flex flex-col gap-2.5 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-secondary">Locales Totales:</span>
-                        <span className="text-white font-bold text-sm">{activeDetailRegion.metrics.total}</span>
+                    <div className="flex flex-col text-xs" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                        <span className="text-secondary">Locales:</span>
+                        <span className="text-white font-bold">{activeDetailRegion.metrics.total}</span>
                       </div>
                       {!useRedemptionVolume ? (
-                        <>
-                          <div className="flex justify-between">
-                            <span className="font-semibold" style={{ color: '#4ade80' }}>Activos:</span>
-                            <span className="font-bold text-sm" style={{ color: '#4ade80' }}>{activeDetailRegion.metrics.active}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="font-semibold" style={{ color: 'var(--cusquena-red)' }}>Inactivos:</span>
-                            <span className="font-bold text-sm" style={{ color: 'var(--cusquena-red)' }}>{activeDetailRegion.metrics.inactive}</span>
-                          </div>
-                        </>
+                        <div className="flex mt-0.5" style={{ display: 'flex', gap: '12px' }}>
+                          <div className="flex" style={{ display: 'flex', gap: '4px' }}><span style={{ color: '#4ade80' }}>Act:</span><span style={{ color: '#4ade80', fontWeight: 'bold' }}>{activeDetailRegion.metrics.active}</span></div>
+                          <div className="flex" style={{ display: 'flex', gap: '4px' }}><span style={{ color: 'var(--cusquena-red)' }}>Inact:</span><span style={{ color: 'var(--cusquena-red)', fontWeight: 'bold' }}>{activeDetailRegion.metrics.inactive}</span></div>
+                        </div>
                       ) : (
-                        <div className="flex justify-between">
-                          <span className="text-secondary font-semibold">Promedio Canjes/Local:</span>
-                          <span className="text-white font-bold text-sm">
+                        <div className="flex justify-between" style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                          <span className="text-secondary font-semibold">Promedio:</span>
+                          <span className="text-white font-bold">
                             {activeDetailRegion.metrics.total > 0 
                               ? (activeDetailRegion.metrics.totalRedemptions / activeDetailRegion.metrics.total).toFixed(1)
                               : 0}
@@ -564,8 +609,12 @@ const OpportunityView = ({ allClients }) => {
                   
                   {activeDetailRegion.metrics.total > 0 && (
                     <div 
-                      className="flex flex-col w-full" 
-                      style={{ 
+                      className="flex flex-col" 
+                      style={isMobile ? {
+                        alignItems: 'flex-end',
+                        justifyContent: 'center',
+                      } : {
+                        width: '100%',
                         borderTop: '1px solid rgba(255, 255, 255, 0.1)', 
                         paddingTop: '12px', 
                         marginTop: '12px',
@@ -577,14 +626,14 @@ const OpportunityView = ({ allClients }) => {
                       </span>
                       <span className="text-gold font-bold text-2xl" style={{ lineHeight: 1 }}>
                         {useRedemptionVolume 
-                          ? activeDetailRegion.metrics.totalRedemptions 
+                          ? activeDetailRegion.metrics.totalRedemptions.toLocaleString() 
                           : `${((activeDetailRegion.metrics.inactive / activeDetailRegion.metrics.total) * 100).toFixed(1)}%`}
                       </span>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
-                <div className="flex flex-col text-center py-2 text-secondary my-auto w-full gap-3">
+                <div className="flex flex-col text-center py-2 text-secondary my-auto w-full gap-2">
                   <p className="font-semibold text-white text-xs">Detalle de Región</p>
                   <p className="leading-relaxed opacity-85 px-1 text-[11px]">
                     {useRedemptionVolume 
@@ -596,7 +645,16 @@ const OpportunityView = ({ allClients }) => {
             </div>
 
             {/* Center Inner: Heatmap SVG */}
-            <div className="flex-1 h-full min-h-0 min-w-0 flex justify-center items-center overflow-hidden relative">
+            <div 
+              className="flex-1 min-h-0 min-w-0 flex justify-center items-center overflow-hidden relative"
+              style={{ 
+                height: isMobile ? '360px' : '100%', 
+                width: '100%', 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center' 
+              }}
+            >
               {!geoData && <div className="loader absolute"></div>}
               <svg 
                 ref={mapRef} 
@@ -605,10 +663,22 @@ const OpportunityView = ({ allClients }) => {
               />
             </div>
 
-            {/* Right Inner: Vertical Legend */}
+            {/* Right Inner: Vertical/Horizontal Legend */}
             <div 
-              className="glass-panel p-2 flex flex-col items-center justify-between flex-shrink-0 my-auto"
-              style={{ 
+              className="glass-panel p-2 flex flex-shrink-0"
+              style={isMobile ? {
+                width: '100%',
+                maxWidth: 'none',
+                height: 'auto',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                padding: '8px 12px',
+                marginTop: '12px'
+              } : { 
                 width: '64px', 
                 height: '190px', 
                 minWidth: '64px', 
@@ -618,38 +688,63 @@ const OpportunityView = ({ allClients }) => {
                 paddingBottom: '14px',
                 backgroundColor: 'rgba(255, 255, 255, 0.01)',
                 border: '1px solid rgba(255, 255, 255, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '8px'
               }}
             >
-              <span className="text-[10px] text-secondary font-bold font-mono">
-                {useRedemptionVolume ? maxRedemptions : '100%'}
-              </span>
-              
-              <div 
-                className="rounded-full border border-white/10" 
-                style={{ 
-                  background: 'linear-gradient(to top, #ffffe0, #fed976, #feb24c, #fc4e2a, #800026)',
-                  width: '8px', 
-                  flex: '1', 
-                  minHeight: '80px'
-                }}
-              ></div>
-              
-              <span className="text-[10px] text-secondary font-bold font-mono">
-                {useRedemptionVolume ? '0' : '0%'}
-              </span>
-
-              <div className="flex flex-col items-center gap-1 pt-2 border-t border-white/5 w-full">
-                <div className="w-3.5 h-1.5 rounded-sm border border-gray-600 flex-shrink-0" style={{ backgroundColor: '#1e293b' }}></div>
-              </div>
+              {isMobile ? (
+                <>
+                  <span className="text-[10px] text-secondary font-bold font-mono">
+                    {useRedemptionVolume ? '0' : '0%'}
+                  </span>
+                  <div 
+                    className="rounded-full border border-white/10" 
+                    style={{ 
+                      background: 'linear-gradient(to right, #ffffe0, #fed976, #feb24c, #fc4e2a, #800026)',
+                      width: '140px', 
+                      height: '8px'
+                    }}
+                  />
+                  <span className="text-[10px] text-secondary font-bold font-mono">
+                    {useRedemptionVolume ? maxRedemptions.toLocaleString() : '100%'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[10px] text-secondary font-bold font-mono">
+                    {useRedemptionVolume ? maxRedemptions.toLocaleString() : '100%'}
+                  </span>
+                  <div 
+                    className="rounded-full border border-white/10" 
+                    style={{ 
+                      background: 'linear-gradient(to top, #ffffe0, #fed976, #feb24c, #fc4e2a, #800026)',
+                      width: '8px', 
+                      flex: '1', 
+                      minHeight: '80px'
+                    }}
+                  />
+                  <span className="text-[10px] text-secondary font-bold font-mono">
+                    {useRedemptionVolume ? '0' : '0%'}
+                  </span>
+                  <div className="flex flex-col items-center gap-1 pt-2 border-t border-white/5 w-full">
+                    <div className="w-3.5 h-1.5 rounded-sm border border-gray-600 flex-shrink-0" style={{ backgroundColor: '#1e293b' }}></div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
 
-        {/* === Right Column: List (Takes up 33% on large screens) === */}
+        {/* === Right Column: List === */}
         <div 
-          className="glass-panel p-4 flex flex-col w-full lg:w-1/3"
-          style={{ height: '100%', overflow: 'hidden' }}
+          className="glass-panel p-4 flex flex-col w-full"
+          style={{ 
+            height: isMobile ? '480px' : '100%', 
+            overflow: 'hidden' 
+          }}
         >
           <div className="flex flex-col gap-1 mb-2.5 flex-shrink-0">
             <div className="flex justify-between items-center">
@@ -669,7 +764,7 @@ const OpportunityView = ({ allClients }) => {
             
             <div className="flex flex-col text-secondary" style={{ fontSize: '12px', gap: '2px' }}>
               <span>
-                {selectedRegion ? `Filtrado por ${selectedRegion}:` : 'Todo el país:'} <strong>{filteredClients.length} locales</strong> {useRedemptionVolume ? 'con menor volumen' : 'sin canjes'}
+                {selectedRegion ? `Filtrado por ${formatRegionName(selectedRegion)}:` : 'Todo el país:'} <strong>{filteredClients.length} locales</strong> {useRedemptionVolume ? 'con menor volumen' : 'sin canjes'}
               </span>
               {filteredClients.length > displayClients.length && (
                 <span style={{ fontSize: '10.5px', opacity: 0.8 }}>

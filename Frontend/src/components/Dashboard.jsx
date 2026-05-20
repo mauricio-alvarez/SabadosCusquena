@@ -357,7 +357,7 @@ const Dashboard = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="main-content" style={{ overflowY: activeView === 'opportunity' ? 'hidden' : 'auto' }}>
+      <div className="main-content" style={{ overflowY: (activeView === 'opportunity' && !isMobile) ? 'hidden' : 'auto' }}>
         <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
           <div className="flex items-center gap-4">
             {isMobile && (
