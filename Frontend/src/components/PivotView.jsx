@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Download, Users, TableProperties, X } from 'lucide-react';
+import { ChevronRight, ChevronDown, Download, Users, TableProperties, X, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const LEVEL_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
@@ -20,6 +20,7 @@ const PivotView = ({ allClients, progressData }) => {
   const [selectedPath, setSelectedPath] = useState(null);
   const [detailTab, setDetailTab] = useState('activos');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: null }); // { key: 'name'|'total'|..., direction: 'asc'|'desc' }
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -115,6 +116,20 @@ const PivotView = ({ allClients, progressData }) => {
         newState[path] = true;
       }
       return newState;
+    });
+  }, []);
+
+  // Toggle sort when clicking a column header
+  const toggleSort = useCallback((key) => {
+    setSortConfig(prev => {
+      if (prev.key === key) {
+        // Toggle direction, then clear
+        if (prev.direction === 'desc') return { key, direction: 'asc' };
+        return { key: null, direction: null }; // third click clears sort
+      }
+      // Default: name → asc (A-Z), numbers → desc (biggest first)
+      const defaultDir = key === 'name' ? 'asc' : 'desc';
+      return { key, direction: defaultDir };
     });
   }, []);
 
@@ -263,13 +278,38 @@ const PivotView = ({ allClients, progressData }) => {
     XLSX.writeFile(wb, 'Tabla_Dinamica_Desempeno.xlsx');
   }, [tree, totals]);
 
-  // Flatten tree into renderable rows
+  // Flatten tree into renderable rows (with sorting at each level)
   const flatRows = useMemo(() => {
     const rows = [];
 
+    // Comparator for sorting nodes
+    const sortNodes = (nodes) => {
+      if (!sortConfig.key || !sortConfig.direction || !nodes) return nodes;
+      const sorted = [...nodes];
+      const { key, direction } = sortConfig;
+      sorted.sort((a, b) => {
+        let valA, valB;
+        if (key === 'name') {
+          valA = (a.name || '').toLowerCase();
+          valB = (b.name || '').toLowerCase();
+          return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        if (key === 'activePct' || key === 'inactivePct' || key === 'avgPerActive') {
+          valA = parseFloat(a[key]) || 0;
+          valB = parseFloat(b[key]) || 0;
+        } else {
+          valA = a[key] ?? 0;
+          valB = b[key] ?? 0;
+        }
+        return direction === 'asc' ? valA - valB : valB - valA;
+      });
+      return sorted;
+    };
+
     const walk = (nodes, parentPath = '', depth = 0, bandIdx = 0) => {
       if (!nodes) return;
-      nodes.forEach((node, idx) => {
+      const sorted = sortNodes(nodes);
+      sorted.forEach((node, idx) => {
         const path = parentPath ? `${parentPath}///${node.name}` : node.name;
         const isExpanded = !!expanded[path];
         const hasChildren = node.children && node.children.length > 0;
@@ -292,7 +332,7 @@ const PivotView = ({ allClients, progressData }) => {
 
     walk(tree);
     return rows;
-  }, [tree, expanded]);
+  }, [tree, expanded, sortConfig]);
 
   if (!allClients || allClients.length === 0) {
     return (
@@ -369,18 +409,16 @@ const PivotView = ({ allClients, progressData }) => {
             flexShrink: 0,
             minWidth: '850px',
           }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#cfa052', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Nombre
-            </div>
-            <div style={headerCellStyle}>Clientes<br/>Totales</div>
-            <div style={headerCellStyle}>Clientes<br/>Activos</div>
-            <div style={headerCellStyle}>%</div>
-            <div style={headerCellStyle}>Clientes<br/>Inactivos</div>
-            <div style={headerCellStyle}>%</div>
-            <div style={{ ...headerCellStyle, color: '#a78bfa' }}>VS SAB<br/>ACT</div>
-            <div style={headerCellStyle}>Redenc.<br/>Totales</div>
-            <div style={{ ...headerCellStyle, color: '#a78bfa' }}>VS SAB<br/>RED</div>
-            <div style={headerCellStyle}>Red Prom<br/>x Activo</div>
+            <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
+            <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label={<>Clientes<br/>Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label="%" sortKey="activePct" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label={<>Clientes<br/>Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label="%" sortKey="inactivePct" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label={<>VS SAB<br/>ACT</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+            <SortHeader label={<>Redenc.<br/>Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label={<>VS SAB<br/>RED</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+            <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
           </div>
 
           {/* Table Body (scrollable) */}
@@ -902,6 +940,49 @@ const dataCellStyle = {
   justifyContent: 'center',
   fontSize: '0.75rem',
   padding: '4px 2px',
+};
+
+// ─── SortHeader Component ───────────────────────────────────────────
+const SortHeader = ({ label, sortKey, sortConfig, onSort, isName, purple }) => {
+  const isActive = sortConfig.key === sortKey;
+  const dir = isActive ? sortConfig.direction : null;
+
+  return (
+    <div
+      onClick={() => onSort(sortKey)}
+      style={{
+        ...(isName
+          ? { fontSize: '0.7rem', fontWeight: 700, color: '#cfa052', textTransform: 'uppercase', letterSpacing: '0.05em' }
+          : { ...headerCellStyle, ...(purple ? { color: '#a78bfa' } : {}) }
+        ),
+        cursor: 'pointer',
+        userSelect: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isName ? 'flex-start' : 'center',
+        gap: '3px',
+      }}
+      title={`Ordenar por ${typeof label === 'string' ? label : sortKey}`}
+    >
+      <span style={{ lineHeight: 1.3 }}>{label}</span>
+      <span style={{
+        display: 'inline-flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0px',
+        flexShrink: 0,
+        opacity: isActive ? 1 : 0.3,
+        transition: 'opacity 0.15s',
+      }}>
+        {dir === 'asc'
+          ? <ArrowUp size={10} style={{ color: '#cfa052' }} />
+          : dir === 'desc'
+            ? <ArrowDown size={10} style={{ color: '#cfa052' }} />
+            : <ArrowDown size={9} style={{ color: '#9ca3af' }} />
+        }
+      </span>
+    </div>
+  );
 };
 
 export default PivotView;
