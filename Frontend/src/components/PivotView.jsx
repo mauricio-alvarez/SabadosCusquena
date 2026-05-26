@@ -375,9 +375,9 @@ const PivotView = ({ allClients, progressData }) => {
             <div style={headerCellStyle}>Clientes<br/>Totales</div>
             <div style={headerCellStyle}>Clientes<br/>Activos</div>
             <div style={headerCellStyle}>%</div>
-            <div style={{ ...headerCellStyle, color: '#a78bfa' }}>VS SAB<br/>ACT</div>
             <div style={headerCellStyle}>Clientes<br/>Inactivos</div>
             <div style={headerCellStyle}>%</div>
+            <div style={{ ...headerCellStyle, color: '#a78bfa' }}>VS SAB<br/>ACT</div>
             <div style={headerCellStyle}>Redenc.<br/>Totales</div>
             <div style={{ ...headerCellStyle, color: '#a78bfa' }}>VS SAB<br/>RED</div>
             <div style={headerCellStyle}>Red Prom<br/>x Activo</div>
@@ -434,6 +434,14 @@ const PivotView = ({ allClients, progressData }) => {
                   <div style={dataCellStyle}>
                     <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '0.7rem' }}>{totals.activePct}%</span>
                   </div>
+                  {/* Clientes Inactivos */}
+                  <div style={dataCellStyle}>
+                    <span style={{ color: '#f87171', fontWeight: 700, fontSize: '0.75rem' }}>{totals.inactive}</span>
+                  </div>
+                  {/* % Inactivos */}
+                  <div style={dataCellStyle}>
+                    <span style={{ color: '#f87171', fontWeight: 600, fontSize: '0.7rem' }}>{totals.inactivePct}%</span>
+                  </div>
                   {/* VS SAB ACT */}
                   <div style={dataCellStyle}>
                     <span style={{
@@ -446,14 +454,6 @@ const PivotView = ({ allClients, progressData }) => {
                         {totals.vsSabActivePct !== '∞' ? `(${totals.vsSabActivePct}%)` : '(nuevo)'}
                       </span>
                     </span>
-                  </div>
-                  {/* Clientes Inactivos */}
-                  <div style={dataCellStyle}>
-                    <span style={{ color: '#f87171', fontWeight: 700, fontSize: '0.75rem' }}>{totals.inactive}</span>
-                  </div>
-                  {/* % Inactivos */}
-                  <div style={dataCellStyle}>
-                    <span style={{ color: '#f87171', fontWeight: 600, fontSize: '0.7rem' }}>{totals.inactivePct}%</span>
                   </div>
                   {/* Redenciones Totales */}
                   <div style={dataCellStyle}>
@@ -831,6 +831,16 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
         <span style={{ color: '#4ade80', fontSize: '0.7rem' }}>{row.activePct}%</span>
       </div>
 
+      {/* Clientes Inactivos */}
+      <div style={dataCellStyle}>
+        <span style={{ color: '#f87171', fontWeight: 600 }}>{row.inactive}</span>
+      </div>
+
+      {/* % Inactivos */}
+      <div style={dataCellStyle}>
+        <span style={{ color: '#f87171', fontSize: '0.7rem' }}>{row.inactivePct}%</span>
+      </div>
+
       {/* VS SAB ACT */}
       <div style={dataCellStyle}>
         <span style={{
@@ -848,16 +858,6 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
             {row.vsSabActivePct !== '∞' ? `(${row.vsSabActivePct}%)` : '(nuevo)'}
           </span>
         </span>
-      </div>
-
-      {/* Clientes Inactivos */}
-      <div style={dataCellStyle}>
-        <span style={{ color: '#f87171', fontWeight: 600 }}>{row.inactive}</span>
-      </div>
-
-      {/* % Inactivos */}
-      <div style={dataCellStyle}>
-        <span style={{ color: '#f87171', fontSize: '0.7rem' }}>{row.inactivePct}%</span>
       </div>
 
       {/* Redenciones Totales */}

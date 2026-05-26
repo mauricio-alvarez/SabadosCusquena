@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties, ShieldCheck } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
 import RankingsView from './RankingsView';
 import OpportunityView from './OpportunityView';
 import PivotView from './PivotView';
+import CampaignView from './CampaignView';
 import DateRangePicker from './DateRangePicker';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
@@ -328,7 +329,11 @@ const Dashboard = () => {
             </button>
             <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Tabla Dinámica</span>
+              <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
+            </button>
+            <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
           </div>
         </div>
@@ -359,6 +364,10 @@ const Dashboard = () => {
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Tabla Dinámica</span>
+              </button>
+              <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+                <span className="sidebar-btn-text">Desempeño Campaña</span>
               </button>
             </div>
           </div>
@@ -507,6 +516,9 @@ const Dashboard = () => {
             )}
             {activeView === 'pivot' && (
               <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} />
+            )}
+            {activeView === 'campaign' && (
+              <CampaignView allClients={dashboardData.clients} progressData={dashboardData.progress_data} />
             )}
           </div>
         )}
