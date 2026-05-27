@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties, ShieldCheck } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties, ShieldCheck, Boxes } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -7,6 +7,7 @@ import RankingsView from './RankingsView';
 import OpportunityView from './OpportunityView';
 import PivotView from './PivotView';
 import CampaignView from './CampaignView';
+import VolumeView from './VolumeView';
 import DateRangePicker from './DateRangePicker';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
@@ -335,6 +336,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
+            <button onClick={() => setActiveView('volume')} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Boxes size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Volumen</span>
+            </button>
           </div>
         </div>
       )}
@@ -368,6 +373,10 @@ const Dashboard = () => {
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Campaña</span>
+              </button>
+              <button onClick={() => { setActiveView('volume'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Boxes size={20} /></div>
+                <span className="sidebar-btn-text">Desempeño Volumen</span>
               </button>
             </div>
           </div>
@@ -519,6 +528,9 @@ const Dashboard = () => {
             )}
             {activeView === 'campaign' && (
               <CampaignView allClients={dashboardData.clients} progressData={dashboardData.progress_data} />
+            )}
+            {activeView === 'volume' && (
+              <VolumeView allClients={dashboardData.clients} />
             )}
           </div>
         )}

@@ -243,6 +243,8 @@ const PivotView = ({ allClients, progressData }) => {
           'VS SAB RED (Abs)': node.vsSabDelta,
           'VS SAB RED (%)': node.vsSabPct,
           'Red Prom x Activo': node.avgPerActive,
+          'VS SAB PROM (Abs)': node.vsSabAvgDelta,
+          'VS SAB PROM (%)': node.vsSabAvgPct,
         });
         if (node.children) {
           flattenTree(node.children, path);
@@ -269,6 +271,8 @@ const PivotView = ({ allClients, progressData }) => {
         'VS SAB RED (Abs)': totals.vsSabDelta,
         'VS SAB RED (%)': totals.vsSabPct,
         'Red Prom x Activo': totals.avgPerActive,
+        'VS SAB PROM (Abs)': totals.vsSabAvgDelta,
+        'VS SAB PROM (%)': totals.vsSabAvgPct,
       });
     }
 
@@ -401,13 +405,13 @@ const PivotView = ({ allClients, progressData }) => {
           {/* Table Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(180px, 2fr) repeat(9, minmax(70px, 1fr))',
+            gridTemplateColumns: 'minmax(180px, 2fr) repeat(10, minmax(70px, 1fr))',
             gap: '0',
             padding: '12px 16px',
             borderBottom: '2px solid rgba(207, 160, 82, 0.3)',
             background: 'rgba(207, 160, 82, 0.06)',
             flexShrink: 0,
-            minWidth: '850px',
+            minWidth: '950px',
           }}>
             <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
             <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
@@ -415,10 +419,11 @@ const PivotView = ({ allClients, progressData }) => {
             <SortHeader label="%" sortKey="activePct" sortConfig={sortConfig} onSort={toggleSort} />
             <SortHeader label={<>Clientes<br/>Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
             <SortHeader label="%" sortKey="inactivePct" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>VS SAB<br/>ACT</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+            <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
             <SortHeader label={<>Redenc.<br/>Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>VS SAB<br/>RED</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+            <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
             <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
+            <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
           </div>
 
           {/* Table Body (scrollable) */}
@@ -428,7 +433,7 @@ const PivotView = ({ allClients, progressData }) => {
             flex: 1,
             minHeight: 0,
           }}>
-            <div style={{ minWidth: '850px' }}>
+            <div style={{ minWidth: '950px' }}>
               {flatRows.map((row) => (
                 <PivotRow
                   key={row.path}
@@ -444,7 +449,7 @@ const PivotView = ({ allClients, progressData }) => {
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(180px, 2fr) repeat(9, minmax(70px, 1fr))',
+                    gridTemplateColumns: 'minmax(180px, 2fr) repeat(10, minmax(70px, 1fr))',
                     gap: '0',
                     padding: '0 16px',
                     background: 'rgba(207, 160, 82, 0.14)',
@@ -516,6 +521,19 @@ const PivotView = ({ allClients, progressData }) => {
                   <div style={dataCellStyle}>
                     <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>
                       {totals.avgPerActive}
+                    </span>
+                  </div>
+                  {/* VS SAB PROM */}
+                  <div style={dataCellStyle}>
+                    <span style={{
+                      color: totals.vsSabAvgDelta > 0 ? '#4ade80' : totals.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
+                      fontWeight: 700,
+                      fontSize: '0.7rem',
+                    }}>
+                      {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
+                      <span style={{ fontSize: '0.6rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                        {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -730,6 +748,11 @@ function computeMetrics(clients, latestSaturday, prevSaturday) {
   const inactive = total - active;
   const totalRedemptions = currentSabCount; // Only latest Saturday
   const avgPerActive = active > 0 ? (totalRedemptions / active).toFixed(1) : '0.0';
+  const prevAvgPerActive = activeOnPrev > 0 ? (prevSabCount / activeOnPrev).toFixed(1) : '0.0';
+  const vsSabAvgDelta = (parseFloat(avgPerActive) - parseFloat(prevAvgPerActive)).toFixed(1);
+  const vsSabAvgPct = parseFloat(prevAvgPerActive) > 0
+    ? (((parseFloat(avgPerActive) - parseFloat(prevAvgPerActive)) / parseFloat(prevAvgPerActive)) * 100).toFixed(1)
+    : (parseFloat(avgPerActive) > 0 ? '∞' : '0');
   const activePct = total > 0 ? ((active / total) * 100).toFixed(0) : '0';
   const inactivePct = total > 0 ? ((inactive / total) * 100).toFixed(0) : '0';
 
@@ -759,6 +782,9 @@ function computeMetrics(clients, latestSaturday, prevSaturday) {
     activeOnPrev,
     vsSabActiveDelta,
     vsSabActivePct,
+    prevAvgPerActive,
+    vsSabAvgDelta: parseFloat(vsSabAvgDelta),
+    vsSabAvgPct,
   };
 }
 
@@ -781,7 +807,7 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(180px, 2fr) repeat(9, minmax(70px, 1fr))',
+        gridTemplateColumns: 'minmax(180px, 2fr) repeat(10, minmax(70px, 1fr))',
         gap: '0',
         padding: '0 16px',
         background: isSelected
@@ -928,6 +954,25 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
       <div style={dataCellStyle}>
         <span className="text-white" style={{ fontSize: '0.75rem' }}>
           {row.avgPerActive}
+        </span>
+      </div>
+
+      {/* VS SAB PROM */}
+      <div style={dataCellStyle}>
+        <span style={{
+          color: row.vsSabAvgDelta > 0 ? '#4ade80' : row.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+        }}>
+          {row.vsSabAvgDelta > 0 ? '+' : ''}{row.vsSabAvgDelta}
+          <span style={{ 
+            fontSize: '0.6rem', 
+            marginLeft: '2px', 
+            opacity: 0.8,
+            fontWeight: 400,
+          }}>
+            {row.vsSabAvgPct !== '∞' ? `(${row.vsSabAvgPct}%)` : '(nuevo)'}
+          </span>
         </span>
       </div>
     </div>

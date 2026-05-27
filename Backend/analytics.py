@@ -59,8 +59,22 @@ def process_dashboard_data(dynamic_file_path: str):
         'BDR': sorted([str(x) for x in df_merged['BDR'].dropna().unique()])
     }
     
+    # Fill NAs in volume columns with 0, and hierarchy/text columns with "N/A"
+    vol_cols = ['BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD']
+    for col in vol_cols:
+        if col in df_merged.columns:
+            df_merged[col] = df_merged[col].fillna(0)
+    
+    text_cols = ['direccion', 'gerencia', 'supervisor', 'BDR', 'nombre_comercial', 'Tipo']
+    for col in text_cols:
+        if col in df_merged.columns:
+            df_merged[col] = df_merged[col].fillna("N/A")
+
     # We return the raw merged data so the frontend can do arbitrary cross-filtering and aggregate
-    client_data = df_merged[['cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'redemptions', 'redemption_dates']].fillna("N/A").to_dict(orient='records')
+    client_data = df_merged[[
+        'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'redemptions', 'redemption_dates',
+        'BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD', 'Tipo'
+    ]].to_dict(orient='records')
 
     # --- Progress Over Time Calculation ---
     df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')

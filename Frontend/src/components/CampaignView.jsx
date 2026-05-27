@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Download, Users, Target, ShieldCheck } from 'lucide-react';
+import { Download, Users, Target, ShieldCheck, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const LEVEL_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
@@ -9,6 +9,14 @@ const CampaignView = ({ allClients, progressData }) => {
   const [selectedFilters, setSelectedFilters] = useState({ direccion: null, gerencia: null, supervisor: null, BDR: null });
   const [detailTab, setDetailTab] = useState('adheridos');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [tableSorts, setTableSorts] = useState({
+    direccion: { key: null, direction: null },
+    gerencia: { key: null, direction: null },
+    supervisor: { key: null, direction: null },
+    BDR: { key: null, direction: null },
+  });
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [hoveredLegend, setHoveredLegend] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -223,6 +231,22 @@ const CampaignView = ({ allClients, progressData }) => {
         }
       }
       return newFilters;
+    });
+  }, []);
+
+  // Toggle sort for a specific table level
+  const toggleTableSort = useCallback((level, key) => {
+    setTableSorts(prev => {
+      const current = prev[level];
+      let newSort;
+      if (current.key === key) {
+        if (current.direction === 'desc') newSort = { key, direction: 'asc' };
+        else newSort = { key: null, direction: null };
+      } else {
+        const defaultDir = key === 'name' ? 'asc' : 'desc';
+        newSort = { key, direction: defaultDir };
+      }
+      return { ...prev, [level]: newSort };
     });
   }, []);
 
@@ -457,23 +481,77 @@ const CampaignView = ({ allClients, progressData }) => {
     };
 
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
         <div className="flex justify-between items-center mb-1">
           <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Evolución de Categorías</span>
-          <div className="flex gap-3 text-[8.5px]">
-            <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} /> Adheridos
+          <div className="flex items-center gap-1.5 bg-black/30 border border-white/5 rounded-full px-2 py-0.5 text-[8.5px]">
+            <span
+              onMouseEnter={() => setHoveredLegend('adherido')}
+              onMouseLeave={() => setHoveredLegend(null)}
+              style={{
+                color: '#10b981',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                cursor: 'pointer',
+                padding: '1px 5px',
+                borderRadius: '9999px',
+                background: hoveredLegend === 'adherido' ? 'rgba(16, 185, 129, 0.15)' : 'transparent',
+                fontWeight: hoveredLegend === 'adherido' ? 'bold' : 'normal',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+              Adheridos
             </span>
-            <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }} /> Intermitentes
+            <span
+              onMouseEnter={() => setHoveredLegend('intermitente')}
+              onMouseLeave={() => setHoveredLegend(null)}
+              style={{
+                color: '#f59e0b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                cursor: 'pointer',
+                padding: '1px 5px',
+                borderRadius: '9999px',
+                background: hoveredLegend === 'intermitente' ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                fontWeight: hoveredLegend === 'intermitente' ? 'bold' : 'normal',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }} />
+              Intermitentes
             </span>
-            <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} /> No Adheridos
+            <span
+              onMouseEnter={() => setHoveredLegend('no_adherido')}
+              onMouseLeave={() => setHoveredLegend(null)}
+              style={{
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                cursor: 'pointer',
+                padding: '1px 5px',
+                borderRadius: '9999px',
+                background: hoveredLegend === 'no_adherido' ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                fontWeight: hoveredLegend === 'no_adherido' ? 'bold' : 'normal',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} />
+              No Adheridos
             </span>
           </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible' }}>
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <svg
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${width} ${height}`}
+            style={{ overflow: 'visible' }}
+            onMouseLeave={() => setHoveredIdx(null)}
+          >
             {/* Grid Lines */}
             {[0, 0.5, 1.0].map((pct, idx) => {
               const val = Math.round(maxVal * pct);
@@ -497,20 +575,189 @@ const CampaignView = ({ allClients, progressData }) => {
               );
             })}
 
+            {/* Vertical Guide Line on Hover */}
+            {hoveredIdx !== null && (
+              <line
+                x1={getX(hoveredIdx)}
+                y1={paddingY}
+                x2={getX(hoveredIdx)}
+                y2={height - paddingY + 4}
+                stroke="rgba(207, 160, 82, 0.4)"
+                strokeWidth="1.2"
+                strokeDasharray="2,2"
+              />
+            )}
+
             {/* Lines */}
-            <path d={getPathD('adherido')} fill="none" stroke="#10b981" strokeWidth="2" style={{ opacity: 0.8 }} />
-            <path d={getPathD('intermitente')} fill="none" stroke="#f59e0b" strokeWidth="2" style={{ opacity: 0.8 }} />
-            <path d={getPathD('no_adherido')} fill="none" stroke="#ef4444" strokeWidth="2" style={{ opacity: 0.8 }} />
+            <path
+              d={getPathD('adherido')}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth={hoveredLegend === 'adherido' ? '2.5' : '1.5'}
+              style={{
+                opacity: hoveredLegend === null || hoveredLegend === 'adherido' ? 0.95 : 0.15,
+                transition: 'opacity 0.2s, stroke-width 0.2s',
+              }}
+            />
+            <path
+              d={getPathD('intermitente')}
+              fill="none"
+              stroke="#f59e0b"
+              strokeWidth={hoveredLegend === 'intermitente' ? '2.5' : '1.5'}
+              style={{
+                opacity: hoveredLegend === null || hoveredLegend === 'intermitente' ? 0.95 : 0.15,
+                transition: 'opacity 0.2s, stroke-width 0.2s',
+              }}
+            />
+            <path
+              d={getPathD('no_adherido')}
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth={hoveredLegend === 'no_adherido' ? '2.5' : '1.5'}
+              style={{
+                opacity: hoveredLegend === null || hoveredLegend === 'no_adherido' ? 0.95 : 0.15,
+                transition: 'opacity 0.2s, stroke-width 0.2s',
+              }}
+            />
 
             {/* Dots */}
-            {evolutionData.map((d, idx) => (
-              <g key={idx}>
-                <circle cx={getX(idx)} cy={getY(d.adherido)} r="3" fill="#10b981" stroke="#0e1726" strokeWidth="0.8" />
-                <circle cx={getX(idx)} cy={getY(d.intermitente)} r="3" fill="#f59e0b" stroke="#0e1726" strokeWidth="0.8" />
-                <circle cx={getX(idx)} cy={getY(d.no_adherido)} r="3" fill="#ef4444" stroke="#0e1726" strokeWidth="0.8" />
-              </g>
-            ))}
+            {evolutionData.map((d, idx) => {
+              const isHovered = idx === hoveredIdx;
+              const radius = isHovered ? 4.5 : 2.5;
+              const strokeWidthVal = isHovered ? 1.2 : 0.8;
+              const strokeColor = isHovered ? '#ffffff' : '#0e1726';
+              return (
+                <g key={idx}>
+                  <circle
+                    cx={getX(idx)}
+                    cy={getY(d.adherido)}
+                    r={radius}
+                    fill="#10b981"
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidthVal}
+                    style={{
+                      opacity: hoveredLegend === null || hoveredLegend === 'adherido' ? 1.0 : 0.15,
+                      transition: 'r 0.1s, stroke-width 0.1s, opacity 0.2s'
+                    }}
+                  />
+                  <circle
+                    cx={getX(idx)}
+                    cy={getY(d.intermitente)}
+                    r={radius}
+                    fill="#f59e0b"
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidthVal}
+                    style={{
+                      opacity: hoveredLegend === null || hoveredLegend === 'intermitente' ? 1.0 : 0.15,
+                      transition: 'r 0.1s, stroke-width 0.1s, opacity 0.2s'
+                    }}
+                  />
+                  <circle
+                    cx={getX(idx)}
+                    cy={getY(d.no_adherido)}
+                    r={radius}
+                    fill="#ef4444"
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidthVal}
+                    style={{
+                      opacity: hoveredLegend === null || hoveredLegend === 'no_adherido' ? 1.0 : 0.15,
+                      transition: 'r 0.1s, stroke-width 0.1s, opacity 0.2s'
+                    }}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Transparent hover columns */}
+            {evolutionData.map((d, idx) => {
+              const x = getX(idx);
+              const colWidth = evolutionData.length > 1 ? chartWidth / (evolutionData.length - 1) : chartWidth;
+              const rectX = x - colWidth / 2;
+              return (
+                <rect
+                  key={idx}
+                  x={rectX}
+                  y={0}
+                  width={colWidth}
+                  height={height}
+                  fill="transparent"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseMove={() => setHoveredIdx(idx)}
+                />
+              );
+            })}
           </svg>
+
+          {/* Floating interactive tooltip */}
+          {hoveredIdx !== null && evolutionData[hoveredIdx] && (() => {
+            const d = evolutionData[hoveredIdx];
+            const total = d.adherido + d.intermitente + d.no_adherido;
+            return (
+              <div style={{
+                position: 'absolute',
+                left: `${(getX(hoveredIdx) / 500) * 100}%`,
+                top: '-5px',
+                transform: hoveredIdx < 2 
+                  ? 'translateX(5%)' 
+                  : hoveredIdx > evolutionData.length - 3 
+                    ? 'translateX(-105%)' 
+                    : 'translateX(-50%)',
+                background: 'rgba(15, 23, 42, 0.95)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(207, 160, 82, 0.35)',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                color: '#fff',
+                pointerEvents: 'none',
+                zIndex: 50,
+                minWidth: '135px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.6)',
+                transition: 'left 0.15s ease-out, transform 0.15s ease-out'
+              }}>
+                <div style={{ 
+                  fontSize: '8.5px', 
+                  fontWeight: 'bold', 
+                  borderBottom: '1px solid rgba(255,255,255,0.08)', 
+                  paddingBottom: '3px', 
+                  marginBottom: '4px', 
+                  color: '#CFA052',
+                  letterSpacing: '0.02em'
+                }}>
+                  Sábado {d.date}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5px', fontSize: '8.5px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                      <span style={{ color: '#9ca3af' }}>Adheridos:</span>
+                    </div>
+                    <span style={{ fontWeight: 'bold', color: '#10b981' }}>
+                      {d.adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '7.5px' }}>({total > 0 ? ((d.adherido / total) * 100).toFixed(0) : 0}%)</span>
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }} />
+                      <span style={{ color: '#9ca3af' }}>Intermitentes:</span>
+                    </div>
+                    <span style={{ fontWeight: 'bold', color: '#f59e0b' }}>
+                      {d.intermitente} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '7.5px' }}>({total > 0 ? ((d.intermitente / total) * 100).toFixed(0) : 0}%)</span>
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} />
+                      <span style={{ color: '#9ca3af' }}>No Adheridos:</span>
+                    </div>
+                    <span style={{ fontWeight: 'bold', color: '#ef4444' }}>
+                      {d.no_adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '7.5px' }}>({total > 0 ? ((d.no_adherido / total) * 100).toFixed(0) : 0}%)</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
@@ -531,6 +778,10 @@ const CampaignView = ({ allClients, progressData }) => {
     const tableAvg = data.length > 0
       ? (data.reduce((acc, curr) => acc + parseFloat(curr.avgPerActiveSat), 0) / data.length).toFixed(1)
       : '0.0';
+
+    // Sort data for this table
+    const sortConfig = tableSorts[level];
+    const sortedData = useMemo_sortData(data, sortConfig);
 
     return (
       <div className="glass-panel" style={{
@@ -567,12 +818,12 @@ const CampaignView = ({ allClients, progressData }) => {
           background: 'rgba(207, 160, 82, 0.03)',
           flexShrink: 0,
         }}>
-          <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#cfa052', textTransform: 'uppercase' }}>Nombre</div>
-          <div style={headerCellStyle}>Total</div>
-          <div style={{ ...headerCellStyle, color: '#10b981' }}>Adh.</div>
-          <div style={{ ...headerCellStyle, color: '#f59e0b' }}>Inter.</div>
-          <div style={{ ...headerCellStyle, color: '#ef4444' }}>No Adh.</div>
-          <div style={headerCellStyle}>Canjes</div>
+          <CampaignSortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} isName />
+          <CampaignSortHeader label="Total" sortKey="total" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} />
+          <CampaignSortHeader label="Adh." sortKey="adherido" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} colorOverride="#10b981" />
+          <CampaignSortHeader label="Inter." sortKey="intermitente" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} colorOverride="#f59e0b" />
+          <CampaignSortHeader label="No Adh." sortKey="no_adherido" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} colorOverride="#ef4444" />
+          <CampaignSortHeader label="Canjes Prom" sortKey="avgPerActiveSat" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} />
         </div>
 
         {/* Scrollable list of rows */}
@@ -582,7 +833,7 @@ const CampaignView = ({ allClients, progressData }) => {
           minHeight: 0,
           maxHeight: maxHeight,
         }}>
-          {data.map((row) => {
+          {sortedData.map((row) => {
             const isRowSelected = selectedFilters[level] === row.name;
             return (
               <div
@@ -927,6 +1178,72 @@ const dataCellStyle = {
   justifyContent: 'center',
   fontSize: '0.72rem',
   padding: '3px 1px',
+};
+
+// Helper to sort table data (used inside renderLevelTable)
+function useMemo_sortData(data, sortConfig) {
+  if (!sortConfig || !sortConfig.key || !sortConfig.direction) return data;
+  const sorted = [...data];
+  const { key, direction } = sortConfig;
+  sorted.sort((a, b) => {
+    if (key === 'name') {
+      const va = (a.name || '').toLowerCase();
+      const vb = (b.name || '').toLowerCase();
+      return direction === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    // For percentage-based sorting, use the numeric count (adherido, intermitente, no_adherido)
+    // For avgPerActiveSat, parse as float
+    let va, vb;
+    if (key === 'avgPerActiveSat') {
+      va = parseFloat(a[key]) || 0;
+      vb = parseFloat(b[key]) || 0;
+    } else {
+      va = a[key] ?? 0;
+      vb = b[key] ?? 0;
+    }
+    return direction === 'asc' ? va - vb : vb - va;
+  });
+  return sorted;
+}
+
+// ─── CampaignSortHeader Component ───────────────────────────────────
+const CampaignSortHeader = ({ label, sortKey, sortConfig, onSort, isName, colorOverride }) => {
+  const isActive = sortConfig.key === sortKey;
+  const dir = isActive ? sortConfig.direction : null;
+
+  return (
+    <div
+      onClick={() => onSort(sortKey)}
+      style={{
+        ...(isName
+          ? { fontSize: '0.62rem', fontWeight: 700, color: '#cfa052', textTransform: 'uppercase' }
+          : { ...headerCellStyle, ...(colorOverride ? { color: colorOverride } : {}) }
+        ),
+        cursor: 'pointer',
+        userSelect: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isName ? 'flex-start' : 'center',
+        gap: '2px',
+      }}
+      title={`Ordenar por ${label}`}
+    >
+      <span>{label}</span>
+      <span style={{
+        display: 'inline-flex',
+        flexShrink: 0,
+        opacity: isActive ? 1 : 0.25,
+        transition: 'opacity 0.15s',
+      }}>
+        {dir === 'asc'
+          ? <ArrowUp size={9} style={{ color: '#cfa052' }} />
+          : dir === 'desc'
+            ? <ArrowDown size={9} style={{ color: '#cfa052' }} />
+            : <ArrowDown size={8} style={{ color: '#9ca3af' }} />
+        }
+      </span>
+    </div>
+  );
 };
 
 export default CampaignView;
