@@ -17,6 +17,7 @@ const CampaignView = ({ allClients, progressData }) => {
   });
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [hoveredLegend, setHoveredLegend] = useState(null);
+  const [tooltipLeft, setTooltipLeft] = useState(0);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -544,7 +545,7 @@ const CampaignView = ({ allClients, progressData }) => {
             </span>
           </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div className="relative-chart-container" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <svg
             width="100%"
             height="100%"
@@ -682,22 +683,38 @@ const CampaignView = ({ allClients, progressData }) => {
                   height={height}
                   fill="transparent"
                   style={{ cursor: 'pointer' }}
-                  onMouseEnter={() => setHoveredIdx(idx)}
-                  onMouseMove={() => setHoveredIdx(idx)}
+                  onMouseEnter={(e) => {
+                    setHoveredIdx(idx);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const container = e.currentTarget.closest('.relative-chart-container');
+                    if (container) {
+                      const containerRect = container.getBoundingClientRect();
+                      setTooltipLeft((rect.left + rect.width / 2) - containerRect.left);
+                    }
+                  }}
+                  onMouseMove={(e) => {
+                    setHoveredIdx(idx);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const container = e.currentTarget.closest('.relative-chart-container');
+                    if (container) {
+                      const containerRect = container.getBoundingClientRect();
+                      setTooltipLeft((rect.left + rect.width / 2) - containerRect.left);
+                    }
+                  }}
                 />
               );
             })}
           </svg>
 
-          {/* Floating interactive tooltip */}
+          {/* Floating interactive tooltip (HTML format for sharp text readability) */}
           {hoveredIdx !== null && evolutionData[hoveredIdx] && (() => {
             const d = evolutionData[hoveredIdx];
             const total = d.adherido + d.intermitente + d.no_adherido;
             return (
               <div style={{
                 position: 'absolute',
-                left: `${(getX(hoveredIdx) / 500) * 100}%`,
-                top: '-5px',
+                left: `${tooltipLeft}px`,
+                top: '-15px',
                 transform: hoveredIdx < 2 
                   ? 'translateX(5%)' 
                   : hoveredIdx > evolutionData.length - 3 
@@ -707,51 +724,51 @@ const CampaignView = ({ allClients, progressData }) => {
                 backdropFilter: 'blur(8px)',
                 border: '1px solid rgba(207, 160, 82, 0.35)',
                 borderRadius: '6px',
-                padding: '6px 10px',
+                padding: '8px 12px',
                 color: '#fff',
                 pointerEvents: 'none',
                 zIndex: 50,
-                minWidth: '135px',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.6)',
-                transition: 'left 0.15s ease-out, transform 0.15s ease-out'
+                minWidth: '150px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+                transition: 'left 0.1s ease-out, transform 0.1s ease-out'
               }}>
                 <div style={{ 
-                  fontSize: '8.5px', 
+                  fontSize: '10.5px', 
                   fontWeight: 'bold', 
                   borderBottom: '1px solid rgba(255,255,255,0.08)', 
-                  paddingBottom: '3px', 
-                  marginBottom: '4px', 
+                  paddingBottom: '4px', 
+                  marginBottom: '6px', 
                   color: '#CFA052',
                   letterSpacing: '0.02em'
                 }}>
                   Sábado {d.date}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5px', fontSize: '8.5px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '9.5px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
                       <span style={{ color: '#9ca3af' }}>Adheridos:</span>
                     </div>
                     <span style={{ fontWeight: 'bold', color: '#10b981' }}>
-                      {d.adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '7.5px' }}>({total > 0 ? ((d.adherido / total) * 100).toFixed(0) : 0}%)</span>
+                      {d.adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.adherido / total) * 100).toFixed(0) : 0}%)</span>
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
                       <span style={{ color: '#9ca3af' }}>Intermitentes:</span>
                     </div>
                     <span style={{ fontWeight: 'bold', color: '#f59e0b' }}>
-                      {d.intermitente} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '7.5px' }}>({total > 0 ? ((d.intermitente / total) * 100).toFixed(0) : 0}%)</span>
+                      {d.intermitente} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.intermitente / total) * 100).toFixed(0) : 0}%)</span>
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#ef4444' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
                       <span style={{ color: '#9ca3af' }}>No Adheridos:</span>
                     </div>
                     <span style={{ fontWeight: 'bold', color: '#ef4444' }}>
-                      {d.no_adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '7.5px' }}>({total > 0 ? ((d.no_adherido / total) * 100).toFixed(0) : 0}%)</span>
+                      {d.no_adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.no_adherido / total) * 100).toFixed(0) : 0}%)</span>
                     </span>
                   </div>
                 </div>
