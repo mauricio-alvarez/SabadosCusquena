@@ -852,7 +852,7 @@ function computeMetrics(clients) {
 
   const calcVar = (mtd, lm) => {
     if (lm === 0) return mtd > 0 ? Infinity : 0;
-    return (mtd - lm) / lm;
+    return (mtd - lm) / Math.abs(lm);
   };
 
   const varBeer = calcVar(beerMTD, beerLM);
