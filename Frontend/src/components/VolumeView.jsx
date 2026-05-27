@@ -5,6 +5,13 @@ import * as XLSX from 'xlsx';
 const LEVEL_KEYS = ['Tipo', 'direccion', 'gerencia', 'supervisor', 'BDR'];
 const LEVEL_LABELS = ['Categoría', 'Dirección', 'Gerencia', 'Supervisor', 'BDR'];
 
+const formatCategoryName = (name) => {
+  if (name === 'ADH') return 'Adherido';
+  if (name === 'INT') return 'Intermitente';
+  if (name === 'NO ADH') return 'No Adherido';
+  return name;
+};
+
 const BAND_COLORS = [
   'rgba(76, 175, 80, 0.07)',   // green tint
   'rgba(79, 195, 247, 0.07)',  // blue tint  
@@ -187,10 +194,11 @@ const VolumeView = ({ allClients }) => {
     const flattenTree = (nodes, parentPath = '') => {
       if (!nodes) return;
       nodes.forEach(node => {
-        const path = parentPath ? `${parentPath} > ${node.name}` : node.name;
+        const displayName = node.level === 0 ? formatCategoryName(node.name) : node.name;
+        const path = parentPath ? `${parentPath} > ${displayName}` : displayName;
         rows.push({
           'Nivel': LEVEL_LABELS[node.level],
-          'Nombre': node.name,
+          'Nombre': displayName,
           'Ruta': path,
           'Suma de BEER LM': Math.round(node.beerLM),
           'Suma de BEER MTD': Math.round(node.beerMTD),
@@ -244,7 +252,7 @@ const VolumeView = ({ allClients }) => {
     const rows = selectedClients.map(c => ({
       'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
-      'Categoría (Tipo)': c.Tipo,
+      'Categoría (Tipo)': formatCategoryName(c.Tipo),
       'Dirección': c.direccion,
       'Gerencia': c.gerencia,
       'Supervisor': c.supervisor,
@@ -516,7 +524,9 @@ const VolumeView = ({ allClients }) => {
             whiteSpace: 'nowrap',
           }}>
             {selectedPath ? (
-              <span>Filtro: <span className="text-white font-semibold">{selectedPath.replace(/\/\/\//g, ' > ')}</span></span>
+              <span>Filtro: <span className="text-white font-semibold">
+                {selectedPath.split('///').map((part, idx) => idx === 0 ? formatCategoryName(part) : part).join(' > ')}
+              </span></span>
             ) : (
               <span>Mostrando todos los locales del canal</span>
             )}
@@ -548,7 +558,7 @@ const VolumeView = ({ allClients }) => {
           {/* Small Table Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1.2fr 0.6fr repeat(3, 0.7fr)',
+            gridTemplateColumns: '1.0fr 0.9fr repeat(3, 0.67fr)',
             gap: '4px',
             padding: '6px 12px',
             borderBottom: '1px solid rgba(207, 160, 82, 0.2)',
@@ -589,7 +599,7 @@ const VolumeView = ({ allClients }) => {
                 key={c.cliente_id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1.2fr 0.6fr repeat(3, 0.7fr)',
+                  gridTemplateColumns: '1.0fr 0.9fr repeat(3, 0.67fr)',
                   gap: '4px',
                   padding: '6px 12px',
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
@@ -610,7 +620,7 @@ const VolumeView = ({ allClients }) => {
                     background: c.Tipo === 'ADH' ? 'rgba(16, 185, 129, 0.15)' : c.Tipo === 'INT' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                     color: c.Tipo === 'ADH' ? '#10b981' : c.Tipo === 'INT' ? '#f59e0b' : '#ef4444',
                   }}>
-                    {c.Tipo}
+                    {formatCategoryName(c.Tipo)}
                   </span>
                 </div>
                 <div style={{ textAlign: 'right', fontWeight: 600, color: '#f3f4f6' }}>{formatNum(c['BEER MTD'] || 0)}</div>
@@ -782,9 +792,9 @@ const VolumePivotRow = ({ row, isSelected, onToggle, onSelect }) => {
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
-          title={row.name}
+          title={row.depth === 0 ? formatCategoryName(row.name) : row.name}
         >
-          {row.name}
+          {row.depth === 0 ? formatCategoryName(row.name) : row.name}
         </span>
         <span className="text-secondary" style={{
           fontSize: '0.55rem',
