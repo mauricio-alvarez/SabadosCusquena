@@ -261,11 +261,11 @@ const Dashboard = () => {
   }, [filteredClients, filters]);
 
   const renderControls = () => (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        alignItems: isMobile ? 'stretch' : 'center',
+    <div 
+      style={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row', 
+        alignItems: isMobile ? 'stretch' : 'center', 
         gap: '12px',
         marginLeft: isMobile ? '0' : 'auto',
         width: isMobile ? '100%' : 'auto',
@@ -282,9 +282,9 @@ const Dashboard = () => {
       <button
         onClick={() => setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All' })}
         className="btn-secondary"
-        style={{
-          padding: isMobile ? '10px 14px' : '6px 14px',
-          fontSize: '0.85rem',
+        style={{ 
+          padding: isMobile ? '10px 14px' : '6px 14px', 
+          fontSize: '0.85rem', 
           flexShrink: 0,
           width: isMobile ? '100%' : 'auto'
         }}
@@ -316,12 +316,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
               <span className="sidebar-btn-text">Análisis General</span>
             </button>
-
             <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
             </button>
-
           </div>
         </div>
       )}
@@ -336,30 +334,13 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
                 <span className="sidebar-btn-text">Análisis General</span>
               </button>
-              <button onClick={() => { setActiveView('progress'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
-                <span className="sidebar-btn-text">Progreso en el Tiempo</span>
-              </button>
-              <button onClick={() => { setActiveView('rankings'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><Trophy size={20} /></div>
-                <span className="sidebar-btn-text">Rankings</span>
-              </button>
-              <button onClick={() => { setActiveView('opportunity'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'opportunity' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><Target size={20} /></div>
-                <span className="sidebar-btn-text">Oportunidades</span>
-              </button>
+              
+              
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Tabla Dinámica</span>
+                <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
               </button>
-              <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Campaña</span>
-              </button>
-              <button onClick={() => { setActiveView('volume'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><Boxes size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Volumen</span>
-              </button>
+              
             </div>
           </div>
         </div>
@@ -427,8 +408,8 @@ const Dashboard = () => {
             {activeView === 'general' && (
               <div className="glass-panel p-4 mb-4 flex-shrink-0" style={{ position: 'relative', zIndex: 100 }}>
                 {/* Header row containing title and mobile toggle button */}
-                <div
-                  style={{
+                <div 
+                  style={{ 
                     borderBottom: (!isMobile || showFiltersMobile) ? '1px solid var(--glass-border)' : 'none',
                     display: 'flex',
                     flexDirection: 'row',
@@ -438,8 +419,8 @@ const Dashboard = () => {
                     marginBottom: (!isMobile || showFiltersMobile) ? '12px' : '0px'
                   }}
                 >
-                  <div
-                    className="flex items-center justify-between select-none"
+                  <div 
+                    className="flex items-center justify-between select-none" 
                     onClick={() => isMobile && setShowFiltersMobile(prev => !prev)}
                     style={{ width: isMobile ? '100%' : 'auto', cursor: isMobile ? 'pointer' : 'default' }}
                   >
@@ -448,15 +429,15 @@ const Dashboard = () => {
                       <h3 className="text-gold font-bold text-lg">Filtros Activos</h3>
                     </div>
                     {isMobile && (
-                      <button
-                        className="btn-secondary"
+                      <button 
+                        className="btn-secondary" 
                         style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '8px' }}
                       >
                         {showFiltersMobile ? 'Ocultar' : 'Mostrar'}
                       </button>
                     )}
                   </div>
-
+                  
                   {/* On Desktop, render controls in the header row on the right */}
                   {!isMobile && renderControls()}
                 </div>

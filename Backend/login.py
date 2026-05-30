@@ -1,7 +1,7 @@
 import os
 import shutil
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from dotenv import dotenv_values, load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -187,7 +187,7 @@ def run_report_extraction():
             time.sleep(0.5)
             
             print("Navigating calendar to current month...")
-            current_date = datetime.now()
+            current_date = datetime.now(timezone(timedelta(hours=-5)))
             month_names = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
             current_text = f"{month_names[current_date.month-1]} {current_date.year}"
             

@@ -49,6 +49,25 @@ def _parse_report_timestamp(file_path):
     match = REPORT_NAME_RE.search(os.path.basename(file_path))
     if match:
         dt = datetime.strptime(f"{match.group(1)} {match.group(2)}", "%d-%m-%Y %H-%M-%S")
+        
+        # Verify if the file modification time matches the filename timestamp
+        # when both are mapped to UTC. This detects if the filename was generated
+        # in the VM's local timezone (e.g. UTC) during execution.
+        try:
+            mtime_utc = datetime.fromtimestamp(os.path.getmtime(file_path), tz=timezone.utc)
+            mtime_naive_utc = mtime_utc.replace(tzinfo=None)
+            
+            vm_tz = datetime.now().astimezone().tzinfo
+            dt_vm = dt.replace(tzinfo=vm_tz)
+            dt_vm_utc = dt_vm.astimezone(timezone.utc).replace(tzinfo=None)
+            
+            # If downloaded within 15 minutes of the file timestamp, translate VM timezone to Lima
+            if abs((mtime_naive_utc - dt_vm_utc).total_seconds()) < 900:
+                return dt_vm.astimezone(lima_tz)
+        except Exception:
+            pass
+            
+        # Default fallback for git committed files: assume filename is already Lima timezone
         return dt.replace(tzinfo=lima_tz)
     
     dt_utc = datetime.fromtimestamp(os.path.getmtime(file_path), tz=timezone.utc)
@@ -142,7 +161,7 @@ def get_latest_report():
 
 @app.post("/api/refresh-report")
 def refresh_report():
-    try:
+    """try:
         latest_report = _latest_report()
         if latest_report["is_recent"]:
             return {
@@ -153,7 +172,7 @@ def refresh_report():
             }
     except HTTPException as error:
         if error.status_code != 404:
-            raise
+            raise"""
 
     try:
         file_path = login.run_report_extraction()
