@@ -608,8 +608,8 @@ const VolumeView = ({ allClients }) => {
                   alignItems: 'center',
                 }}
               >
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#fff' }} title={c.nombre_comercial}>
-                  {c.nombre_comercial}
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#fff' }} title={`${c.nombre_comercial} (${c.cliente_id})`}>
+                  {c.nombre_comercial} - {c.cliente_id}
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <span style={{

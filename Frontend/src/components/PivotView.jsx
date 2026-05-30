@@ -220,6 +220,7 @@ const PivotView = ({ allClients, progressData }) => {
     };
 
     const activeRows = activeClients.map(c => ({
+      'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
       'Dirección': c.direccion,
       'Gerencia': c.gerencia,
@@ -229,6 +230,7 @@ const PivotView = ({ allClients, progressData }) => {
     }));
     
     const inactiveRows = inactiveClients.map(c => ({
+      'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
       'Dirección': c.direccion,
       'Gerencia': c.gerencia,
@@ -707,8 +709,8 @@ const PivotView = ({ allClients, progressData }) => {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     maxWidth: '75%',
-                  }} title={c.nombre_comercial}>
-                    {c.nombre_comercial}
+                  }} title={`${c.nombre_comercial} (${c.cliente_id})`}>
+                    {c.cliente_id} - {c.nombre_comercial} 
                   </span>
                   <span className="text-gold font-bold" style={{ fontSize: '0.75rem', flexShrink: 0 }}>
                     {getClientRedemptions(c)}

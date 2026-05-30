@@ -256,6 +256,7 @@ const CampaignView = ({ allClients, progressData }) => {
     const wb = XLSX.utils.book_new();
 
     const activeRows = detailClients.adheridos.map(c => ({
+      'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
       'Dirección': c.direccion,
       'Gerencia': c.gerencia,
@@ -267,6 +268,7 @@ const CampaignView = ({ allClients, progressData }) => {
     }));
 
     const interRows = detailClients.intermitentes.map(c => ({
+      'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
       'Dirección': c.direccion,
       'Gerencia': c.gerencia,
@@ -278,6 +280,7 @@ const CampaignView = ({ allClients, progressData }) => {
     }));
 
     const noRows = detailClients.no_adheridos.map(c => ({
+      'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
       'Dirección': c.direccion,
       'Gerencia': c.gerencia,
@@ -1036,8 +1039,8 @@ const CampaignView = ({ allClients, progressData }) => {
                   gap: '8px',
                 }}
               >
-                <span className="text-white truncate" style={{ fontSize: '0.72rem', fontWeight: 500 }} title={c.nombre_comercial}>
-                  {c.nombre_comercial}
+                <span className="text-white truncate" style={{ fontSize: '0.72rem', fontWeight: 500 }} title={`${c.nombre_comercial} (${c.cliente_id})`}>
+                  {c.nombre_comercial} - {c.cliente_id}
                 </span>
                 <span className="text-secondary" style={{ fontSize: '0.62rem', flexShrink: 0, opacity: 0.8 }}>
                   {clientClassifications[c.cliente_id]?.aboveCount || 0}/{saturdays.length} Sáb
