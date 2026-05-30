@@ -160,6 +160,13 @@ const PivotView = ({ allClients, progressData }) => {
     return foundClients;
   }, [selectedPath, tree, allClients]);
 
+  const getClientRedemptions = useCallback((c) => {
+    if (!latestSaturday || !c.redemption_dates || !Array.isArray(c.redemption_dates)) {
+      return c.redemptions || 0;
+    }
+    return c.redemption_dates.filter(d => d === latestSaturday).length;
+  }, [latestSaturday]);
+
   // Active/Inactive based on latest Saturday only
   const activeClients = useMemo(() => {
     if (!latestSaturday) return selectedClients.filter(c => c.redemptions > 0);
@@ -177,7 +184,29 @@ const PivotView = ({ allClients, progressData }) => {
     });
   }, [selectedClients, latestSaturday]);
 
-  const displayClients = detailTab === 'activos' ? activeClients : inactiveClients;
+  const activeClientsSorted = useMemo(() => {
+    const sorted = [...activeClients];
+    sorted.sort((a, b) => {
+      const redA = getClientRedemptions(a);
+      const redB = getClientRedemptions(b);
+      if (redB !== redA) return redB - redA;
+      return String(a.nombre_comercial || '').localeCompare(String(b.nombre_comercial || ''));
+    });
+    return sorted;
+  }, [activeClients, getClientRedemptions]);
+
+  const inactiveClientsSorted = useMemo(() => {
+    const sorted = [...inactiveClients];
+    sorted.sort((a, b) => {
+      const redA = a.redemptions || 0;
+      const redB = b.redemptions || 0;
+      if (redB !== redA) return redB - redA;
+      return String(a.nombre_comercial || '').localeCompare(String(b.nombre_comercial || ''));
+    });
+    return sorted;
+  }, [inactiveClients]);
+
+  const displayClients = detailTab === 'activos' ? activeClientsSorted : inactiveClientsSorted;
   const displayLimit = 20;
   const visibleClients = displayClients.slice(0, displayLimit);
 
@@ -376,14 +405,7 @@ const PivotView = ({ allClients, progressData }) => {
             )}
           </div>
         </div>
-        <button
-          onClick={downloadPivotTable}
-          className="btn-gold"
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', fontSize: '0.8rem' }}
-        >
-          <Download size={16} />
-          Descargar Tabla
-        </button>
+        
       </div>
 
       {/* Main content: Table + Detail panel */}
@@ -402,54 +424,55 @@ const PivotView = ({ allClients, progressData }) => {
           display: 'flex',
           flexDirection: 'column',
         }}>
-          {/* Table Header */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(180px, 2fr) repeat(10, minmax(70px, 1fr))',
-            gap: '0',
-            padding: '12px 16px',
-            borderBottom: '2px solid rgba(207, 160, 82, 0.3)',
-            background: 'rgba(207, 160, 82, 0.06)',
-            flexShrink: 0,
-            minWidth: '950px',
-          }}>
-            <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
-            <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>Clientes<br/>Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label="%" sortKey="activePct" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>Clientes<br/>Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label="%" sortKey="inactivePct" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-            <SortHeader label={<>Redenc.<br/>Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-            <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
-            <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-          </div>
-
-          {/* Table Body (scrollable) */}
+          {/* Scroll wrapper for horizontal overflow */}
           <div style={{
             overflowX: 'auto',
-            overflowY: 'auto',
             flex: 1,
             minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
           }}>
-            <div style={{ minWidth: '950px' }}>
-              {flatRows.map((row) => (
-                <PivotRow
-                  key={row.path}
-                  row={row}
-                  isSelected={selectedPath === row.path}
-                  onToggle={() => toggleRow(row.path)}
-                  onSelect={() => selectRow(row.path, row.clients)}
-                />
-              ))}
+            <div style={{ minWidth: '950px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
+                gap: '0',
+                padding: '12px 16px',
+                borderBottom: '2px solid rgba(207, 160, 82, 0.3)',
+                background: 'rgba(207, 160, 82, 0.06)',
+                flexShrink: 0,
+              }}>
+                <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
+                <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Clientes<br/>Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Clientes<br/>Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Redenc.<br/>Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+              </div>
 
-              {/* TOTAL ROW */}
+              {/* Table Body - vertical scrolling only */}
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                {flatRows.map((row) => (
+                  <PivotRow
+                    key={row.path}
+                    row={row}
+                    isSelected={selectedPath === row.path}
+                    onToggle={() => toggleRow(row.path)}
+                    onSelect={() => selectRow(row.path, row.clients)}
+                  />
+                ))}
+              </div>
+
+              {/* Grand Total row - fixed vertically at bottom, scrolls horizontally */}
               {totals && (
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(180px, 2fr) repeat(10, minmax(70px, 1fr))',
+                    gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
                     gap: '0',
                     padding: '0 16px',
                     background: 'rgba(207, 160, 82, 0.14)',
@@ -457,9 +480,7 @@ const PivotView = ({ allClients, progressData }) => {
                     borderBottom: '2px solid rgba(207, 160, 82, 0.4)',
                     minHeight: '40px',
                     alignItems: 'center',
-                    position: 'sticky',
-                    bottom: 0,
-                    zIndex: 10,
+                    flexShrink: 0,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', paddingLeft: '4px' }}>
@@ -471,19 +492,17 @@ const PivotView = ({ allClients, progressData }) => {
                   </div>
                   {/* Clientes Activos */}
                   <div style={dataCellStyle}>
-                    <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem' }}>{totals.active}</span>
-                  </div>
-                  {/* % Activos */}
-                  <div style={dataCellStyle}>
-                    <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '0.7rem' }}>{totals.activePct}%</span>
+                    <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      {totals.active}
+                      <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.activePct}%)</span>
+                    </span>
                   </div>
                   {/* Clientes Inactivos */}
                   <div style={dataCellStyle}>
-                    <span style={{ color: '#f87171', fontWeight: 700, fontSize: '0.75rem' }}>{totals.inactive}</span>
-                  </div>
-                  {/* % Inactivos */}
-                  <div style={dataCellStyle}>
-                    <span style={{ color: '#f87171', fontWeight: 600, fontSize: '0.7rem' }}>{totals.inactivePct}%</span>
+                    <span style={{ color: '#f87171', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      {totals.inactive}
+                      <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.inactivePct}%)</span>
+                    </span>
                   </div>
                   {/* VS SAB ACT */}
                   <div style={dataCellStyle}>
@@ -493,7 +512,7 @@ const PivotView = ({ allClients, progressData }) => {
                       fontSize: '0.7rem',
                     }}>
                       {totals.vsSabActiveDelta > 0 ? '+' : ''}{totals.vsSabActiveDelta}
-                      <span style={{ fontSize: '0.6rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
                         {totals.vsSabActivePct !== '∞' ? `(${totals.vsSabActivePct}%)` : '(nuevo)'}
                       </span>
                     </span>
@@ -512,7 +531,7 @@ const PivotView = ({ allClients, progressData }) => {
                       fontSize: '0.7rem',
                     }}>
                       {totals.vsSabDelta > 0 ? '+' : ''}{totals.vsSabDelta}
-                      <span style={{ fontSize: '0.6rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
                         {totals.vsSabPct !== '∞' ? `(${totals.vsSabPct}%)` : '(nuevo)'}
                       </span>
                     </span>
@@ -531,7 +550,7 @@ const PivotView = ({ allClients, progressData }) => {
                       fontSize: '0.7rem',
                     }}>
                       {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
-                      <span style={{ fontSize: '0.6rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
                         {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
                       </span>
                     </span>
@@ -637,6 +656,24 @@ const PivotView = ({ allClients, progressData }) => {
             </button>
           </div>
 
+          {/* Header for client list */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: '6px 16px',
+            borderBottom: '1px solid rgba(207, 160, 82, 0.2)',
+            background: 'rgba(207, 160, 82, 0.02)',
+            fontSize: '0.65rem',
+            fontWeight: 700,
+            color: '#9ca3af',
+            textTransform: 'uppercase',
+            letterSpacing: '0.02em',
+            flexShrink: 0,
+          }}>
+            <span>Cliente</span>
+            <span>Redenciones</span>
+          </div>
+
           {/* Client List */}
           <div style={{
             flex: 1,
@@ -669,17 +706,13 @@ const PivotView = ({ allClients, progressData }) => {
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    maxWidth: '70%',
+                    maxWidth: '75%',
                   }} title={c.nombre_comercial}>
                     {c.nombre_comercial}
                   </span>
-                  {detailTab === 'activos' && (
-                    <span className="text-gold font-bold" style={{ fontSize: '0.75rem', flexShrink: 0 }}>
-                      {latestSaturday && c.redemption_dates
-                        ? c.redemption_dates.filter(d => d === latestSaturday).length
-                        : c.redemptions}
-                    </span>
-                  )}
+                  <span className="text-gold font-bold" style={{ fontSize: '0.75rem', flexShrink: 0 }}>
+                    {getClientRedemptions(c)}
+                  </span>
                 </div>
               ))
             )}
@@ -807,7 +840,7 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(180px, 2fr) repeat(10, minmax(70px, 1fr))',
+        gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
         gap: '0',
         padding: '0 16px',
         background: isSelected
@@ -887,22 +920,18 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
 
       {/* Clientes Activos */}
       <div style={dataCellStyle}>
-        <span style={{ color: '#4ade80', fontWeight: 600 }}>{row.active}</span>
-      </div>
-
-      {/* % Activos */}
-      <div style={dataCellStyle}>
-        <span style={{ color: '#4ade80', fontSize: '0.7rem' }}>{row.activePct}%</span>
+        <span style={{ color: '#4ade80', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+          {row.active}
+          <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({row.activePct}%)</span>
+        </span>
       </div>
 
       {/* Clientes Inactivos */}
       <div style={dataCellStyle}>
-        <span style={{ color: '#f87171', fontWeight: 600 }}>{row.inactive}</span>
-      </div>
-
-      {/* % Inactivos */}
-      <div style={dataCellStyle}>
-        <span style={{ color: '#f87171', fontSize: '0.7rem' }}>{row.inactivePct}%</span>
+        <span style={{ color: '#f87171', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+          {row.inactive}
+          <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({row.inactivePct}%)</span>
+        </span>
       </div>
 
       {/* VS SAB ACT */}

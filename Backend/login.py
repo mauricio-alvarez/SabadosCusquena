@@ -159,24 +159,15 @@ def run_report_extraction():
                 except:
                     return False
 
-            def click_day_in_month(month_text, day_num):
-                # We look for the day button that is chronologically after the month title
-                # We try a few generic patterns used by React date pickers
-                xpath1 = f"(//*[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{month_text}']/ancestor::div[1]/following-sibling::table//button[(text()='{day_num}' or .//span[text()='{day_num}']) and not(contains(@class, 'outside'))])[1]"
-                xpath2 = f"(//*[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{month_text}']/following::table[1]//button[(text()='{day_num}' or .//span[text()='{day_num}']) and not(contains(@class, 'outside'))])[1]"
-                
+            def click_data_day(day, month, year):
+                xpath = f"//button[@data-day='{day}/{month}/{year}']"
                 try:
-                    btn = driver.find_element(By.XPATH, xpath1)
+                    btn = driver.find_element(By.XPATH, xpath)
                     btn.click()
                     return True
-                except:
-                    try:
-                        btn = driver.find_element(By.XPATH, xpath2)
-                        btn.click()
-                        return True
-                    except Exception as e:
-                        print(f"Could not click day {day_num} in {month_text}: {e}")
-                        return False
+                except Exception as e:
+                    print(f"Could not click data-day {day}/{month}/{year}: {e}")
+                    return False
                 
             print("Navigating calendar to target start date (mayo 2026)...")
             target_text = "mayo 2026"
@@ -191,8 +182,8 @@ def run_report_extraction():
                 except:
                     break
                 
-            print(f"Found month {target_text}, clicking day 7...")
-            click_day_in_month(target_text, 7)
+            print("Clicking start date May 7, 2026...")
+            click_data_day(7, 5, 2026)
             time.sleep(0.5)
             
             print("Navigating calendar to current month...")
@@ -210,8 +201,8 @@ def run_report_extraction():
                 except:
                     break
                 
-            print(f"Found current month {current_text}, clicking day {current_date.day}...")
-            click_day_in_month(current_text, current_date.day)
+            print(f"Clicking end date {current_date.day}/{current_date.month}/{current_date.year}...")
+            click_data_day(current_date.day, current_date.month, current_date.year)
             time.sleep(0.5)
             
             # Press escape to close the popover just in case it blocks the export button

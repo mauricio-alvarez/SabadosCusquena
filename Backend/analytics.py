@@ -1,14 +1,14 @@
 import pandas as pd
 import os
 
-FIXED_FILE_PATH = os.path.join(os.path.dirname(__file__), "downloads", "Reposiciones Sabados Cusqueña 2026.xlsb")
+FIXED_FILE_PATH = os.path.join(os.path.dirname(__file__), "downloads", "Reposiciones Sabados Cusqueña 2026_act.xlsb")
 
 def process_dashboard_data(dynamic_file_path: str):
     if not os.path.exists(dynamic_file_path):
         raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
 
     # Load fixed db
-    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Clientes', engine='pyxlsb')
+    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Actualizada', engine='pyxlsb')
     df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     
     # Load dynamic db
@@ -50,6 +50,42 @@ def process_dashboard_data(dynamic_file_path: str):
         low_performers = len(df_merged[(df_merged['redemptions'] > 0) & (df_merged['redemptions'] <= q1)])
     else:
         low_performers = 0
+    # Dynamic 'Tipo' classification for each client based on Saturdays Q1 performance
+    df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
+    df_sats = df_dyn[df_dyn['Fecha_dt'].dt.dayofweek == 5]
+    saturdays_list = sorted(df_sats['Fecha'].dropna().unique(), key=lambda x: pd.to_datetime(x, format='%d/%m/%Y'))
+    
+    sat_q1 = {}
+    for sat in saturdays_list:
+        df_sat = df_sats[df_sats['Fecha'] == sat]
+        counts = df_sat.groupby(ref_col).size().tolist()
+        if counts:
+            sat_q1[sat] = pd.Series(counts).quantile(0.25)
+        else:
+            sat_q1[sat] = 0
+            
+    client_sat_counts = df_sats.groupby([ref_col, 'Fecha']).size().reset_index(name='count')
+    client_above_q1 = {}
+    for _, r_row in client_sat_counts.iterrows():
+        c_id = str(r_row[ref_col]).replace('.0', '')
+        sat = r_row['Fecha']
+        count = r_row['count']
+        q1 = sat_q1.get(sat, 0)
+        if count > q1:
+            client_above_q1[c_id] = client_above_q1.get(c_id, 0) + 1
+            
+    num_sats = len(saturdays_list)
+    def get_client_type(c_id):
+        above_count = client_above_q1.get(c_id, 0)
+        ratio = above_count / num_sats if num_sats > 0 else 0
+        if ratio >= 0.75:
+            return 'ADH'
+        elif ratio >= 0.25:
+            return 'INT'
+        else:
+            return 'NO ADH'
+            
+    df_merged['Tipo'] = df_merged['cliente_id'].apply(get_client_type)
 
     # Dropdowns Options
     filter_options = {
@@ -263,7 +299,7 @@ def process_comparison(dynamic_file_path: str, date_a_str: str, date_b_str: str)
     if not os.path.exists(dynamic_file_path):
         raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
 
-    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Clientes', engine='pyxlsb')
+    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Actualizada', engine='pyxlsb')
     df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
 
     df_dyn = pd.read_excel(dynamic_file_path)

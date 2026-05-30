@@ -144,8 +144,8 @@ const VolumeView = ({ allClients }) => {
     sorted.sort((a, b) => {
       let valA, valB;
       if (key === 'name') {
-        valA = (a.nombre_comercial || '').toLowerCase();
-        valB = (b.nombre_comercial || '').toLowerCase();
+        valA = String(a.nombre_comercial || '').toLowerCase();
+        valB = String(b.nombre_comercial || '').toLowerCase();
         return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
       } else if (key === 'Tipo') {
         valA = a.Tipo || '';
