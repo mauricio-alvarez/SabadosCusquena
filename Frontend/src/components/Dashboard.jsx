@@ -316,9 +316,29 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
               <span className="sidebar-btn-text">Análisis General</span>
             </button>
+            <button onClick={() => setActiveView('progress')} className={`sidebar-btn ${activeView === 'progress' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+              <span className="sidebar-btn-text">Progreso en el Tiempo</span>
+            </button>
+            <button onClick={() => setActiveView('rankings')} className={`sidebar-btn ${activeView === 'rankings' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Trophy size={20} /></div>
+              <span className="sidebar-btn-text">Rankings</span>
+            </button>
+            <button onClick={() => setActiveView('opportunity')} className={`sidebar-btn ${activeView === 'opportunity' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Target size={20} /></div>
+              <span className="sidebar-btn-text">Oportunidades</span>
+            </button>
             <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
+            </button>
+            <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Campaña</span>
+            </button>
+            <button onClick={() => setActiveView('volume')} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Boxes size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Volumen</span>
             </button>
           </div>
         </div>

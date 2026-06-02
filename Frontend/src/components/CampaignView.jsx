@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Download, Users, Target, ShieldCheck, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -7,6 +7,19 @@ const LEVEL_LABELS = ['Dirección', 'Gerencia', 'Supervisor', 'BDR'];
 
 const CampaignView = ({ allClients, progressData }) => {
   const [selectedFilters, setSelectedFilters] = useState({ direccion: null, gerencia: null, supervisor: null, BDR: null });
+  const chartContainerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(500);
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      if (entries[0] && entries[0].contentRect) {
+        setContainerWidth(entries[0].contentRect.width);
+      }
+    });
+    observer.observe(chartContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
   const [detailTab, setDetailTab] = useState('adheridos');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [tableSorts, setTableSorts] = useState({
@@ -67,6 +80,16 @@ const CampaignView = ({ allClients, progressData }) => {
     });
     return q1Map;
   }, [allClients, saturdays, getQ1]);
+
+  // Format Saturday Q1 thresholds dynamically for the rules legend
+  const q1ThresholdsText = useMemo(() => {
+    if (saturdays.length === 0) return '';
+    return saturdays.map(sat => {
+      const q1 = saturdayQ1s[sat] || 0;
+      const short = sat.substring(0, 5);
+      return `${short} (>${q1})`;
+    }).join(', ');
+  }, [saturdays, saturdayQ1s]);
 
   // Precalculate category for each client
   const clientClassifications = useMemo(() => {
@@ -450,6 +473,34 @@ const CampaignView = ({ allClients, progressData }) => {
         <div className="text-center mt-1">
           <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Clientes Redimiendo</span>
         </div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '12px',
+          marginTop: '6px',
+          paddingTop: '6px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          width: '100%',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+            <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 'bold' }}>
+              Adh: {Math.round(summary.adheridoPct)}%
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
+            <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 'bold' }}>
+              Int: {Math.round(summary.intermitentePct)}%
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
+            <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 'bold' }}>
+              No Adh: {Math.round(summary.noAdheridoPct)}%
+            </span>
+          </div>
+        </div>
       </div>
     );
   };
@@ -458,10 +509,10 @@ const CampaignView = ({ allClients, progressData }) => {
   const renderEvolutionChart = () => {
     if (evolutionData.length === 0) return null;
 
-    const width = 500;
-    const height = 100;
+    const width = containerWidth || 500;
+    const height = 130;
     const paddingX = 40;
-    const paddingY = 15;
+    const paddingY = 20;
 
     const chartWidth = width - paddingX * 2;
     const chartHeight = height - paddingY * 2;
@@ -548,7 +599,7 @@ const CampaignView = ({ allClients, progressData }) => {
             </span>
           </div>
         </div>
-        <div className="relative-chart-container" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div ref={chartContainerRef} className="relative-chart-container" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <svg
             width="100%"
             height="100%"
@@ -731,7 +782,7 @@ const CampaignView = ({ allClients, progressData }) => {
                 color: '#fff',
                 pointerEvents: 'none',
                 zIndex: 50,
-                minWidth: '150px',
+                minWidth: '160px',
                 boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
                 transition: 'left 0.1s ease-out, transform 0.1s ease-out'
               }}>
@@ -747,6 +798,10 @@ const CampaignView = ({ allClients, progressData }) => {
                   Sábado {d.date}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '9.5px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.06)', paddingBottom: '4px', marginBottom: '4px' }}>
+                    <span style={{ color: '#9ca3af' }}>Activo con (Q1):</span>
+                    <span style={{ fontWeight: 'bold', color: '#cfa052' }}>&gt;{saturdayQ1s[d.date] || 0} canjes</span>
+                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
@@ -1087,31 +1142,92 @@ const CampaignView = ({ allClients, progressData }) => {
       
       {/* Compact Graphs Row */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : '1.2fr 2.5fr',
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
         gap: '16px',
         flexShrink: 0,
+        width: '100%',
       }}>
         {/* Thermometer Gauge */}
         <div className="glass-panel" style={{
-          padding: '8px 16px',
+          padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '140px',
+          height: '180px',
+          flex: isMobile ? '1 1 auto' : '0 0 240px',
+          maxWidth: isMobile ? 'none' : '240px',
         }}>
           {renderGauge()}
         </div>
 
-        {/* Evolution Chart */}
+        {/* Evolution Chart & Adherence Rules Merged Panel */}
         <div className="glass-panel" style={{
-          padding: '8px 16px',
-          height: '140px',
+          padding: '12px 16px',
+          height: isMobile ? 'auto' : '180px',
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
+          flexDirection: isMobile ? 'column' : 'row',
+          flex: '1 1 auto',
+          maxWidth: isMobile ? 'none' : '1030px',
+          minWidth: 0,
+          gap: '16px',
         }}>
-          {renderEvolutionChart()}
+          {/* Left / Main Part: Evolution Chart */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minWidth: 0,
+            justifyContent: 'center',
+          }}>
+            {renderEvolutionChart()}
+          </div>
+
+          {/* Right Part: Adherence Rules */}
+          <div style={{
+            flex: isMobile ? '1 1 auto' : '0 0 200px',
+            borderLeft: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+            borderTop: isMobile ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+            paddingLeft: isMobile ? '0' : '16px',
+            paddingTop: isMobile ? '12px' : '0',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <span className="text-gold font-bold uppercase mb-2 block" style={{ fontSize: '0.62rem', letterSpacing: '0.05em' }}>
+              Reglas de Adherencia
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', marginTop: '4px', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: '#10b981', display: 'block' }}>Adherido</span>
+                  <span style={{ fontSize: '0.58rem', color: '#9ca3af', lineHeight: '1.2', display: 'block' }}>
+                    Activo en &ge; 75% de sábados
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', marginTop: '4px', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: '#f59e0b', display: 'block' }}>Intermitente</span>
+                  <span style={{ fontSize: '0.58rem', color: '#9ca3af', lineHeight: '1.2', display: 'block' }}>
+                    Activo en 25% - 74%
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', marginTop: '4px', flexShrink: 0 }} />
+                <div>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: '#ef4444', display: 'block' }}>No Adherido</span>
+                  <span style={{ fontSize: '0.58rem', color: '#9ca3af', lineHeight: '1.2', display: 'block' }}>
+                    Activo en &lt; 25%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
