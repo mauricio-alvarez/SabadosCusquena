@@ -467,98 +467,98 @@ const PivotView = ({ allClients, progressData }) => {
                     onSelect={() => selectRow(row.path, row.clients)}
                   />
                 ))}
-              </div>
 
-              {/* Grand Total row - fixed vertically at bottom, scrolls horizontally */}
-              {totals && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
-                    gap: '0',
-                    padding: '0 16px',
-                    background: 'rgba(207, 160, 82, 0.14)',
-                    borderTop: '2px solid rgba(207, 160, 82, 0.4)',
-                    borderBottom: '2px solid rgba(207, 160, 82, 0.4)',
-                    minHeight: '40px',
-                    alignItems: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', paddingLeft: '4px' }}>
-                    <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>TOTAL</span>
-                  </div>
-                  {/* Clientes Totales */}
-                  <div style={dataCellStyle}>
-                    <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>{totals.total}</span>
-                  </div>
-                  {/* Clientes Activos */}
-                  <div style={dataCellStyle}>
-                    <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      {totals.active}
-                      <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.activePct}%)</span>
-                    </span>
-                  </div>
-                  {/* Clientes Inactivos */}
-                  <div style={dataCellStyle}>
-                    <span style={{ color: '#f87171', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      {totals.inactive}
-                      <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.inactivePct}%)</span>
-                    </span>
-                  </div>
-                  {/* VS SAB ACT */}
-                  <div style={dataCellStyle}>
-                    <span style={{
-                      color: totals.vsSabActiveDelta > 0 ? '#4ade80' : totals.vsSabActiveDelta < 0 ? '#f87171' : '#9ca3af',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                    }}>
-                      {totals.vsSabActiveDelta > 0 ? '+' : ''}{totals.vsSabActiveDelta}
-                      <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
-                        {totals.vsSabActivePct !== '∞' ? `(${totals.vsSabActivePct}%)` : '(nuevo)'}
+                {/* Grand Total row - next to the last row, scrolls horizontally and vertically */}
+                {totals && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
+                      gap: '0',
+                      padding: '0 16px',
+                      background: 'rgba(207, 160, 82, 0.14)',
+                      borderTop: '2px solid rgba(207, 160, 82, 0.4)',
+                      borderBottom: '2px solid rgba(207, 160, 82, 0.4)',
+                      minHeight: '40px',
+                      alignItems: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', paddingLeft: '4px' }}>
+                      <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>TOTAL</span>
+                    </div>
+                    {/* Clientes Totales */}
+                    <div style={dataCellStyle}>
+                      <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>{totals.total}</span>
+                    </div>
+                    {/* Clientes Activos */}
+                    <div style={dataCellStyle}>
+                      <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        {totals.active}
+                        <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.activePct}%)</span>
                       </span>
-                    </span>
-                  </div>
-                  {/* Redenciones Totales */}
-                  <div style={dataCellStyle}>
-                    <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
-                      {totals.totalRedemptions.toLocaleString()}
-                    </span>
-                  </div>
-                  {/* VS SAB RED */}
-                  <div style={dataCellStyle}>
-                    <span style={{
-                      color: totals.vsSabDelta > 0 ? '#4ade80' : totals.vsSabDelta < 0 ? '#f87171' : '#9ca3af',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                    }}>
-                      {totals.vsSabDelta > 0 ? '+' : ''}{totals.vsSabDelta}
-                      <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
-                        {totals.vsSabPct !== '∞' ? `(${totals.vsSabPct}%)` : '(nuevo)'}
+                    </div>
+                    {/* Clientes Inactivos */}
+                    <div style={dataCellStyle}>
+                      <span style={{ color: '#f87171', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        {totals.inactive}
+                        <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.inactivePct}%)</span>
                       </span>
-                    </span>
-                  </div>
-                  {/* Red Prom x Activo */}
-                  <div style={dataCellStyle}>
-                    <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>
-                      {totals.avgPerActive}
-                    </span>
-                  </div>
-                  {/* VS SAB PROM */}
-                  <div style={dataCellStyle}>
-                    <span style={{
-                      color: totals.vsSabAvgDelta > 0 ? '#4ade80' : totals.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                    }}>
-                      {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
-                      <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
-                        {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
+                    </div>
+                    {/* VS SAB ACT */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabActiveDelta > 0 ? '#4ade80' : totals.vsSabActiveDelta < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabActiveDelta > 0 ? '+' : ''}{totals.vsSabActiveDelta}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabActivePct !== '∞' ? `(${totals.vsSabActivePct}%)` : '(nuevo)'}
+                        </span>
                       </span>
-                    </span>
+                    </div>
+                    {/* Redenciones Totales */}
+                    <div style={dataCellStyle}>
+                      <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+                        {totals.totalRedemptions.toLocaleString()}
+                      </span>
+                    </div>
+                    {/* VS SAB RED */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabDelta > 0 ? '#4ade80' : totals.vsSabDelta < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabDelta > 0 ? '+' : ''}{totals.vsSabDelta}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabPct !== '∞' ? `(${totals.vsSabPct}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
+                    {/* Red Prom x Activo */}
+                    <div style={dataCellStyle}>
+                      <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>
+                        {totals.avgPerActive}
+                      </span>
+                    </div>
+                    {/* VS SAB PROM */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabAvgDelta > 0 ? '#4ade80' : totals.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
