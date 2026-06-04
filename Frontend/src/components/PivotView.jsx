@@ -443,18 +443,18 @@ const PivotView = ({ allClients, progressData }) => {
       {/* Main content: Table + Detail panel */}
       <div style={{
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
+        flexDirection: 'column',
         gap: '16px',
-        flex: 1,
-        minHeight: 0,
+        width: '100%',
       }}>
         {/* Pivot Table */}
         <div className="glass-panel" style={{
-          flex: isMobile ? 'none' : '1 1 0%',
+          width: '100%',
           minWidth: 0,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          height: '520px',
         }}>
           {/* Scroll wrapper for horizontal overflow */}
           <div style={{
@@ -640,12 +640,12 @@ const PivotView = ({ allClients, progressData }) => {
 
         {/* Detail Panel */}
         <div className="glass-panel" style={{
-          width: isMobile ? '100%' : '300px',
+          width: '100%',
           flexShrink: 0,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          maxHeight: isMobile ? '400px' : 'none',
+          height: '400px',
         }}>
           {/* Panel Header */}
           <div style={{

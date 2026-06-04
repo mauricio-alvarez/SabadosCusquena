@@ -365,19 +365,19 @@ const VolumeView = ({ allClients }) => {
       {/* Main Content Viewport */}
       <div style={{
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
+        flexDirection: 'column',
         gap: '16px',
-        flex: 1,
-        minHeight: 0,
+        width: '100%',
       }}>
         
         {/* Pivot Table scrollable panel */}
         <div className="glass-panel" style={{
-          flex: isMobile ? 'none' : '1 1 0%',
+          width: '100%',
           minWidth: 0,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          height: '520px',
         }}>
           {/* Outer scroll wrapper for horizontal overflow */}
           <div style={{
@@ -478,10 +478,10 @@ const VolumeView = ({ allClients }) => {
 
         {/* Right Detail Panel showing clients in selected node */}
         <div className="glass-panel" style={{
-          width: isMobile ? '100%' : '380px',
+          width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '350px',
+          height: '400px',
           flexShrink: 0,
         }}>
           {/* Panel Header */}
