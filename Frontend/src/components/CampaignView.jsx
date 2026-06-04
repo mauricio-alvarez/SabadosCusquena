@@ -1034,12 +1034,11 @@ const CampaignView = ({ allClients, progressData }) => {
   const renderDetailPanel = () => {
     return (
       <div className="glass-panel" style={{
-        width: isMobile ? '100%' : '300px',
+        width: '100%',
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '400px',
-        maxHeight: isMobile ? 'none' : '530px',
+        height: '400px',
       }}>
         {/* Header */}
         <div style={{
@@ -1310,18 +1309,16 @@ const CampaignView = ({ allClients, progressData }) => {
       {/* Main content: Grid of Tables + Detail panel */}
       <div style={{
         display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
+        flexDirection: 'column',
         gap: '16px',
-        flex: 1,
-        minHeight: 0,
+        width: '100%',
       }}>
         {/* Tables Grid */}
         <div style={{
-          flex: isMobile ? 'none' : '1 1 0%',
+          width: '100%',
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
           gap: '16px',
-          minHeight: 0,
         }}>
           {renderLevelTable('Direcciones', 'direccion', direccioneData, '180px')}
           {renderLevelTable('Gerencias', 'gerencia', gerenciasData, '180px')}

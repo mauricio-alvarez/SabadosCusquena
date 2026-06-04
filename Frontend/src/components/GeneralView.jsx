@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Users, TrendingUp, AlertCircle, TrendingDown } from 'lucide-react';
 import MetricCard from './MetricCard';
-import { BarChart, DonutChart } from './D3Charts';
+import { SaturdaysStackedBarChart } from './D3Charts';
 
-const GeneralView = ({ kpis, chartConfig }) => {
+const GeneralView = ({ kpis, chartConfig, allClients, progressData, useAllTimeData, dateRange }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 640);
 
   useEffect(() => {
@@ -59,33 +59,18 @@ const GeneralView = ({ kpis, chartConfig }) => {
         />
       </div>
 
-      <div className="grid grid-cols-1 grid-cols-lg-2 gap-6 flex-shrink-0">
-        <div className="glass-panel flex flex-col" style={{ padding: '1rem', animationDelay: '0.2s' }}>
-          <div className="mb-4 text-center">
-            <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Canjes por {chartConfig.barTitle}</h2>
-            <p className="text-secondary mt-1 text-sm">Distribución de redenciones</p>
-          </div>
-          <div style={{ height: '350px', width: '100%' }}>
-            {chartConfig.barData.length > 0 ? (
-              <BarChart data={chartConfig.barData} />
-            ) : (
-              <p className="text-secondary text-center py-10">No hay datos para los filtros actuales</p>
-            )}
-          </div>
+      <div className="glass-panel flex flex-col" style={{ padding: '1.25rem', animationDelay: '0.2s' }}>
+        <div className="mb-4 text-center">
+          <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Evolución de Canjes por Sábado</h2>
+          <p className="text-secondary mt-1 text-sm">Distribución de redenciones y locales activos por Dirección</p>
         </div>
-
-        <div className="glass-panel flex flex-col" style={{ padding: '1rem', animationDelay: '0.4s' }}>
-          <div className="mb-4 text-center">
-            <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Participación Top 5 {chartConfig.donutTitle}</h2>
-            <p className="text-secondary mt-1 text-sm">Distribución porcentual</p>
-          </div>
-          <div style={{ height: isMobile ? '450px' : '350px', width: '100%' }}>
-            {chartConfig.donutData.length > 0 ? (
-              <DonutChart data={chartConfig.donutData} />
-            ) : (
-              <p className="text-secondary text-center py-10">No hay datos para los filtros actuales</p>
-            )}
-          </div>
+        <div style={{ minHeight: '340px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+          <SaturdaysStackedBarChart
+            allClients={allClients}
+            progressData={progressData}
+            useAllTimeData={useAllTimeData}
+            dateRange={dateRange}
+          />
         </div>
       </div>
     </div>

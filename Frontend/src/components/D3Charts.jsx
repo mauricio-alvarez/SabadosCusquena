@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 
 export const BarChart = ({ data }) => {
@@ -630,6 +630,269 @@ export const CumulativeChart = ({ todayData, lastWeekData }) => {
   return (
     <div className="chart-container" style={{ minHeight: '230px', height: '100%' }}>
       <svg ref={svgRef} width="100%" height="100%"></svg>
+    </div>
+  );
+};
+
+export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeData, dateRange }) => {
+  const svgRef = useRef();
+  const [containerWidth, setContainerWidth] = useState(600);
+  const containerRef = useRef();
+
+  // Color mapping configuration
+  const DIRECTION_COLORS = {
+    'PE Dir Lima': '#c78a27ff',         // Gold
+    'PE Dir Norte': '#E5B562',        // Amber Gold
+    'PE Dir Sur': '#a83225ff',          // Ruby Red
+    'PE Dir Centro Orient': '#7A0000' // Deep Burgundy Red
+  };
+
+  // Track container width for responsive scaling
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      if (entries && entries[0]) {
+        setContainerWidth(entries[0].contentRect.width || 600);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Compute unique directions dynamically
+  const keys = useMemo(() => {
+    if (!allClients) return [];
+    return Array.from(new Set(allClients.map(c => c.direccion).filter(Boolean))).sort();
+  }, [allClients]);
+
+  // Compute aggregated data
+  const data = useMemo(() => {
+    if (!allClients || !progressData || !progressData.available_dates || keys.length === 0) return [];
+
+    // 1. Find and sort Saturdays
+    let saturdays = progressData.available_dates.filter(dateStr => {
+      const parts = dateStr.split('/');
+      if (parts.length !== 3) return false;
+      const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      return d.getDay() === 6; // 6 = Saturday
+    });
+
+    saturdays.sort((a, b) => {
+      const partsA = a.split('/');
+      const partsB = b.split('/');
+      const dA = new Date(parseInt(partsA[2]), parseInt(partsA[1]) - 1, parseInt(partsA[0]));
+      const dB = new Date(parseInt(partsB[2]), parseInt(partsB[1]) - 1, parseInt(partsB[0]));
+      return dA - dB;
+    });
+
+    // 2. Filter Saturdays by active dateRange if useAllTimeData is false
+    if (!useAllTimeData && dateRange?.from) {
+      const start = new Date(dateRange.from);
+      start.setHours(0, 0, 0, 0);
+      const end = dateRange.to ? new Date(dateRange.to) : new Date();
+      end.setHours(23, 59, 59, 999);
+
+      saturdays = saturdays.filter(sat => {
+        const parts = sat.split('/');
+        const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        return d >= start && d <= end;
+      });
+    }
+
+    // 4. Initialize Saturday items
+    return saturdays.map(sat => {
+      const item = {
+        date: sat,
+        totalRedemptions: 0,
+        activeClients: {}
+      };
+      
+      // Initialize directions with 0 count
+      keys.forEach(dir => {
+        item[dir] = 0;
+        item.activeClients[dir] = 0;
+      });
+
+      // Aggregate counts from clients
+      allClients.forEach(c => {
+        const dir = c.direccion;
+        if (!dir || !keys.includes(dir)) return;
+
+        if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
+
+        let clientSatRedemptions = 0;
+        c.redemption_dates.forEach((d) => {
+          if (d === sat) {
+            clientSatRedemptions++;
+          }
+        });
+
+        if (clientSatRedemptions > 0) {
+          item[dir] += clientSatRedemptions;
+          item.activeClients[dir] += 1;
+          item.totalRedemptions += clientSatRedemptions;
+        }
+      });
+
+      return item;
+    });
+  }, [allClients, progressData, useAllTimeData, dateRange, keys]);
+
+  useEffect(() => {
+    if (!data || data.length === 0 || keys.length === 0) return;
+
+    const width = containerWidth;
+    const height = 350;
+    const margin = { top: 30, right: 30, bottom: 50, left: 50 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const g = svg
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const x = d3.scaleBand()
+      .domain(data.map(d => d.date))
+      .range([0, innerWidth])
+      .padding(0.35);
+
+    const maxVal = d3.max(data, d => d.totalRedemptions) || 10;
+    const y = d3.scaleLinear()
+      .domain([0, maxVal * 1.15]) // 15% padding at top for totals labels
+      .range([innerHeight, 0]);
+
+    // Stack generator
+    const stack = d3.stack().keys(keys);
+    const series = stack(data);
+
+    // X Axis
+    g.append('g')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(x))
+      .attr('color', '#444444')
+      .selectAll('text')
+      .attr('fill', '#aaaaaa')
+      .style('font-size', '11px')
+      .style('font-weight', '600');
+
+    // Y Axis
+    g.append('g')
+      .call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? (d / 1000).toFixed(0) + 'k' : d))
+      .attr('color', '#444444')
+      .selectAll('text')
+      .attr('fill', '#aaaaaa')
+      .style('font-size', '11px');
+
+    // Tooltip
+    const tooltip = d3.select('body').selectAll('.d3-tooltip').data([0]);
+    const tt = tooltip.enter().append('div').attr('class', 'd3-tooltip').merge(tooltip);
+
+    // Draw stacked bars
+    g.selectAll('.serie')
+      .data(series)
+      .enter()
+      .append('g')
+      .attr('class', 'serie')
+      .attr('fill', d => DIRECTION_COLORS[d.key] || '#9ca3af')
+      .selectAll('rect')
+      .data(d => d.map(item => { item.key = d.key; return item; }))
+      .enter()
+      .append('rect')
+      .attr('x', d => x(d.data.date))
+      .attr('y', d => y(d[1]))
+      .attr('width', x.bandwidth())
+      .attr('height', d => y(d[0]) - y(d[1]))
+      .attr('rx', 2)
+      .on('mouseover', function (event, d) {
+        // Brighten color on hover
+        d3.select(this).attr('opacity', 0.85);
+        const segmentColor = DIRECTION_COLORS[d.key] || '#9ca3af';
+        
+        tt.style('opacity', 1)
+          .html(`
+            <div style="font-weight: 700; margin-bottom: 4px; color: #CFA052;">Sábado ${d.data.date}</div>
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; color: ${segmentColor};">${d.key}</div>
+            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 11px; margin-bottom: 3px;">
+              <span style="color: #9ca3af;">Canjes:</span>
+              <span style="font-weight: 700; color: #fff;">${d.data[d.key].toLocaleString()}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 11px;">
+              <span style="color: #9ca3af;">Locales Activos:</span>
+              <span style="font-weight: 700; color: #4ade80;">${d.data.activeClients[d.key].toLocaleString()}</span>
+            </div>
+          `);
+      })
+      .on('mousemove', (event) => {
+        tt.style('left', (event.pageX + 12) + 'px')
+          .style('top', (event.pageY - 28) + 'px');
+      })
+      .on('mouseout', function () {
+        d3.select(this).attr('opacity', 1.0);
+        tt.style('opacity', 0);
+      });
+
+    // Formatting totals label helper
+    const formatTotalLabel = (val) => {
+      if (val >= 1000) {
+        const rounded = Math.round(val / 100);
+        const kVal = rounded / 10;
+        return kVal % 1 === 0 ? `${kVal.toFixed(0)}k` : `${kVal.toFixed(1)}k`;
+      }
+      return val.toLocaleString();
+    };
+
+    // Add total labels at the top of each stacked bar
+    g.selectAll('.total-label')
+      .data(data)
+      .enter()
+      .append('text')
+      .attr('class', 'total-label')
+      .attr('x', d => x(d.date) + x.bandwidth() / 2)
+      .attr('y', d => y(d.totalRedemptions) - 8)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#ffffff')
+      .style('font-size', '11.5px')
+      .style('font-weight', '700')
+      .text(d => d.totalRedemptions > 0 ? formatTotalLabel(d.totalRedemptions) : '');
+
+  }, [data, containerWidth, keys]);
+
+  return (
+    <div ref={containerRef} className="chart-container" style={{ width: '100%', height: '100%', minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
+      {/* Legend */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: '24px',
+        marginBottom: '16px',
+        padding: '0 8px'
+      }}>
+        {[...keys].reverse().map(key => (
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '3px',
+              backgroundColor: DIRECTION_COLORS[key] || '#9ca3af'
+            }} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ffffff' }}>
+              {key}
+            </span>
+          </div>
+        ))}
+      </div>
+      {data.length > 0 ? (
+        <svg ref={svgRef} width="100%" height="100%"></svg>
+      ) : (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p className="text-secondary text-center">No hay sábados con datos en el rango seleccionado</p>
+        </div>
+      )}
     </div>
   );
 };
