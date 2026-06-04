@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties, ShieldCheck, Boxes } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties, ShieldCheck, Boxes, Award } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -8,7 +8,9 @@ import OpportunityView from './OpportunityView';
 import PivotView from './PivotView';
 import CampaignView from './CampaignView';
 import VolumeView from './VolumeView';
+import WaitersView from './WaitersView';
 import DateRangePicker from './DateRangePicker';
+
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
@@ -325,7 +327,13 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
+            
+            <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Award size={20} /></div>
+              <span className="sidebar-btn-text">Ranking Mozos</span>
+            </button>
           </div>
+
         </div>
       )}
 
@@ -349,8 +357,12 @@ const Dashboard = () => {
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
               
-              
+              <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Award size={20} /></div>
+                <span className="sidebar-btn-text">Ranking Mozos</span>
+              </button>
             </div>
+
           </div>
         </div>
       )}
@@ -511,7 +523,11 @@ const Dashboard = () => {
             {activeView === 'volume' && (
               <VolumeView allClients={dashboardData.clients} />
             )}
+            {activeView === 'waiters' && (
+              <WaitersView filePath={lastReport?.file_path} />
+            )}
           </div>
+
         )}
       </div>
     </div>

@@ -44,6 +44,12 @@ class ComparisonRequest(BaseModel):
     date_a: str  # dd/MM/yyyy
     date_b: str  # dd/MM/yyyy
 
+class WaiterRankingsRequest(BaseModel):
+    file_path: str
+    month_year: str | None = None  # MM/YYYY (optional)
+
+
+
 def _parse_report_timestamp(file_path):
     lima_tz = timezone(timedelta(hours=-5))
     match = REPORT_NAME_RE.search(os.path.basename(file_path))
@@ -146,6 +152,15 @@ def get_dashboard_data(request: DashboardDataRequest):
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/waiter-rankings")
+def get_waiter_rankings(request: WaiterRankingsRequest):
+    try:
+        data = analytics.get_waiter_rankings(request.file_path, request.month_year)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/compare-dates")
 def compare_dates(request: ComparisonRequest):

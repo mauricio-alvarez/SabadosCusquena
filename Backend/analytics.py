@@ -348,3 +348,139 @@ def process_comparison(dynamic_file_path: str, date_a_str: str, date_b_str: str)
 
     return _build_comparison(df_dyn_merged, ref_col, date_a, date_b)
 
+
+def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
+    if not os.path.exists(dynamic_file_path):
+        raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
+
+    # Load fixed db
+    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Actualizada', engine='pyxlsb')
+    df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    client_dict = df_fixed.set_index('cliente_id')['nombre_comercial'].to_dict()
+
+    # Load dynamic db
+    df_dyn = pd.read_excel(dynamic_file_path)
+    ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
+    df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+
+    # Extract month-year (MM/YYYY)
+    df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
+    df_dyn['Month_Key'] = df_dyn['Fecha_dt'].dt.strftime('%m/%Y')
+
+    # Available months (sorted chronologically)
+    available_months = sorted(
+        df_dyn['Month_Key'].dropna().unique(),
+        key=lambda x: pd.to_datetime(x, format='%m/%Y')
+    )
+
+    if not month_year:
+        month_year = available_months[-1] if available_months else None
+
+    # Filter for target month
+    df_month = df_dyn[df_dyn['Month_Key'] == month_year].copy() if month_year else pd.DataFrame()
+
+    # Count total redemptions per restaurant in month
+    if not df_month.empty:
+        rest_counts = df_month.groupby(ref_col).size().reset_index(name='redemptions')
+    else:
+        rest_counts = pd.DataFrame(columns=[ref_col, 'redemptions'])
+
+    # Qualified restaurants: >= 50 redemptions
+    eligible_rests = rest_counts[rest_counts['redemptions'] >= 50]
+    eligible_rest_ids = set(eligible_rests[ref_col])
+
+    # Contest 1 & 2 logic
+    contest1_winner = None
+    contest2_list = []
+    
+    if not df_month.empty:
+        df_qual = df_month[df_month[ref_col].isin(eligible_rest_ids)].copy()
+        df_qual['Mesero'] = df_qual['Mesero'].fillna('').astype(str).str.strip()
+        df_qual = df_qual[df_qual['Mesero'] != '']
+        
+        if not df_qual.empty:
+            waiter_groups = df_qual.groupby(['Mesero', ref_col]).size().reset_index(name='redemptions')
+            waiter_groups = waiter_groups.sort_values('redemptions', ascending=False).reset_index(drop=True)
+            
+            # Contest 1: Mejor Mozo Nacional
+            if not waiter_groups.empty:
+                top_waiter = waiter_groups.iloc[0]
+                c_id = top_waiter[ref_col]
+                rest_name = client_dict.get(c_id)
+                if not rest_name:
+                    fallback_df = df_month[df_month[ref_col] == c_id]
+                    rest_name = fallback_df['Empresa'].iloc[0] if not fallback_df.empty else f"Restaurante {c_id}"
+                
+                contest1_winner = {
+                    'rank': 1,
+                    'waiter': top_waiter['Mesero'],
+                    'client_id': c_id,
+                    'restaurant_name': rest_name,
+                    'redemptions': int(top_waiter['redemptions']),
+                    'prize': "S/ 1,000"
+                }
+            
+            # Contest 2: Top 100 Waiters
+            for idx, row in waiter_groups.head(100).iterrows():
+                c_id = row[ref_col]
+                rest_name = client_dict.get(c_id)
+                if not rest_name:
+                    fallback_df = df_month[df_month[ref_col] == c_id]
+                    rest_name = fallback_df['Empresa'].iloc[0] if not fallback_df.empty else f"Restaurante {c_id}"
+                
+                contest2_list.append({
+                    'rank': idx + 1,
+                    'waiter': row['Mesero'],
+                    'client_id': c_id,
+                    'restaurant_name': rest_name,
+                    'redemptions': int(row['redemptions']),
+                    'prize': "S/ 100"
+                })
+
+    # Contest 3: Best Waiters of the Top 10 Restaurants
+    contest3_winners = []
+    if not rest_counts.empty:
+        top_10_rest = rest_counts.sort_values('redemptions', ascending=False).head(10).reset_index(drop=True)
+        for rank_idx, row in top_10_rest.iterrows():
+            c_id = row[ref_col]
+            rest_redemptions = int(row['redemptions'])
+            
+            rest_name = client_dict.get(c_id)
+            if not rest_name:
+                fallback_df = df_month[df_month[ref_col] == c_id]
+                rest_name = fallback_df['Empresa'].iloc[0] if not fallback_df.empty else f"Restaurante {c_id}"
+                
+            # Waiters for this restaurant
+            df_rest_waiters = df_month[df_month[ref_col] == c_id].copy()
+            df_rest_waiters['Mesero'] = df_rest_waiters['Mesero'].fillna('').astype(str).str.strip()
+            df_rest_waiters = df_rest_waiters[df_rest_waiters['Mesero'] != '']
+            
+            best_waiter_name = "Sin mesero registrado"
+            best_waiter_redemptions = 0
+            
+            if not df_rest_waiters.empty:
+                w_counts = df_rest_waiters.groupby('Mesero').size().reset_index(name='redemptions')
+                w_counts = w_counts.sort_values('redemptions', ascending=False)
+                best_waiter_row = w_counts.iloc[0]
+                best_waiter_name = best_waiter_row['Mesero']
+                best_waiter_redemptions = int(best_waiter_row['redemptions'])
+                
+            contest3_winners.append({
+                'restaurant_rank': rank_idx + 1,
+                'client_id': c_id,
+                'restaurant_name': rest_name,
+                'restaurant_redemptions': rest_redemptions,
+                'waiter': best_waiter_name,
+                'waiter_redemptions': best_waiter_redemptions,
+                'prize': "S/ 50"
+            })
+
+    return {
+        'available_months': available_months,
+        'selected_month': month_year,
+        'contest1': contest1_winner,
+        'contest2': contest2_list,
+        'contest3': contest3_winners
+    }
+
+

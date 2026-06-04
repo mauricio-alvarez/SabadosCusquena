@@ -167,6 +167,55 @@ body {
   .lg-col-span-3 { grid-column: span 3 / span 3; }
 }
 
+/* Custom Waiter Rankings Grid System */
+.waiters-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .waiters-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  
+  .contest-1-col {
+    grid-column: span 4 / span 4;
+    position: relative;
+    z-index: 10;
+  }
+  
+  .contest-2-col {
+    grid-column: span 8 / span 8;
+    position: relative;
+    z-index: 5;
+  }
+}
+
+.waiters-contest3-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .waiters-contest3-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .waiters-contest3-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .waiters-contest3-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
 .gap-4 { gap: 1rem; }
 .gap-6 { gap: 1.5rem; }
 
@@ -671,4 +720,71 @@ body {
 .rdp-root .rdp-today .rdp-day_button {
   color: #cfa052 !important;
   font-weight: bold !important;
+}
+
+/* Custom Gold-Themed Tooltip Styles */
+.info-tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.info-tooltip-popup {
+  visibility: hidden;
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 290px;
+  background-color: #120e0a; /* Dark gold-tinted background */
+  border: 1px solid var(--cusquena-gold);
+  color: #fff;
+  text-align: left;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.2s, visibility 0.2s;
+  pointer-events: none;
+  font-family: 'Inter', sans-serif;
+  font-weight: normal;
+  text-transform: none; /* Reset uppercase from headers */
+}
+
+.info-tooltip-popup::after {
+  content: "";
+  position: absolute;
+  right: 100%; /* Pointing left */
+  top: 50%;
+  margin-top: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent var(--cusquena-gold) transparent transparent;
+}
+
+.info-tooltip-container:hover .info-tooltip-popup {
+  visibility: visible;
+  opacity: 1;
+}
+
+@media (max-width: 767px) {
+  .info-tooltip-popup {
+    left: auto;
+    right: -10px;
+    bottom: 125%;
+    top: auto;
+    transform: translateY(0);
+    width: 260px;
+  }
+  .info-tooltip-popup::after {
+    right: 12px;
+    top: 100%;
+    margin-top: 0;
+    left: auto;
+    border-color: var(--cusquena-gold) transparent transparent transparent;
+  }
 }
