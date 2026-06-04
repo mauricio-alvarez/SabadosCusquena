@@ -468,7 +468,7 @@ const PivotView = ({ allClients, progressData }) => {
                   />
                 ))}
 
-                {/* Grand Total row - next to the last row, scrolls horizontally and vertically */}
+                {/* Grand Total row - next to the last row, sticky at bottom when content overflows */}
                 {totals && (
                   <div
                     style={{
@@ -476,12 +476,15 @@ const PivotView = ({ allClients, progressData }) => {
                       gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
                       gap: '0',
                       padding: '0 16px',
-                      background: 'rgba(207, 160, 82, 0.14)',
+                      background: '#151515', // Opaque dark grey to block text behind it
                       borderTop: '2px solid rgba(207, 160, 82, 0.4)',
                       borderBottom: '2px solid rgba(207, 160, 82, 0.4)',
                       minHeight: '40px',
                       alignItems: 'center',
                       flexShrink: 0,
+                      position: 'sticky',
+                      bottom: 0,
+                      zIndex: 10,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', paddingLeft: '4px' }}>
