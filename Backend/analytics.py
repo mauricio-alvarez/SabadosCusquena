@@ -28,15 +28,21 @@ def process_dashboard_data(dynamic_file_path: str):
     df_dyn['Fecha'] = df_dyn['Fecha'].fillna('')
     redemption_dates = df_dyn[df_dyn['Fecha'] != ''].groupby(ref_col)['Fecha'].apply(list).reset_index(name='redemption_dates')
     
+    # Also get the list of redemption hours/times
+    df_dyn['Hora'] = df_dyn['Hora'].fillna('')
+    redemption_hours = df_dyn[df_dyn['Fecha'] != ''].groupby(ref_col)['Hora'].apply(list).reset_index(name='redemption_hours')
+    
     # Merge them
     redemptions_per_client = pd.merge(redemptions_per_client, redemption_dates, on=ref_col, how='left')
+    redemptions_per_client = pd.merge(redemptions_per_client, redemption_hours, on=ref_col, how='left')
     redemptions_per_client.rename(columns={ref_col: 'cliente_id'}, inplace=True)
     
     # Merge fixed with redemptions
     df_merged = pd.merge(df_fixed, redemptions_per_client, on='cliente_id', how='left')
     df_merged['redemptions'] = df_merged['redemptions'].fillna(0).astype(int)
-    # Fill NaN dates with empty list
+    # Fill NaN dates/hours with empty list
     df_merged['redemption_dates'] = df_merged['redemption_dates'].apply(lambda d: d if isinstance(d, list) else [])
+    df_merged['redemption_hours'] = df_merged['redemption_hours'].apply(lambda h: h if isinstance(h, list) else [])
     
     active_clients = len(df_merged[df_merged['redemptions'] > 0])
     inactive_clients = total_clients - active_clients
@@ -136,7 +142,7 @@ def process_dashboard_data(dynamic_file_path: str):
 
     # We return the raw merged data so the frontend can do arbitrary cross-filtering and aggregate
     client_data = df_merged[[
-        'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'redemptions', 'redemption_dates',
+        'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'redemptions', 'redemption_dates', 'redemption_hours',
         'BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD', 'Tipo', 'Ola'
     ]].to_dict(orient='records')
 

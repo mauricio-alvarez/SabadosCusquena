@@ -57,6 +57,24 @@ const PivotView = ({ allClients, progressData }) => {
     };
   }, [progressData]);
 
+  // Calculate the maximum hour limit in latestSaturday's dynamic data
+  const latestHourLimit = useMemo(() => {
+    if (!allClients || allClients.length === 0 || !latestSaturday) return '23:59:59';
+    let maxTime = '00:00:00';
+    allClients.forEach(c => {
+      if (!c.redemption_dates || !c.redemption_hours) return;
+      c.redemption_dates.forEach((d, idx) => {
+        if (d === latestSaturday) {
+          const t = c.redemption_hours[idx];
+          if (t && t > maxTime) {
+            maxTime = t;
+          }
+        }
+      });
+    });
+    return maxTime;
+  }, [allClients, latestSaturday]);
+
   // Build the hierarchical tree
   const tree = useMemo(() => {
     if (!allClients || allClients.length === 0) return [];
@@ -84,13 +102,13 @@ const PivotView = ({ allClients, progressData }) => {
           level: levelIdx,
           clients: groupClients,
           children,
-          ...computeMetrics(groupClients, latestSaturday, prevSaturday),
+          ...computeMetrics(groupClients, latestSaturday, prevSaturday, latestHourLimit),
         };
       });
     };
 
     return buildLevel(allClients, 0);
-  }, [allClients, latestSaturday, prevSaturday]);
+  }, [allClients, latestSaturday, prevSaturday, latestHourLimit]);
 
   // Calculate totals for the entire dataset
   const totals = useMemo(() => {
@@ -99,9 +117,9 @@ const PivotView = ({ allClients, progressData }) => {
       name: 'TOTAL',
       level: -1,
       total: allClients.length,
-      ...computeMetrics(allClients, latestSaturday, prevSaturday),
+      ...computeMetrics(allClients, latestSaturday, prevSaturday, latestHourLimit),
     };
-  }, [allClients, latestSaturday, prevSaturday]);
+  }, [allClients, latestSaturday, prevSaturday, latestHourLimit]);
 
   // Toggle expand/collapse for a row
   const toggleRow = useCallback((path) => {
@@ -270,12 +288,18 @@ const PivotView = ({ allClients, progressData }) => {
           '% Inactivos': node.inactivePct,
           'VS SAB ACT (Abs)': node.vsSabActiveDelta,
           'VS SAB ACT (%)': node.vsSabActivePct,
+          'VS SAB ACT MH (Abs)': node.vsSabActiveDeltaSameHour,
+          'VS SAB ACT MH (%)': node.vsSabActivePctSameHour,
           'Redenciones Totales': node.totalRedemptions,
           'VS SAB RED (Abs)': node.vsSabDelta,
           'VS SAB RED (%)': node.vsSabPct,
+          'VS SAB RED MH (Abs)': node.vsSabDeltaSameHour,
+          'VS SAB RED MH (%)': node.vsSabPctSameHour,
           'Red Prom x Activo': node.avgPerActive,
           'VS SAB PROM (Abs)': node.vsSabAvgDelta,
           'VS SAB PROM (%)': node.vsSabAvgPct,
+          'VS SAB PROM MH (Abs)': node.vsSabAvgDeltaSameHour,
+          'VS SAB PROM MH (%)': node.vsSabAvgPctSameHour,
         });
         if (node.children) {
           flattenTree(node.children, path);
@@ -298,12 +322,18 @@ const PivotView = ({ allClients, progressData }) => {
         '% Inactivos': totals.inactivePct,
         'VS SAB ACT (Abs)': totals.vsSabActiveDelta,
         'VS SAB ACT (%)': totals.vsSabActivePct,        
+        'VS SAB ACT MH (Abs)': totals.vsSabActiveDeltaSameHour,
+        'VS SAB ACT MH (%)': totals.vsSabActivePctSameHour,
         'Redenciones Totales': totals.totalRedemptions,
         'VS SAB RED (Abs)': totals.vsSabDelta,
         'VS SAB RED (%)': totals.vsSabPct,
+        'VS SAB RED MH (Abs)': totals.vsSabDeltaSameHour,
+        'VS SAB RED MH (%)': totals.vsSabPctSameHour,
         'Red Prom x Activo': totals.avgPerActive,
         'VS SAB PROM (Abs)': totals.vsSabAvgDelta,
         'VS SAB PROM (%)': totals.vsSabAvgPct,
+        'VS SAB PROM MH (Abs)': totals.vsSabAvgDeltaSameHour,
+        'VS SAB PROM MH (%)': totals.vsSabAvgPctSameHour,
       });
     }
 
@@ -434,11 +464,11 @@ const PivotView = ({ allClients, progressData }) => {
             display: 'flex',
             flexDirection: 'column',
           }}>
-            <div style={{ minWidth: '950px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div style={{ minWidth: '1250px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               {/* Table Header */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
+                gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
                 gap: '0',
                 padding: '12px 16px',
                 borderBottom: '2px solid rgba(207, 160, 82, 0.3)',
@@ -450,10 +480,13 @@ const PivotView = ({ allClients, progressData }) => {
                 <SortHeader label={<>Clientes<br/>Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Clientes<br/>Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos (Misma Hora)</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
                 <SortHeader label={<>Redenc.<br/>Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones (Misma Hora)</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
                 <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio (Misma Hora)</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
               </div>
 
               {/* Table Body - vertical scrolling only */}
@@ -473,7 +506,7 @@ const PivotView = ({ allClients, progressData }) => {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
+                      gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
                       gap: '0',
                       padding: '0 16px',
                       background: '#151515', // Opaque dark grey to block text behind it
@@ -521,6 +554,19 @@ const PivotView = ({ allClients, progressData }) => {
                         </span>
                       </span>
                     </div>
+                    {/* VS SAB ACT SAME HOUR */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabActiveDeltaSameHour > 0 ? '#4ade80' : totals.vsSabActiveDeltaSameHour < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabActiveDeltaSameHour > 0 ? '+' : ''}{totals.vsSabActiveDeltaSameHour}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabActivePctSameHour !== '∞' ? `(${totals.vsSabActivePctSameHour}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
                     {/* Redenciones Totales */}
                     <div style={dataCellStyle}>
                       <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
@@ -540,6 +586,19 @@ const PivotView = ({ allClients, progressData }) => {
                         </span>
                       </span>
                     </div>
+                    {/* VS SAB RED SAME HOUR */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabDeltaSameHour > 0 ? '#4ade80' : totals.vsSabDeltaSameHour < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabDeltaSameHour > 0 ? '+' : ''}{totals.vsSabDeltaSameHour}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabPctSameHour !== '∞' ? `(${totals.vsSabPctSameHour}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
                     {/* Red Prom x Activo */}
                     <div style={dataCellStyle}>
                       <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>
@@ -556,6 +615,19 @@ const PivotView = ({ allClients, progressData }) => {
                         {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
                         <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
                           {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
+                    {/* VS SAB PROM SAME HOUR */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabAvgDeltaSameHour > 0 ? '#4ade80' : totals.vsSabAvgDeltaSameHour < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabAvgDeltaSameHour > 0 ? '+' : ''}{totals.vsSabAvgDeltaSameHour}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabAvgPctSameHour !== '∞' ? `(${totals.vsSabAvgPctSameHour}%)` : '(nuevo)'}
                         </span>
                       </span>
                     </div>
@@ -761,25 +833,42 @@ const PivotView = ({ allClients, progressData }) => {
 };
 
 // ─── Metrics Computation (Saturday-specific) ────────────────────────
-function computeMetrics(clients, latestSaturday, prevSaturday) {
+function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) {
   const total = clients.length;
 
   // Count redemptions per client on each Saturday
   let currentSabCount = 0;
   let prevSabCount = 0;
+  let prevSabCountSameHour = 0;
+  
   let activeOnLatest = 0;
   let activeOnPrev = 0;
+  let activeOnPrevSameHour = 0;
 
   clients.forEach(c => {
     if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
     let clientCurrentCount = 0;
     let clientPrevCount = 0;
-    c.redemption_dates.forEach(dateStr => {
-      if (dateStr === latestSaturday) { currentSabCount++; clientCurrentCount++; }
-      if (dateStr === prevSaturday) { prevSabCount++; clientPrevCount++; }
+    let clientPrevCountSameHour = 0;
+    
+    c.redemption_dates.forEach((dateStr, idx) => {
+      const hr = c.redemption_hours?.[idx] || '00:00:00';
+      if (dateStr === latestSaturday) {
+        currentSabCount++;
+        clientCurrentCount++;
+      }
+      if (dateStr === prevSaturday) {
+        prevSabCount++;
+        clientPrevCount++;
+        if (hr <= latestHourLimit) {
+          prevSabCountSameHour++;
+          clientPrevCountSameHour++;
+        }
+      }
     });
     if (clientCurrentCount > 0) activeOnLatest++;
     if (clientPrevCount > 0) activeOnPrev++;
+    if (clientPrevCountSameHour > 0) activeOnPrevSameHour++;
   });
 
   const active = activeOnLatest;
@@ -804,6 +893,23 @@ function computeMetrics(clients, latestSaturday, prevSaturday) {
     ? ((vsSabActiveDelta / activeOnPrev) * 100).toFixed(1)
     : (activeOnLatest > 0 ? '∞' : '0');
 
+  // Same hour metrics
+  const vsSabActiveDeltaSameHour = activeOnLatest - activeOnPrevSameHour;
+  const vsSabActivePctSameHour = activeOnPrevSameHour > 0
+    ? ((vsSabActiveDeltaSameHour / activeOnPrevSameHour) * 100).toFixed(1)
+    : (activeOnLatest > 0 ? '∞' : '0');
+
+  const vsSabDeltaSameHour = currentSabCount - prevSabCountSameHour;
+  const vsSabPctSameHour = prevSabCountSameHour > 0
+    ? ((vsSabDeltaSameHour / prevSabCountSameHour) * 100).toFixed(1)
+    : (currentSabCount > 0 ? '∞' : '0');
+
+  const prevAvgPerActiveSameHour = activeOnPrevSameHour > 0 ? (prevSabCountSameHour / activeOnPrevSameHour).toFixed(1) : '0.0';
+  const vsSabAvgDeltaSameHour = (parseFloat(avgPerActive) - parseFloat(prevAvgPerActiveSameHour)).toFixed(1);
+  const vsSabAvgPctSameHour = parseFloat(prevAvgPerActiveSameHour) > 0
+    ? (((parseFloat(avgPerActive) - parseFloat(prevAvgPerActiveSameHour)) / parseFloat(prevAvgPerActiveSameHour)) * 100).toFixed(1)
+    : (parseFloat(avgPerActive) > 0 ? '∞' : '0');
+
   return {
     total,
     active,
@@ -823,6 +929,17 @@ function computeMetrics(clients, latestSaturday, prevSaturday) {
     prevAvgPerActive,
     vsSabAvgDelta: parseFloat(vsSabAvgDelta),
     vsSabAvgPct,
+    // Same hour metrics
+    prevSabCountSameHour,
+    activeOnPrevSameHour,
+    vsSabActiveDeltaSameHour,
+    vsSabActivePctSameHour,
+    vsSabDeltaSameHour,
+    vsSabDeltaSameHourKey: vsSabDeltaSameHour,
+    vsSabPctSameHour,
+    prevAvgPerActiveSameHour,
+    vsSabAvgDeltaSameHour: parseFloat(vsSabAvgDeltaSameHour),
+    vsSabAvgPctSameHour,
   };
 }
 
@@ -845,7 +962,7 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(8, minmax(90px, 1fr))',
+        gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
         gap: '0',
         padding: '0 16px',
         background: isSelected
@@ -958,6 +1075,25 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
         </span>
       </div>
 
+      {/* VS SAB ACT SAME HOUR */}
+      <div style={dataCellStyle}>
+        <span style={{
+          color: row.vsSabActiveDeltaSameHour > 0 ? '#4ade80' : row.vsSabActiveDeltaSameHour < 0 ? '#f87171' : '#9ca3af',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+        }}>
+          {row.vsSabActiveDeltaSameHour > 0 ? '+' : ''}{row.vsSabActiveDeltaSameHour}
+          <span style={{ 
+            fontSize: '0.6rem', 
+            marginLeft: '2px', 
+            opacity: 0.8,
+            fontWeight: 400,
+          }}>
+            {row.vsSabActivePctSameHour !== '∞' ? `(${row.vsSabActivePctSameHour}%)` : '(nuevo)'}
+          </span>
+        </span>
+      </div>
+
       {/* Redenciones Totales */}
       <div style={dataCellStyle}>
         <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
@@ -984,6 +1120,25 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
         </span>
       </div>
 
+      {/* VS SAB RED SAME HOUR */}
+      <div style={dataCellStyle}>
+        <span style={{
+          color: row.vsSabDeltaSameHour > 0 ? '#4ade80' : row.vsSabDeltaSameHour < 0 ? '#f87171' : '#9ca3af',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+        }}>
+          {row.vsSabDeltaSameHour > 0 ? '+' : ''}{row.vsSabDeltaSameHour}
+          <span style={{ 
+            fontSize: '0.6rem', 
+            marginLeft: '2px', 
+            opacity: 0.8,
+            fontWeight: 400,
+          }}>
+            {row.vsSabPctSameHour !== '∞' ? `(${row.vsSabPctSameHour}%)` : '(nuevo)'}
+          </span>
+        </span>
+      </div>
+
       {/* Red Prom x Activo */}
       <div style={dataCellStyle}>
         <span className="text-white" style={{ fontSize: '0.75rem' }}>
@@ -1006,6 +1161,25 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
             fontWeight: 400,
           }}>
             {row.vsSabAvgPct !== '∞' ? `(${row.vsSabAvgPct}%)` : '(nuevo)'}
+          </span>
+        </span>
+      </div>
+
+      {/* VS SAB PROM SAME HOUR */}
+      <div style={dataCellStyle}>
+        <span style={{
+          color: row.vsSabAvgDeltaSameHour > 0 ? '#4ade80' : row.vsSabAvgDeltaSameHour < 0 ? '#f87171' : '#9ca3af',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+        }}>
+          {row.vsSabAvgDeltaSameHour > 0 ? '+' : ''}{row.vsSabAvgDeltaSameHour}
+          <span style={{ 
+            fontSize: '0.6rem', 
+            marginLeft: '2px', 
+            opacity: 0.8,
+            fontWeight: 400,
+          }}>
+            {row.vsSabAvgPctSameHour !== '∞' ? `(${row.vsSabAvgPctSameHour}%)` : '(nuevo)'}
           </span>
         </span>
       </div>
