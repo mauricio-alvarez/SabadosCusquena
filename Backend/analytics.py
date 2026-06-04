@@ -50,6 +50,17 @@ def process_dashboard_data(dynamic_file_path: str):
         low_performers = len(df_merged[(df_merged['redemptions'] > 0) & (df_merged['redemptions'] <= q1)])
     else:
         low_performers = 0
+    # Map 'Ola' wave for each client
+    client_ola = {}
+    for _, row in df_fixed.iterrows():
+        c_id = str(row['cliente_id']).strip().replace('.0', '')
+        val = row.get('Ola')
+        try:
+            val_int = int(float(val)) if pd.notna(val) else 1
+        except Exception:
+            val_int = 1
+        client_ola[c_id] = val_int
+
     # Dynamic 'Tipo' classification for each client based on Saturdays Q1 performance
     df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
     df_sats = df_dyn[df_dyn['Fecha_dt'].dt.dayofweek == 5]
@@ -65,19 +76,35 @@ def process_dashboard_data(dynamic_file_path: str):
             sat_q1[sat] = 0
             
     client_sat_counts = df_sats.groupby([ref_col, 'Fecha']).size().reset_index(name='count')
-    client_above_q1 = {}
+    
+    # Store Saturdays above Q1 for each client ID
+    client_above_q1_sats = {}
     for _, r_row in client_sat_counts.iterrows():
         c_id = str(r_row[ref_col]).replace('.0', '')
         sat = r_row['Fecha']
         count = r_row['count']
         q1 = sat_q1.get(sat, 0)
         if count > q1:
-            client_above_q1[c_id] = client_above_q1.get(c_id, 0) + 1
+            if c_id not in client_above_q1_sats:
+                client_above_q1_sats[c_id] = []
+            client_above_q1_sats[c_id].append(sat)
             
-    num_sats = len(saturdays_list)
     def get_client_type(c_id):
-        above_count = client_above_q1.get(c_id, 0)
-        ratio = above_count / num_sats if num_sats > 0 else 0
+        ola = client_ola.get(c_id, 1)
+        if ola == 2:
+            # Ola 2: Only evaluation starting from 23/05/2026
+            relevant_sats = [sat for sat in saturdays_list if pd.to_datetime(sat, format='%d/%m/%Y') >= pd.to_datetime('23/05/2026', format='%d/%m/%Y')]
+        else:
+            # Ola 1: All Saturdays
+            relevant_sats = saturdays_list
+
+        if not relevant_sats:
+            return 'NO ADH'
+
+        above_sats = client_above_q1_sats.get(c_id, [])
+        above_count = sum(1 for sat in above_sats if sat in relevant_sats)
+        
+        ratio = above_count / len(relevant_sats)
         if ratio >= 0.75:
             return 'ADH'
         elif ratio >= 0.25:
@@ -86,6 +113,7 @@ def process_dashboard_data(dynamic_file_path: str):
             return 'NO ADH'
             
     df_merged['Tipo'] = df_merged['cliente_id'].apply(get_client_type)
+    df_merged['Ola'] = df_merged['cliente_id'].apply(lambda c_id: client_ola.get(c_id, 1))
 
     # Dropdowns Options
     filter_options = {
@@ -109,7 +137,7 @@ def process_dashboard_data(dynamic_file_path: str):
     # We return the raw merged data so the frontend can do arbitrary cross-filtering and aggregate
     client_data = df_merged[[
         'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'redemptions', 'redemption_dates',
-        'BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD', 'Tipo'
+        'BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD', 'Tipo', 'Ola'
     ]].to_dict(orient='records')
 
     # --- Progress Over Time Calculation ---

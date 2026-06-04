@@ -2,6 +2,16 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Download, Users, Target, ShieldCheck, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+const parseDateToYYYYMMDD = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return '';
+  const day = parts[0].padStart(2, '0');
+  const month = parts[1].padStart(2, '0');
+  const year = parts[2];
+  return `${year}${month}${day}`;
+};
+
 const LEVEL_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
 const LEVEL_LABELS = ['Dirección', 'Gerencia', 'Supervisor', 'BDR'];
 
@@ -97,8 +107,13 @@ const CampaignView = ({ allClients, progressData }) => {
     if (!allClients || allClients.length === 0 || saturdays.length === 0) return classifications;
 
     allClients.forEach(c => {
+      const wave = c.Ola || 1;
+      const relevantSats = wave === 2
+        ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260523')
+        : saturdays;
+
       let aboveCount = 0;
-      saturdays.forEach(sat => {
+      relevantSats.forEach(sat => {
         if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
         const count = c.redemption_dates.filter(d => d === sat).length;
         const q1 = saturdayQ1s[sat] || 0;
@@ -107,7 +122,8 @@ const CampaignView = ({ allClients, progressData }) => {
         }
       });
 
-      const ratio = aboveCount / saturdays.length;
+      const denominator = relevantSats.length;
+      const ratio = denominator > 0 ? aboveCount / denominator : 0;
       let category = 'no_adherido';
       if (ratio >= 0.75) {
         category = 'adherido';
@@ -119,6 +135,7 @@ const CampaignView = ({ allClients, progressData }) => {
         category,
         aboveCount,
         ratio,
+        totalSaturdays: denominator,
       };
     });
     return classifications;
@@ -159,17 +176,39 @@ const CampaignView = ({ allClients, progressData }) => {
       let no_adherido = 0;
 
       selectedClients.forEach(c => {
-        let aboveCount = 0;
+        const wave = c.Ola || 1;
+        const currentSatDate = saturdays[k];
+        const currentSatYmd = parseDateToYYYYMMDD(currentSatDate);
+
+        // If client is Ola 2 and the current week date is before 23/05/2026, skip client entirely
+        if (wave === 2 && currentSatYmd < '20260523') {
+          return;
+        }
+
+        // Get relevant Saturdays up to week k
+        const relevantSatsUpToWeek = [];
         for (let j = 0; j <= k; j++) {
           const sat = saturdays[j];
-          if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) continue;
+          const satYmd = parseDateToYYYYMMDD(sat);
+          if (wave === 2 && satYmd < '20260523') {
+            continue;
+          }
+          relevantSatsUpToWeek.push(sat);
+        }
+
+        let aboveCount = 0;
+        relevantSatsUpToWeek.forEach(sat => {
+          if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
           const count = c.redemption_dates.filter(d => d === sat).length;
           const q1 = saturdayQ1s[sat] || 0;
           if (count > q1) {
             aboveCount++;
           }
-        }
-        const ratio = aboveCount / (k + 1);
+        });
+
+        const denominator = relevantSatsUpToWeek.length;
+        const ratio = denominator > 0 ? aboveCount / denominator : 0;
+
         if (ratio >= 0.75) {
           adherido++;
         } else if (ratio >= 0.25) {
@@ -286,7 +325,7 @@ const CampaignView = ({ allClients, progressData }) => {
       'Supervisor': c.supervisor,
       'BDR': c.BDR,
       'Sábados Sobre Q1': clientClassifications[c.cliente_id]?.aboveCount || 0,
-      'Total Sábados': saturdays.length,
+      'Total Sábados': clientClassifications[c.cliente_id]?.totalSaturdays || saturdays.length,
       '% Adherencia': `${((clientClassifications[c.cliente_id]?.ratio || 0) * 100).toFixed(0)}%`,
     }));
 
@@ -298,7 +337,7 @@ const CampaignView = ({ allClients, progressData }) => {
       'Supervisor': c.supervisor,
       'BDR': c.BDR,
       'Sábados Sobre Q1': clientClassifications[c.cliente_id]?.aboveCount || 0,
-      'Total Sábados': saturdays.length,
+      'Total Sábados': clientClassifications[c.cliente_id]?.totalSaturdays || saturdays.length,
       '% Adherencia': `${((clientClassifications[c.cliente_id]?.ratio || 0) * 100).toFixed(0)}%`,
     }));
 
@@ -310,7 +349,7 @@ const CampaignView = ({ allClients, progressData }) => {
       'Supervisor': c.supervisor,
       'BDR': c.BDR,
       'Sábados Sobre Q1': clientClassifications[c.cliente_id]?.aboveCount || 0,
-      'Total Sábados': saturdays.length,
+      'Total Sábados': clientClassifications[c.cliente_id]?.totalSaturdays || saturdays.length,
       '% Adherencia': `${((clientClassifications[c.cliente_id]?.ratio || 0) * 100).toFixed(0)}%`,
     }));
 
@@ -357,7 +396,11 @@ const CampaignView = ({ allClients, progressData }) => {
       let totalActiveSaturdays = 0;
       groupClients.forEach(c => {
         if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
-        saturdays.forEach(sat => {
+        const wave = c.Ola || 1;
+        const relevantSats = wave === 2
+          ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260523')
+          : saturdays;
+        relevantSats.forEach(sat => {
           const count = c.redemption_dates.filter(d => d === sat).length;
           if (count > 0) {
             totalRedemptions += count;
@@ -471,7 +514,7 @@ const CampaignView = ({ allClients, progressData }) => {
           </text>
         </svg>
         <div className="text-center mt-1">
-          <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Clientes Redimiendo</span>
+          <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Clientes Redimiendo <p/>más de 8 unidades</span>
         </div>
         <div style={{
           display: 'flex',
@@ -850,9 +893,6 @@ const CampaignView = ({ allClients, progressData }) => {
     const tableAdheridoPct = tableTotal > 0 ? ((tableAdherido / tableTotal) * 100).toFixed(0) : '0';
     const tableIntermitentePct = tableTotal > 0 ? ((tableIntermitente / tableTotal) * 100).toFixed(0) : '0';
     const tableNoAdheridoPct = tableTotal > 0 ? ((tableNoAdherido / tableTotal) * 100).toFixed(0) : '0';
-    const tableAvg = data.length > 0
-      ? (data.reduce((acc, curr) => acc + parseFloat(curr.avgPerActiveSat), 0) / data.length).toFixed(1)
-      : '0.0';
 
     // Sort data for this table
     const sortConfig = tableSorts[level];
@@ -886,7 +926,7 @@ const CampaignView = ({ allClients, progressData }) => {
         {/* Columns Grid headers */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(100px, 1.6fr) repeat(5, minmax(52px, 1fr))',
+          gridTemplateColumns: 'minmax(100px, 1.6fr) repeat(4, minmax(52px, 1fr))',
           gap: '0',
           padding: '5px 12px',
           borderBottom: '1px solid rgba(207, 160, 82, 0.2)',
@@ -898,7 +938,7 @@ const CampaignView = ({ allClients, progressData }) => {
           <CampaignSortHeader label="Adh." sortKey="adherido" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} colorOverride="#10b981" />
           <CampaignSortHeader label="Inter." sortKey="intermitente" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} colorOverride="#f59e0b" />
           <CampaignSortHeader label="No Adh." sortKey="no_adherido" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} colorOverride="#ef4444" />
-          <CampaignSortHeader label="Canjes Prom" sortKey="avgPerActiveSat" sortConfig={sortConfig} onSort={(k) => toggleTableSort(level, k)} />
+          
         </div>
 
         {/* Scrollable list of rows */}
@@ -915,7 +955,7 @@ const CampaignView = ({ allClients, progressData }) => {
                 key={row.name}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(100px, 1.6fr) repeat(5, minmax(52px, 1fr))',
+                  gridTemplateColumns: 'minmax(100px, 1.6fr) repeat(4, minmax(52px, 1fr))',
                   gap: '0',
                   padding: '5px 12px',
                   background: isRowSelected ? 'rgba(207, 160, 82, 0.12)' : 'transparent',
@@ -948,7 +988,7 @@ const CampaignView = ({ allClients, progressData }) => {
                   {row.no_adherido}
                   <span style={{ fontSize: '0.55rem', fontWeight: 400, opacity: 0.7, marginLeft: '1px' }}>({row.noAdheridoPct}%)</span>
                 </div>
-                <div style={dataCellStyle}>{row.avgPerActiveSat}</div>
+                
               </div>
             );
           })}
@@ -959,7 +999,7 @@ const CampaignView = ({ allClients, progressData }) => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(100px, 1.6fr) repeat(5, minmax(52px, 1fr))',
+              gridTemplateColumns: 'minmax(100px, 1.6fr) repeat(4, minmax(52px, 1fr))',
               gap: '0',
               padding: '5px 12px',
               background: 'rgba(207, 160, 82, 0.12)',
@@ -983,9 +1023,7 @@ const CampaignView = ({ allClients, progressData }) => {
               {tableNoAdherido}
               <span style={{ fontSize: '0.55rem', fontWeight: 500, opacity: 0.8, marginLeft: '1px' }}>({tableNoAdheridoPct}%)</span>
             </div>
-            <div style={dataCellStyle} className="font-bold">
-              {tableAvg}
-            </div>
+            
           </div>
         )}
       </div>
@@ -1095,10 +1133,10 @@ const CampaignView = ({ allClients, progressData }) => {
                 }}
               >
                 <span className="text-white truncate" style={{ fontSize: '0.72rem', fontWeight: 500 }} title={`${c.nombre_comercial} (${c.cliente_id})`}>
-                  {c.nombre_comercial} - {c.cliente_id}
+                  {c.cliente_id} - {c.nombre_comercial}
                 </span>
                 <span className="text-secondary" style={{ fontSize: '0.62rem', flexShrink: 0, opacity: 0.8 }}>
-                  {clientClassifications[c.cliente_id]?.aboveCount || 0}/{saturdays.length} Sáb
+                  {clientClassifications[c.cliente_id]?.aboveCount || 0}/{clientClassifications[c.cliente_id]?.totalSaturdays || saturdays.length} Sáb
                 </span>
               </div>
             ))
