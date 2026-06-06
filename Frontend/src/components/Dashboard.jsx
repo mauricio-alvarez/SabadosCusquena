@@ -328,10 +328,6 @@ const Dashboard = () => {
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
             
-            <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><Award size={20} /></div>
-              <span className="sidebar-btn-text">Ranking Mozos</span>
-            </button>
           </div>
 
         </div>
@@ -357,10 +353,6 @@ const Dashboard = () => {
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
               
-              <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><Award size={20} /></div>
-                <span className="sidebar-btn-text">Ranking Mozos</span>
-              </button>
             </div>
 
           </div>
