@@ -15,6 +15,31 @@ const BAND_COLORS = [
   'rgba(128, 222, 234, 0.07)', // cyan tint
 ];
 
+const ONE_WEEK_COMPARISON_OVERRIDE = {
+  current: '07/06/2026',
+  previous: '06/06/2026',
+  startsAt: new Date(2026, 5, 7),
+  endsBefore: new Date(2026, 5, 14),
+};
+
+const normalizeDateKey = (dateStr) => {
+  const parts = String(dateStr || '').split('/');
+  if (parts.length !== 3) return String(dateStr || '');
+  const [day, month, year] = parts;
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+};
+
+const findAvailableDate = (availableDates, targetDate) => {
+  const targetKey = normalizeDateKey(targetDate);
+  return availableDates.find(dateStr => normalizeDateKey(dateStr) === targetKey) || null;
+};
+
+const isOneWeekComparisonOverrideActive = () => {
+  const today = new Date();
+  return today >= ONE_WEEK_COMPARISON_OVERRIDE.startsAt
+    && today < ONE_WEEK_COMPARISON_OVERRIDE.endsBefore;
+};
+
 const PivotView = ({ allClients, progressData }) => {
   const [expanded, setExpanded] = useState({});
   const [selectedPath, setSelectedPath] = useState(null);
@@ -28,14 +53,26 @@ const PivotView = ({ allClients, progressData }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Determine the two most recent Saturdays from available_dates
+  // Determine the dates to compare. For this week's exceptional Sunday report,
+  // compare Sunday 07/06/2026 against Saturday 06/06/2026 instead of the prior Saturday.
   const { latestSaturday, prevSaturday } = useMemo(() => {
     if (!progressData || !progressData.available_dates || progressData.available_dates.length === 0) {
       return { latestSaturday: null, prevSaturday: null };
     }
 
+    const dates = progressData.available_dates;
+    const overrideCurrentDate = findAvailableDate(dates, ONE_WEEK_COMPARISON_OVERRIDE.current);
+    const overridePreviousDate = findAvailableDate(dates, ONE_WEEK_COMPARISON_OVERRIDE.previous);
+
+    if (isOneWeekComparisonOverrideActive() && overrideCurrentDate && overridePreviousDate) {
+      return {
+        latestSaturday: overrideCurrentDate,
+        prevSaturday: overridePreviousDate,
+      };
+    }
+
     // Filter to only Saturdays (day 6 in JS Date)
-    const saturdays = progressData.available_dates.filter(dateStr => {
+    const saturdays = dates.filter(dateStr => {
       const parts = dateStr.split('/');
       if (parts.length !== 3) return false;
       const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
@@ -44,7 +81,6 @@ const PivotView = ({ allClients, progressData }) => {
 
     if (saturdays.length < 2) {
       // Fallback: use last two available dates if not enough Saturdays
-      const dates = progressData.available_dates;
       return {
         latestSaturday: dates[dates.length - 1] || null,
         prevSaturday: dates.length >= 2 ? dates[dates.length - 2] : null,
@@ -266,7 +302,7 @@ const PivotView = ({ allClients, progressData }) => {
 
     const label = selectedPath ? selectedPath.replace(/\/\/\//g, '_') : 'Todos';
     XLSX.writeFile(wb, `Detalle_Clientes_${label}.xlsx`);
-  }, [activeClients, inactiveClients, selectedPath]);
+  }, [activeClients, inactiveClients, latestSaturday, selectedPath]);
 
   // Download full pivot table
   const downloadPivotTable = useCallback(() => {
