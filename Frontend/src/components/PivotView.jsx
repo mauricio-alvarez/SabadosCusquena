@@ -40,12 +40,13 @@ const isOneWeekComparisonOverrideActive = () => {
     && today < ONE_WEEK_COMPARISON_OVERRIDE.endsBefore;
 };
 
-const PivotView = ({ allClients, progressData }) => {
+const PivotView = ({ allClients, progressData, isDatesView = false }) => {
   const [expanded, setExpanded] = useState({});
   const [selectedPath, setSelectedPath] = useState(null);
   const [detailTab, setDetailTab] = useState('activos');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null }); // { key: 'name'|'total'|..., direction: 'asc'|'desc' }
+  const [customSelectedDate, setCustomSelectedDate] = useState('');
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -53,45 +54,89 @@ const PivotView = ({ allClients, progressData }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Determine the dates to compare. For this week's exceptional Sunday report,
-  // compare Sunday 07/06/2026 against Saturday 06/06/2026 instead of the prior Saturday.
+  // Filter to Saturdays plus the specific Sunday 07/06/2026
+  const availableEvaluationDates = useMemo(() => {
+    if (!progressData || !progressData.available_dates) return [];
+    
+    return progressData.available_dates.filter(dateStr => {
+      const normalized = normalizeDateKey(dateStr);
+      if (normalized === '07/06/2026') return true;
+      
+      const parts = dateStr.split('/');
+      if (parts.length !== 3) return false;
+      const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      return d.getDay() === 6; // 6 = Saturday
+    }).reverse(); // Latest first
+  }, [progressData]);
+
+  // Set default selection when dates are loaded or isDatesView becomes active
+  useEffect(() => {
+    if (isDatesView && availableEvaluationDates.length > 0 && !customSelectedDate) {
+      setCustomSelectedDate(availableEvaluationDates[0]);
+    }
+  }, [isDatesView, availableEvaluationDates, customSelectedDate]);
+
+  // Determine the dates to compare.
   const { latestSaturday, prevSaturday } = useMemo(() => {
     if (!progressData || !progressData.available_dates || progressData.available_dates.length === 0) {
       return { latestSaturday: null, prevSaturday: null };
     }
 
     const dates = progressData.available_dates;
-    const overrideCurrentDate = findAvailableDate(dates, ONE_WEEK_COMPARISON_OVERRIDE.current);
-    const overridePreviousDate = findAvailableDate(dates, ONE_WEEK_COMPARISON_OVERRIDE.previous);
 
-    if (isOneWeekComparisonOverrideActive() && overrideCurrentDate && overridePreviousDate) {
+    if (isDatesView) {
+      // In Dates View: latestSaturday is the one chosen in the dropdown
+      const selected = customSelectedDate || (availableEvaluationDates.length > 0 ? availableEvaluationDates[0] : null);
+      if (!selected) return { latestSaturday: null, prevSaturday: null };
+
+      // Determine prevSaturday for this selected date
+      let prev = null;
+      const normalizedSelected = normalizeDateKey(selected);
+
+      if (normalizedSelected === '07/06/2026') {
+        // Override Sunday 07/06 vs Saturday 06/06
+        prev = findAvailableDate(dates, '06/06/2026');
+      } else {
+        // Find preceding Saturday in the sorted list of Saturdays
+        const saturdays = dates.filter(dateStr => {
+          const parts = dateStr.split('/');
+          if (parts.length !== 3) return false;
+          const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          return d.getDay() === 6; // 6 = Saturday
+        }); // Sorted oldest to newest
+
+        const idx = saturdays.findIndex(dateStr => normalizeDateKey(dateStr) === normalizedSelected);
+        if (idx > 0) {
+          prev = saturdays[idx - 1]; // Preceding Saturday
+        }
+      }
+
       return {
-        latestSaturday: overrideCurrentDate,
-        prevSaturday: overridePreviousDate,
+        latestSaturday: selected,
+        prevSaturday: prev,
+      };
+    } else {
+      // In standard view: compare the two last Saturdays only. Ignore Sunday 07/06.
+      const saturdays = dates.filter(dateStr => {
+        const parts = dateStr.split('/');
+        if (parts.length !== 3) return false;
+        const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        return d.getDay() === 6; // 6 = Saturday
+      });
+
+      if (saturdays.length < 2) {
+        return {
+          latestSaturday: dates[dates.length - 1] || null,
+          prevSaturday: dates.length >= 2 ? dates[dates.length - 2] : null,
+        };
+      }
+
+      return {
+        latestSaturday: saturdays[saturdays.length - 1],
+        prevSaturday: saturdays[saturdays.length - 2],
       };
     }
-
-    // Filter to only Saturdays (day 6 in JS Date)
-    const saturdays = dates.filter(dateStr => {
-      const parts = dateStr.split('/');
-      if (parts.length !== 3) return false;
-      const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-      return d.getDay() === 6; // 6 = Saturday
-    });
-
-    if (saturdays.length < 2) {
-      // Fallback: use last two available dates if not enough Saturdays
-      return {
-        latestSaturday: dates[dates.length - 1] || null,
-        prevSaturday: dates.length >= 2 ? dates[dates.length - 2] : null,
-      };
-    }
-
-    return {
-      latestSaturday: saturdays[saturdays.length - 1],
-      prevSaturday: saturdays[saturdays.length - 2],
-    };
-  }, [progressData]);
+  }, [progressData, isDatesView, customSelectedDate, availableEvaluationDates]);
 
   // Calculate the maximum hour limit in latestSaturday's dynamic data
   const latestHourLimit = useMemo(() => {
@@ -464,16 +509,42 @@ const PivotView = ({ allClients, progressData }) => {
           </div>
           <div>
             <h2 className="text-white font-bold" style={{ fontSize: '1.25rem', margin: 0 }}>
-              Desempeño Sábado Actual
+              {isDatesView ? 'Desempeño Fechas' : 'Desempeño Sábado Actual'}
             </h2>
-            {latestSaturday && prevSaturday && (
+            {latestSaturday && prevSaturday ? (
               <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
                 Comparando {latestSaturday} vs {prevSaturday}
               </p>
-            )}
+            ) : latestSaturday ? (
+              <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                Evaluando {latestSaturday}
+              </p>
+            ) : null}
           </div>
         </div>
-        
+
+        {isDatesView && availableEvaluationDates.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label className="text-secondary text-xs font-semibold whitespace-nowrap">Fecha de Evaluación:</label>
+            <select
+              className="filter-select"
+              value={customSelectedDate || availableEvaluationDates[0]}
+              onChange={(e) => setCustomSelectedDate(e.target.value)}
+              style={{ width: 'auto', padding: '6px 32px 6px 12px', fontSize: '0.85rem' }}
+            >
+              {availableEvaluationDates.map(dateStr => {
+                const normalized = normalizeDateKey(dateStr);
+                const isSunday = normalized === '07/06/2026';
+                const prefix = isSunday ? 'Domingo' : 'Sábado';
+                return (
+                  <option key={dateStr} value={dateStr}>
+                    {prefix} {dateStr}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Main content: Table + Detail panel */}

@@ -323,6 +323,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
             </button>
+            <button onClick={() => setActiveView('pivot-dates')} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Fechas</span>
+            </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
@@ -347,6 +351,10 @@ const Dashboard = () => {
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
+              </button>
+              <button onClick={() => { setActiveView('pivot-dates'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
+                <span className="sidebar-btn-text">Desempeño Fechas</span>
               </button>
               <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
@@ -507,7 +515,10 @@ const Dashboard = () => {
               <OpportunityView allClients={dashboardData.clients} />
             )}
             {activeView === 'pivot' && (
-              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} />
+              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} />
+            )}
+            {activeView === 'pivot-dates' && (
+              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={true} />
             )}
             {activeView === 'campaign' && (
               <CampaignView allClients={dashboardData.clients} progressData={dashboardData.progress_data} />
