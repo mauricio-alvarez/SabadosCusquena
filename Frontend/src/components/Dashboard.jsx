@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, TrendingUp, AlertCircle, Trophy, Target, TableProperties, ShieldCheck, Boxes, Award } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -172,8 +172,14 @@ const Dashboard = () => {
 
     const total = filteredClients.length;
     const active = filteredClients.filter(c => c.redemptions > 0);
-    const totalRedemptions = filteredClients.reduce((acc, c) => acc + c.redemptions, 0);
-    const avg = active.length > 0 ? (totalRedemptions / active.length).toFixed(2) : 0;
+    const clientTotalRedemptions = filteredClients.reduce((acc, c) => acc + c.redemptions, 0);
+    const hasHierarchyFilters = Object.values(filters).some(value => value !== 'All');
+    const hasDateFilter = !useAllTimeData && dateRange?.from && dateRange?.to;
+    const useRawReportTotal = !hasHierarchyFilters && !hasDateFilter;
+    const totalRedemptions = useRawReportTotal
+      ? dashboardData?.kpis?.total_redemptions ?? clientTotalRedemptions
+      : clientTotalRedemptions;
+    const avg = active.length > 0 ? (clientTotalRedemptions / active.length).toFixed(2) : 0;
 
     const sortedReds = active.map(c => c.redemptions).sort((a, b) => a - b);
     let median = 0;
@@ -200,21 +206,7 @@ const Dashboard = () => {
       activeRate: total > 0 ? ((active.length / total) * 100).toFixed(1) : '0.0',
       lowPerformers,
     };
-  }, [filteredClients]);
-
-  const getAdjustedTime = () => {
-    const date = new Date();
-    date.setHours(date.getHours() - 5);
-
-    return date.toLocaleString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
+  }, [filteredClients, dashboardData, filters, useAllTimeData, dateRange]);
   const chartConfig = useMemo(() => {
     let barKey = 'direccion';
     let donutKey = 'gerencia';

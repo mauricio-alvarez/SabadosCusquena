@@ -3,13 +3,18 @@ import os
 
 FIXED_FILE_PATH = os.path.join(os.path.dirname(__file__), "downloads", "Reposiciones Sabados Cusqueña 2026_act.xlsb")
 
+def _load_fixed_clients():
+    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Final', engine='pyxlsb')
+    df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    return df_fixed.drop_duplicates(subset='cliente_id', keep='first').copy()
+
+
 def process_dashboard_data(dynamic_file_path: str):
     if not os.path.exists(dynamic_file_path):
         raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
 
     # Load fixed db
-    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Final', engine='pyxlsb')
-    df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df_fixed = _load_fixed_clients()
     
     # Load dynamic db
     df_dyn = pd.read_excel(dynamic_file_path)
@@ -333,8 +338,7 @@ def process_comparison(dynamic_file_path: str, date_a_str: str, date_b_str: str)
     if not os.path.exists(dynamic_file_path):
         raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
 
-    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Final', engine='pyxlsb')
-    df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df_fixed = _load_fixed_clients()
 
     df_dyn = pd.read_excel(dynamic_file_path)
     ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
@@ -354,8 +358,7 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
 
     # Load fixed db
-    df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Final', engine='pyxlsb')
-    df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df_fixed = _load_fixed_clients()
     client_dict = df_fixed.set_index('cliente_id')['nombre_comercial'].to_dict()
 
     # Load dynamic db
