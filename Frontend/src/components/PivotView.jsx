@@ -1,8 +1,10 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Download, Users, TableProperties, X, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const LEVEL_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
+const DATE_VIEW_LEVEL_KEYS = ['direccion', 'gerencia'];
+const DATE_VIEW_LEVEL_LABELS = ['Direccion', 'Gerencia'];
 const LEVEL_LABELS = ['Dirección', 'Gerencia', 'Supervisor', 'BDR'];
 
 // Alternating band colors per top-level Dirección group
@@ -14,13 +16,6 @@ const BAND_COLORS = [
   'rgba(255, 138, 128, 0.07)', // red tint
   'rgba(128, 222, 234, 0.07)', // cyan tint
 ];
-
-const ONE_WEEK_COMPARISON_OVERRIDE = {
-  current: '07/06/2026',
-  previous: '06/06/2026',
-  startsAt: new Date(2026, 5, 7),
-  endsBefore: new Date(2026, 5, 14),
-};
 
 const normalizeDateKey = (dateStr) => {
   const parts = String(dateStr || '').split('/');
@@ -34,109 +29,96 @@ const findAvailableDate = (availableDates, targetDate) => {
   return availableDates.find(dateStr => normalizeDateKey(dateStr) === targetKey) || null;
 };
 
-const isOneWeekComparisonOverrideActive = () => {
-  const today = new Date();
-  return today >= ONE_WEEK_COMPARISON_OVERRIDE.startsAt
-    && today < ONE_WEEK_COMPARISON_OVERRIDE.endsBefore;
+const parseDisplayDate = (dateStr) => {
+  const parts = String(dateStr || '').split('/');
+  if (parts.length !== 3) return null;
+  const [day, month, year] = parts.map(value => parseInt(value, 10));
+  if (!day || !month || !year) return null;
+  return new Date(year, month - 1, day);
+};
+
+const isSaturdayDate = (dateStr) => {
+  const date = parseDisplayDate(dateStr);
+  return date ? date.getDay() === 6 : false;
+};
+
+const addDaysKey = (dateStr, days) => {
+  const date = parseDisplayDate(dateStr);
+  if (!date) return null;
+  date.setDate(date.getDate() + days);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${date.getFullYear()}`;
 };
 
 const PivotView = ({ allClients, progressData, isDatesView = false }) => {
   const [expanded, setExpanded] = useState({});
   const [selectedPath, setSelectedPath] = useState(null);
   const [detailTab, setDetailTab] = useState('activos');
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null }); // { key: 'name'|'total'|..., direction: 'asc'|'desc' }
   const [customSelectedDate, setCustomSelectedDate] = useState('');
+  const activeLevelKeys = isDatesView ? DATE_VIEW_LEVEL_KEYS : LEVEL_KEYS;
+  const activeLevelLabels = isDatesView ? DATE_VIEW_LEVEL_LABELS : LEVEL_LABELS;
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Filter to Saturdays plus the specific Sunday 07/06/2026
+  // Filter to Saturdays. Sunday is included automatically as weekend data.
   const availableEvaluationDates = useMemo(() => {
     if (!progressData || !progressData.available_dates) return [];
     
-    return progressData.available_dates.filter(dateStr => {
-      const normalized = normalizeDateKey(dateStr);
-      if (normalized === '07/06/2026') return true;
-      
-      const parts = dateStr.split('/');
-      if (parts.length !== 3) return false;
-      const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-      return d.getDay() === 6; // 6 = Saturday
-    }).reverse(); // Latest first
+    return progressData.available_dates.filter(isSaturdayDate).reverse(); // Latest first
   }, [progressData]);
 
-  // Set default selection when dates are loaded or isDatesView becomes active
-  useEffect(() => {
-    if (isDatesView && availableEvaluationDates.length > 0 && !customSelectedDate) {
-      setCustomSelectedDate(availableEvaluationDates[0]);
-    }
-  }, [isDatesView, availableEvaluationDates, customSelectedDate]);
+  const selectedEvaluationDate = availableEvaluationDates.includes(customSelectedDate)
+    ? customSelectedDate
+    : availableEvaluationDates[0] || '';
 
   // Determine the dates to compare.
-  const { latestSaturday, prevSaturday } = useMemo(() => {
+  const { latestSaturday, prevSaturday, weekendSunday } = useMemo(() => {
     if (!progressData || !progressData.available_dates || progressData.available_dates.length === 0) {
-      return { latestSaturday: null, prevSaturday: null };
+      return { latestSaturday: null, prevSaturday: null, weekendSunday: null };
     }
 
     const dates = progressData.available_dates;
 
     if (isDatesView) {
       // In Dates View: latestSaturday is the one chosen in the dropdown
-      const selected = customSelectedDate || (availableEvaluationDates.length > 0 ? availableEvaluationDates[0] : null);
-      if (!selected) return { latestSaturday: null, prevSaturday: null };
+      const selected = selectedEvaluationDate || null;
+      if (!selected) return { latestSaturday: null, prevSaturday: null, weekendSunday: null };
 
       // Determine prevSaturday for this selected date
       let prev = null;
       const normalizedSelected = normalizeDateKey(selected);
 
-      if (normalizedSelected === '07/06/2026') {
-        // Override Sunday 07/06 vs Saturday 06/06
-        prev = findAvailableDate(dates, '06/06/2026');
-      } else {
-        // Find preceding Saturday in the sorted list of Saturdays
-        const saturdays = dates.filter(dateStr => {
-          const parts = dateStr.split('/');
-          if (parts.length !== 3) return false;
-          const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-          return d.getDay() === 6; // 6 = Saturday
-        }); // Sorted oldest to newest
-
-        const idx = saturdays.findIndex(dateStr => normalizeDateKey(dateStr) === normalizedSelected);
-        if (idx > 0) {
-          prev = saturdays[idx - 1]; // Preceding Saturday
-        }
+      // Find preceding Saturday in the sorted list of Saturdays
+      const saturdays = dates.filter(isSaturdayDate); // Sorted oldest to newest
+      const idx = saturdays.findIndex(dateStr => normalizeDateKey(dateStr) === normalizedSelected);
+      if (idx > 0) {
+        prev = saturdays[idx - 1]; // Preceding Saturday
       }
 
       return {
         latestSaturday: selected,
         prevSaturday: prev,
+        weekendSunday: findAvailableDate(dates, addDaysKey(selected, 1)),
       };
     } else {
       // In standard view: compare the two last Saturdays only. Ignore Sunday 07/06.
-      const saturdays = dates.filter(dateStr => {
-        const parts = dateStr.split('/');
-        if (parts.length !== 3) return false;
-        const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-        return d.getDay() === 6; // 6 = Saturday
-      });
+      const saturdays = dates.filter(isSaturdayDate);
 
       if (saturdays.length < 2) {
         return {
           latestSaturday: dates[dates.length - 1] || null,
           prevSaturday: dates.length >= 2 ? dates[dates.length - 2] : null,
+          weekendSunday: null,
         };
       }
 
       return {
         latestSaturday: saturdays[saturdays.length - 1],
         prevSaturday: saturdays[saturdays.length - 2],
+        weekendSunday: null,
       };
     }
-  }, [progressData, isDatesView, customSelectedDate, availableEvaluationDates]);
+  }, [progressData, isDatesView, selectedEvaluationDate]);
 
   // Calculate the maximum hour limit in latestSaturday's dynamic data
   const latestHourLimit = useMemo(() => {
@@ -161,9 +143,9 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
     if (!allClients || allClients.length === 0) return [];
 
     const buildLevel = (clients, levelIdx) => {
-      if (levelIdx >= LEVEL_KEYS.length) return null;
+      if (levelIdx >= activeLevelKeys.length) return null;
 
-      const key = LEVEL_KEYS[levelIdx];
+      const key = activeLevelKeys[levelIdx];
       const groups = {};
 
       clients.forEach(c => {
@@ -174,7 +156,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
 
       return Object.keys(groups).sort().map(name => {
         const groupClients = groups[name];
-        const children = levelIdx < LEVEL_KEYS.length - 1 
+        const children = levelIdx < activeLevelKeys.length - 1 
           ? buildLevel(groupClients, levelIdx + 1)
           : null;
 
@@ -183,13 +165,13 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           level: levelIdx,
           clients: groupClients,
           children,
-          ...computeMetrics(groupClients, latestSaturday, prevSaturday, latestHourLimit),
+          ...computeMetrics(groupClients, latestSaturday, prevSaturday, latestHourLimit, weekendSunday),
         };
       });
     };
 
     return buildLevel(allClients, 0);
-  }, [allClients, latestSaturday, prevSaturday, latestHourLimit]);
+  }, [allClients, latestSaturday, prevSaturday, latestHourLimit, weekendSunday, activeLevelKeys]);
 
   // Calculate totals for the entire dataset
   const totals = useMemo(() => {
@@ -198,9 +180,9 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       name: 'TOTAL',
       level: -1,
       total: allClients.length,
-      ...computeMetrics(allClients, latestSaturday, prevSaturday, latestHourLimit),
+      ...computeMetrics(allClients, latestSaturday, prevSaturday, latestHourLimit, weekendSunday),
     };
-  }, [allClients, latestSaturday, prevSaturday, latestHourLimit]);
+  }, [allClients, latestSaturday, prevSaturday, latestHourLimit, weekendSunday]);
 
   // Toggle expand/collapse for a row
   const toggleRow = useCallback((path) => {
@@ -233,7 +215,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
   }, []);
 
   // Select a row to show its clients in the detail panel
-  const selectRow = useCallback((path, clients) => {
+  const selectRow = useCallback((path) => {
     setSelectedPath(prev => prev === path ? null : path);
     setDetailTab('activos');
   }, []);
@@ -358,30 +340,47 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       if (!nodes) return;
       nodes.forEach(node => {
         const path = parentPath ? `${parentPath} > ${node.name}` : node.name;
-        rows.push({
-          'Nivel': LEVEL_LABELS[node.level],
-          'Nombre': node.name,
-          'Ruta': path,
-          'Clientes Totales': node.total,
-          'Clientes Activos': node.active,
-          '% Activos': node.activePct,
-          'Clientes Inactivos': node.inactive,
-          '% Inactivos': node.inactivePct,
-          'VS SAB ACT (Abs)': node.vsSabActiveDelta,
-          'VS SAB ACT (%)': node.vsSabActivePct,
-          'VS SAB ACT MH (Abs)': node.vsSabActiveDeltaSameHour,
-          'VS SAB ACT MH (%)': node.vsSabActivePctSameHour,
-          'Redenciones Totales': node.totalRedemptions,
-          'VS SAB RED (Abs)': node.vsSabDelta,
-          'VS SAB RED (%)': node.vsSabPct,
-          'VS SAB RED MH (Abs)': node.vsSabDeltaSameHour,
-          'VS SAB RED MH (%)': node.vsSabPctSameHour,
-          'Red Prom x Activo': node.avgPerActive,
-          'VS SAB PROM (Abs)': node.vsSabAvgDelta,
-          'VS SAB PROM (%)': node.vsSabAvgPct,
-          'VS SAB PROM MH (Abs)': node.vsSabAvgDeltaSameHour,
-          'VS SAB PROM MH (%)': node.vsSabAvgPctSameHour,
-        });
+        if (isDatesView) {
+          rows.push({
+            'Nivel': activeLevelLabels[node.level],
+            'Nombre': node.name,
+            'Ruta': path,
+            'Clientes Totales': node.total,
+            [`Clientes Activos ${latestSaturday || '06/06'}`]: node.active,
+            [`Clientes Activos ${weekendSunday || '07/06'}`]: node.activeOnSunday,
+            [`Clientes Activos ${prevSaturday || '30/05'}`]: node.activeOnPrev,
+            [`VS Clientes Activos ${prevSaturday || '30/05'}`]: formatDeltaPct(node.weekendActiveDelta, node.weekendActivePct),
+            [`Redenciones Totales ${latestSaturday || '06/06'}`]: node.totalRedemptions,
+            [`Redenciones Totales ${weekendSunday || '07/06'}`]: node.sundayRedemptions,
+            [`Redenciones Totales ${prevSaturday || '30/05'}`]: node.prevSabCount,
+            [`VS Redenciones Totales ${prevSaturday || '30/05'}`]: formatDeltaPct(node.weekendRedemptionDelta, node.weekendRedemptionPct),
+          });
+        } else {
+          rows.push({
+            'Nivel': activeLevelLabels[node.level],
+            'Nombre': node.name,
+            'Ruta': path,
+            'Clientes Totales': node.total,
+            'Clientes Activos': node.active,
+            '% Activos': node.activePct,
+            'Clientes Inactivos': node.inactive,
+            '% Inactivos': node.inactivePct,
+            'VS SAB ACT (Abs)': node.vsSabActiveDelta,
+            'VS SAB ACT (%)': node.vsSabActivePct,
+            'VS SAB ACT MH (Abs)': node.vsSabActiveDeltaSameHour,
+            'VS SAB ACT MH (%)': node.vsSabActivePctSameHour,
+            'Redenciones Totales': node.totalRedemptions,
+            'VS SAB RED (Abs)': node.vsSabDelta,
+            'VS SAB RED (%)': node.vsSabPct,
+            'VS SAB RED MH (Abs)': node.vsSabDeltaSameHour,
+            'VS SAB RED MH (%)': node.vsSabPctSameHour,
+            'Red Prom x Activo': node.avgPerActive,
+            'VS SAB PROM (Abs)': node.vsSabAvgDelta,
+            'VS SAB PROM (%)': node.vsSabAvgPct,
+            'VS SAB PROM MH (Abs)': node.vsSabAvgDeltaSameHour,
+            'VS SAB PROM MH (%)': node.vsSabAvgPctSameHour,
+          });
+        }
         if (node.children) {
           flattenTree(node.children, path);
         }
@@ -392,37 +391,54 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
 
     // Append TOTAL row at the bottom of Excel export
     if (totals) {
-      rows.push({
-        'Nivel': '',
-        'Nombre': 'TOTAL',
-        'Ruta': '',
-        'Clientes Totales': totals.total,
-        'Clientes Activos': totals.active,
-        '% Activos': totals.activePct,
-        'Clientes Inactivos': totals.inactive,
-        '% Inactivos': totals.inactivePct,
-        'VS SAB ACT (Abs)': totals.vsSabActiveDelta,
-        'VS SAB ACT (%)': totals.vsSabActivePct,        
-        'VS SAB ACT MH (Abs)': totals.vsSabActiveDeltaSameHour,
-        'VS SAB ACT MH (%)': totals.vsSabActivePctSameHour,
-        'Redenciones Totales': totals.totalRedemptions,
-        'VS SAB RED (Abs)': totals.vsSabDelta,
-        'VS SAB RED (%)': totals.vsSabPct,
-        'VS SAB RED MH (Abs)': totals.vsSabDeltaSameHour,
-        'VS SAB RED MH (%)': totals.vsSabPctSameHour,
-        'Red Prom x Activo': totals.avgPerActive,
-        'VS SAB PROM (Abs)': totals.vsSabAvgDelta,
-        'VS SAB PROM (%)': totals.vsSabAvgPct,
-        'VS SAB PROM MH (Abs)': totals.vsSabAvgDeltaSameHour,
-        'VS SAB PROM MH (%)': totals.vsSabAvgPctSameHour,
-      });
+      if (isDatesView) {
+        rows.push({
+          'Nivel': '',
+          'Nombre': 'TOTAL',
+          'Ruta': '',
+          'Clientes Totales': totals.total,
+          [`Clientes Activos ${latestSaturday || '06/06'}`]: totals.active,
+          [`Clientes Activos ${weekendSunday || '07/06'}`]: totals.activeOnSunday,
+          [`Clientes Activos ${prevSaturday || '30/05'}`]: totals.activeOnPrev,
+          [`VS Clientes Activos ${prevSaturday || '30/05'}`]: formatDeltaPct(totals.weekendActiveDelta, totals.weekendActivePct),
+          [`Redenciones Totales ${latestSaturday || '06/06'}`]: totals.totalRedemptions,
+          [`Redenciones Totales ${weekendSunday || '07/06'}`]: totals.sundayRedemptions,
+          [`Redenciones Totales ${prevSaturday || '30/05'}`]: totals.prevSabCount,
+          [`VS Redenciones Totales ${prevSaturday || '30/05'}`]: formatDeltaPct(totals.weekendRedemptionDelta, totals.weekendRedemptionPct),
+        });
+      } else {
+        rows.push({
+          'Nivel': '',
+          'Nombre': 'TOTAL',
+          'Ruta': '',
+          'Clientes Totales': totals.total,
+          'Clientes Activos': totals.active,
+          '% Activos': totals.activePct,
+          'Clientes Inactivos': totals.inactive,
+          '% Inactivos': totals.inactivePct,
+          'VS SAB ACT (Abs)': totals.vsSabActiveDelta,
+          'VS SAB ACT (%)': totals.vsSabActivePct,
+          'VS SAB ACT MH (Abs)': totals.vsSabActiveDeltaSameHour,
+          'VS SAB ACT MH (%)': totals.vsSabActivePctSameHour,
+          'Redenciones Totales': totals.totalRedemptions,
+          'VS SAB RED (Abs)': totals.vsSabDelta,
+          'VS SAB RED (%)': totals.vsSabPct,
+          'VS SAB RED MH (Abs)': totals.vsSabDeltaSameHour,
+          'VS SAB RED MH (%)': totals.vsSabPctSameHour,
+          'Red Prom x Activo': totals.avgPerActive,
+          'VS SAB PROM (Abs)': totals.vsSabAvgDelta,
+          'VS SAB PROM (%)': totals.vsSabAvgPct,
+          'VS SAB PROM MH (Abs)': totals.vsSabAvgDeltaSameHour,
+          'VS SAB PROM MH (%)': totals.vsSabAvgPctSameHour,
+        });
+      }
     }
 
     if (rows.length > 0) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Tabla Dinámica');
     }
     XLSX.writeFile(wb, 'Tabla_Dinamica_Desempeno.xlsx');
-  }, [tree, totals]);
+  }, [tree, totals, activeLevelLabels, isDatesView, latestSaturday, weekendSunday, prevSaturday]);
 
   // Flatten tree into renderable rows (with sorting at each level)
   const flatRows = useMemo(() => {
@@ -440,7 +456,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           valB = (b.name || '').toLowerCase();
           return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
-        if (key === 'activePct' || key === 'inactivePct' || key === 'avgPerActive') {
+        if (key === 'activePct' || key === 'inactivePct' || key === 'avgPerActive' || key === 'weekendActivePct' || key === 'weekendRedemptionPct') {
           valA = parseFloat(a[key]) || 0;
           valB = parseFloat(b[key]) || 0;
         } else {
@@ -513,7 +529,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
             </h2>
             {latestSaturday && prevSaturday ? (
               <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
-                Comparando {latestSaturday} vs {prevSaturday}
+                Comparando Sabado {latestSaturday} vs {prevSaturday}{isDatesView && weekendSunday ? ` + Domingo ${weekendSunday} (Total Fin de Semana)` : ''}
               </p>
             ) : latestSaturday ? (
               <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
@@ -528,7 +544,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
             <label className="text-secondary text-xs font-semibold whitespace-nowrap">Fecha de Evaluación:</label>
             <select
               className="filter-select"
-              value={customSelectedDate || availableEvaluationDates[0]}
+              value={selectedEvaluationDate}
               onChange={(e) => setCustomSelectedDate(e.target.value)}
               style={{ width: 'auto', padding: '6px 32px 6px 12px', fontSize: '0.85rem' }}
             >
@@ -545,6 +561,14 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
             </select>
           </div>
         )}
+        <button
+          onClick={downloadPivotTable}
+          className="btn-secondary"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', fontSize: '0.8rem' }}
+        >
+          <Download size={14} />
+          Descargar Tabla
+        </button>
       </div>
 
       {/* Main content: Table + Detail panel */}
@@ -571,17 +595,32 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
             display: 'flex',
             flexDirection: 'column',
           }}>
-            <div style={{ minWidth: '1250px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <div style={{ minWidth: isDatesView ? '1180px' : '1250px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               {/* Table Header */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
+                gridTemplateColumns: `minmax(180px, 2.2fr) repeat(${isDatesView ? 9 : 11}, minmax(90px, 1fr))`,
                 gap: '0',
                 padding: '12px 16px',
                 borderBottom: '2px solid rgba(207, 160, 82, 0.3)',
                 background: 'rgba(207, 160, 82, 0.06)',
                 flexShrink: 0,
               }}>
+                {isDatesView ? (
+                  <>
+                    <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
+                    <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
+                    <SortHeader label={<>Clientes Activos<br/>{latestSaturday || '06/06'}</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
+                    <SortHeader label={<>Clientes Activos<br/>{weekendSunday || '07/06'}</>} sortKey="activeOnSunday" sortConfig={sortConfig} onSort={toggleSort} />
+                    <SortHeader label={<>VS Clientes Activos<br/>{prevSaturday || '30/05'} Total</>} sortKey="weekendActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                    <SortHeader label={<>VS Clientes Activos<br/>{prevSaturday || '30/05'} %</>} sortKey="weekendActivePct" sortConfig={sortConfig} onSort={toggleSort} purple />
+                    <SortHeader label={<>Redenciones<br/>{latestSaturday || '06/06'}</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+                    <SortHeader label={<>Redenciones<br/>{weekendSunday || '07/06'}</>} sortKey="sundayRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+                    <SortHeader label={<>VS Redenciones<br/>{prevSaturday || '30/05'} Total</>} sortKey="weekendRedemptionDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                    <SortHeader label={<>VS Redenciones<br/>{prevSaturday || '30/05'} %</>} sortKey="weekendRedemptionPct" sortConfig={sortConfig} onSort={toggleSort} purple />
+                  </>
+                ) : (
+                  <>
                 <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
                 <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Clientes<br/>Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
@@ -594,6 +633,14 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                 <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
                 <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio (Misma Hora)</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                {isDatesView && (
+                  <>
+                    <SortHeader label={<>Domingo<br/>Redenciones</>} sortKey="sundayRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+                    <SortHeader label={<>Total Fin de<br/>Semana</>} sortKey="weekendTotalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+                  </>
+                )}
+                  </>
+                )}
               </div>
 
               {/* Table Body - vertical scrolling only */}
@@ -605,6 +652,8 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                     isSelected={selectedPath === row.path}
                     onToggle={() => toggleRow(row.path)}
                     onSelect={() => selectRow(row.path, row.clients)}
+                    isDatesView={isDatesView}
+                    levelLabels={activeLevelLabels}
                   />
                 ))}
 
@@ -613,7 +662,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
+                      gridTemplateColumns: `minmax(180px, 2.2fr) repeat(${isDatesView ? 9 : 11}, minmax(90px, 1fr))`,
                       gap: '0',
                       padding: '0 16px',
                       background: '#151515', // Opaque dark grey to block text behind it
@@ -634,6 +683,43 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                     <div style={dataCellStyle}>
                       <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>{totals.total}</span>
                     </div>
+                    {isDatesView ? (
+                      <>
+                        <div style={dataCellStyle}>
+                          <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem' }}>
+                            {totals.active}
+                          </span>
+                        </div>
+                        <div style={dataCellStyle}>
+                          <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem' }}>
+                            {totals.activeOnSunday || 0}
+                          </span>
+                        </div>
+                        <div style={dataCellStyle}>
+                          <DeltaValue delta={totals.weekendActiveDelta} />
+                        </div>
+                        <div style={dataCellStyle}>
+                          <PctValue pct={totals.weekendActivePct} delta={totals.weekendActiveDelta} />
+                        </div>
+                        <div style={dataCellStyle}>
+                          <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+                            {totals.totalRedemptions.toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={dataCellStyle}>
+                          <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+                            {(totals.sundayRedemptions || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={dataCellStyle}>
+                          <DeltaValue delta={totals.weekendRedemptionDelta} />
+                        </div>
+                        <div style={dataCellStyle}>
+                          <PctValue pct={totals.weekendRedemptionPct} delta={totals.weekendRedemptionDelta} />
+                        </div>
+                      </>
+                    ) : (
+                      <>
                     {/* Clientes Activos */}
                     <div style={dataCellStyle}>
                       <span style={{ color: '#4ade80', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -738,6 +824,22 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                         </span>
                       </span>
                     </div>
+                    {isDatesView && (
+                      <>
+                        <div style={dataCellStyle}>
+                          <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>
+                            {(totals.sundayRedemptions || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div style={dataCellStyle}>
+                          <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+                            {(totals.weekendTotalRedemptions || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -940,15 +1042,17 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
 };
 
 // ─── Metrics Computation (Saturday-specific) ────────────────────────
-function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) {
+function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit, weekendSunday = null) {
   const total = clients.length;
 
   // Count redemptions per client on each Saturday
   let currentSabCount = 0;
   let prevSabCount = 0;
   let prevSabCountSameHour = 0;
+  let sundayCount = 0;
   
   let activeOnLatest = 0;
+  let activeOnSunday = 0;
   let activeOnPrev = 0;
   let activeOnPrevSameHour = 0;
 
@@ -957,6 +1061,7 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
     let clientCurrentCount = 0;
     let clientPrevCount = 0;
     let clientPrevCountSameHour = 0;
+    let clientSundayCount = 0;
     
     c.redemption_dates.forEach((dateStr, idx) => {
       const hr = c.redemption_hours?.[idx] || '00:00:00';
@@ -972,8 +1077,13 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
           clientPrevCountSameHour++;
         }
       }
+      if (weekendSunday && dateStr === weekendSunday) {
+        sundayCount++;
+        clientSundayCount++;
+      }
     });
     if (clientCurrentCount > 0) activeOnLatest++;
+    if (clientSundayCount > 0) activeOnSunday++;
     if (clientPrevCount > 0) activeOnPrev++;
     if (clientPrevCountSameHour > 0) activeOnPrevSameHour++;
   });
@@ -981,6 +1091,16 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
   const active = activeOnLatest;
   const inactive = total - active;
   const totalRedemptions = currentSabCount; // Only latest Saturday
+  const weekendTotalRedemptions = currentSabCount + sundayCount;
+  const weekendActiveCount = activeOnLatest + activeOnSunday;
+  const weekendActiveDelta = weekendActiveCount - activeOnPrev;
+  const weekendActivePct = activeOnPrev > 0
+    ? ((weekendActiveDelta / activeOnPrev) * 100).toFixed(1)
+    : (weekendActiveCount > 0 ? '∞' : '0');
+  const weekendRedemptionDelta = weekendTotalRedemptions - prevSabCount;
+  const weekendRedemptionPct = prevSabCount > 0
+    ? ((weekendRedemptionDelta / prevSabCount) * 100).toFixed(1)
+    : (weekendTotalRedemptions > 0 ? '∞' : '0');
   const avgPerActive = active > 0 ? (totalRedemptions / active).toFixed(1) : '0.0';
   const prevAvgPerActive = activeOnPrev > 0 ? (prevSabCount / activeOnPrev).toFixed(1) : '0.0';
   const vsSabAvgDelta = (parseFloat(avgPerActive) - parseFloat(prevAvgPerActive)).toFixed(1);
@@ -1022,6 +1142,14 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
     active,
     inactive,
     totalRedemptions,
+    sundayRedemptions: sundayCount,
+    weekendTotalRedemptions,
+    activeOnSunday,
+    weekendActiveCount,
+    weekendActiveDelta,
+    weekendActivePct,
+    weekendRedemptionDelta,
+    weekendRedemptionPct,
     avgPerActive,
     activePct,
     inactivePct,
@@ -1062,14 +1190,14 @@ const headerCellStyle = {
 };
 
 // ─── PivotRow Component ─────────────────────────────────────────────
-const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
+const PivotRow = ({ row, isSelected, onToggle, onSelect, isDatesView = false, levelLabels = LEVEL_LABELS }) => {
   const indent = row.depth * 24;
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
+        gridTemplateColumns: `minmax(180px, 2.2fr) repeat(${isDatesView ? 9 : 11}, minmax(90px, 1fr))`,
         gap: '0',
         padding: '0 16px',
         background: isSelected
@@ -1138,7 +1266,7 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           marginLeft: '4px',
           opacity: 0.6,
         }}>
-          {LEVEL_LABELS[row.level]}
+          {levelLabels[row.level]}
         </span>
       </div>
 
@@ -1146,6 +1274,43 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
       <div style={dataCellStyle}>
         <span className="text-white font-bold">{row.total}</span>
       </div>
+      {isDatesView ? (
+        <>
+          <div style={dataCellStyle}>
+            <span style={{ color: '#4ade80', fontWeight: 600 }}>
+              {row.active}
+            </span>
+          </div>
+          <div style={dataCellStyle}>
+            <span style={{ color: '#4ade80', fontWeight: 600 }}>
+              {row.activeOnSunday || 0}
+            </span>
+          </div>
+          <div style={dataCellStyle}>
+            <DeltaValue delta={row.weekendActiveDelta} />
+          </div>
+          <div style={dataCellStyle}>
+            <PctValue pct={row.weekendActivePct} delta={row.weekendActiveDelta} />
+          </div>
+          <div style={dataCellStyle}>
+            <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+              {row.totalRedemptions.toLocaleString()}
+            </span>
+          </div>
+          <div style={dataCellStyle}>
+            <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+              {(row.sundayRedemptions || 0).toLocaleString()}
+            </span>
+          </div>
+          <div style={dataCellStyle}>
+            <DeltaValue delta={row.weekendRedemptionDelta} />
+          </div>
+          <div style={dataCellStyle}>
+            <PctValue pct={row.weekendRedemptionPct} delta={row.weekendRedemptionDelta} />
+          </div>
+        </>
+      ) : (
+        <>
 
       {/* Clientes Activos */}
       <div style={dataCellStyle}>
@@ -1290,6 +1455,22 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           </span>
         </span>
       </div>
+      {isDatesView && (
+        <>
+          <div style={dataCellStyle}>
+            <span className="text-white" style={{ fontSize: '0.75rem' }}>
+              {(row.sundayRedemptions || 0).toLocaleString()}
+            </span>
+          </div>
+          <div style={dataCellStyle}>
+            <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+              {(row.weekendTotalRedemptions || 0).toLocaleString()}
+            </span>
+          </div>
+        </>
+      )}
+        </>
+      )}
     </div>
   );
 };
@@ -1303,6 +1484,26 @@ const dataCellStyle = {
 };
 
 // ─── SortHeader Component ───────────────────────────────────────────
+const DeltaValue = ({ delta }) => (
+  <span style={{
+    color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#9ca3af',
+    fontWeight: 700,
+    fontSize: '0.75rem',
+  }}>
+    {delta > 0 ? '+' : ''}{delta}
+  </span>
+);
+
+const PctValue = ({ pct, delta }) => (
+  <span style={{
+    color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#9ca3af',
+    fontWeight: 700,
+    fontSize: '0.75rem',
+  }}>
+    {pct !== '∞' ? `${pct}%` : 'nuevo'}
+  </span>
+);
+
 const SortHeader = ({ label, sortKey, sortConfig, onSort, isName, purple }) => {
   const isActive = sortConfig.key === sortKey;
   const dir = isActive ? sortConfig.direction : null;
