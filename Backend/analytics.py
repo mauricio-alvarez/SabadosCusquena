@@ -1,7 +1,26 @@
 import pandas as pd
 import os
+import glob
+import re
 
-FIXED_FILE_PATH = os.path.join(os.path.dirname(__file__), "downloads", "Reposiciones Sabados Cusqueña 2026_act.xlsb")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOWNLOADS_DIR = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(BASE_DIR, "downloads"))
+
+def get_path_for_file(filename: str) -> str:
+    # 1. Check in DATA_DIR (runtime downloads/updates)
+    data_dir = os.environ.get("DATA_DIR")
+    if data_dir:
+        p = os.path.join(data_dir, filename)
+        if os.path.exists(p):
+            return p
+    # 2. Check in local downloads (git-committed assets)
+    p_local = os.path.join(BASE_DIR, "downloads", filename)
+    if os.path.exists(p_local):
+        return p_local
+    # 3. Fallback
+    return os.path.join(DOWNLOADS_DIR, filename)
+
+FIXED_FILE_PATH = get_path_for_file("Reposiciones Sabados Cusqueña 2026_act.xlsb")
 
 def _load_fixed_clients():
     df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Final', engine='pyxlsb')
@@ -463,8 +482,7 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         df_month = df_month[df_month['Mesero'] != '']
     
     # 3. Load Venta_Mayo
-    downloads_dir = os.path.join(os.path.dirname(__file__), "downloads")
-    vm_path = os.path.join(downloads_dir, "Venta_Mayo.xlsx")
+    vm_path = get_path_for_file("Venta_Mayo.xlsx")
     if os.path.exists(vm_path):
         df_vm = pd.read_excel(vm_path)
         df_vm['codigo'] = df_vm['codigo'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
@@ -473,11 +491,17 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         cajas_sum = {}
 
     # 4. Load ranking-mozos-institucion lookup
-    rmi_files = glob.glob(os.path.join(downloads_dir, "ranking-mozos-institucion_*.xlsx"))
+    rmi_pattern = "ranking-mozos-institucion_*.xlsx"
+    rmi_files = []
+    data_dir = os.environ.get("DATA_DIR")
+    if data_dir:
+        rmi_files.extend(glob.glob(os.path.join(data_dir, rmi_pattern)))
+    rmi_files.extend(glob.glob(os.path.join(BASE_DIR, "downloads", rmi_pattern)))
+
     if rmi_files:
         rmi_path = sorted(rmi_files)[-1]
     else:
-        rmi_path = os.path.join(downloads_dir, "ranking-mozos-institucion.xlsx")
+        rmi_path = get_path_for_file("ranking-mozos-institucion.xlsx")
 
     rmi_lookup = {}
     if os.path.exists(rmi_path):
@@ -724,3 +748,37 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         'top100': top100_list,
         'top_clients': top_clients_list
     }
+
+
+def get_sales_data():
+    vm_pattern = "Venta_*.xlsx"
+    vm_files = []
+    data_dir = os.environ.get("DATA_DIR")
+    if data_dir:
+        vm_files.extend(glob.glob(os.path.join(data_dir, vm_pattern)))
+    vm_files.extend(glob.glob(os.path.join(BASE_DIR, "downloads", vm_pattern)))
+
+    if vm_files:
+        vm_path = sorted(vm_files)[-1]
+    else:
+        vm_path = get_path_for_file("Venta_Mayo.xlsx")
+        
+    if not os.path.exists(vm_path):
+        raise FileNotFoundError(f"Sales file not found: {vm_path}")
+        
+    df_vm = pd.read_excel(vm_path)
+    df_vm['codigo'] = df_vm['codigo'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    
+    df_fixed = _load_fixed_clients()
+    overlap_cols = [c for c in df_fixed.columns if c in df_vm.columns and c != 'cliente_id']
+    df_fixed = df_fixed.drop(columns=overlap_cols)
+    df_merged = pd.merge(df_fixed, df_vm, left_on='cliente_id', right_on='codigo', how='inner')
+    
+    num_cols = [c for c in df_vm.columns if c != 'codigo']
+    for c in num_cols:
+        df_merged[c] = df_merged[c].fillna(0)
+        
+    return df_merged[[
+        'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'Ola'
+    ] + num_cols].to_dict(orient='records')
+

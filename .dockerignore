@@ -7,5 +7,5 @@
 Frontend/dist/
 venv/
 .venv/
-*.xlsx
-Backend/downloads/*.xlsx
+Backend/downloads/canjes-institucion_*.xlsx
+Backend/downloads/empresas-afiliadas_*.xlsx

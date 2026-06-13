@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -9,6 +9,7 @@ import PivotView from './PivotView';
 import CampaignView from './CampaignView';
 import VolumeView from './VolumeView';
 import WaitersView from './WaitersView';
+import VentasView from './VentasView';
 import DateRangePicker from './DateRangePicker';
 
 
@@ -39,10 +40,65 @@ const Dashboard = () => {
   const [useAllTimeData, setUseAllTimeData] = useState(true);
   const [dateRange, setDateRange] = useState({ from: undefined, to: undefined });
 
-  const [activeView, setActiveView] = useState('general');
+  const [storedCreds, setStoredCreds] = useState(() => {
+    return sessionStorage.getItem('ventas_creds') || '';
+  });
+  const isAuthenticated = !!storedCreds;
+
+  const getInitialView = () => {
+    const path = window.location.pathname;
+    if (path === '/ventas' || path === '/ventas/') {
+      return 'ventas';
+    }
+    if (path === '/volume' || path === '/volume/') {
+      const hasCreds = !!sessionStorage.getItem('ventas_creds');
+      return hasCreds ? 'volume' : 'general';
+    }
+    return 'general';
+  };
+
+  const [activeView, setActiveView] = useState(getInitialView);
   const [showSideMenu, setShowSideMenu] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+
+  useEffect(() => {
+    if (activeView === 'ventas') {
+      if (window.location.pathname !== '/ventas') {
+        window.history.pushState(null, '', '/ventas');
+      }
+    } else if (activeView === 'volume') {
+      if (window.location.pathname !== '/volume') {
+        window.history.pushState(null, '', '/volume');
+      }
+    } else {
+      if (window.location.pathname !== '/') {
+        window.history.pushState(null, '', '/');
+      }
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/ventas' || path === '/ventas/') {
+        setActiveView('ventas');
+      } else if (path === '/volume' || path === '/volume/') {
+        const hasCreds = !!sessionStorage.getItem('ventas_creds');
+        setActiveView(hasCreds ? 'volume' : 'general');
+      } else {
+        setActiveView('general');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated && (activeView === 'ventas' || activeView === 'volume')) {
+      setActiveView('general');
+    }
+  }, [isAuthenticated, activeView]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -327,6 +383,18 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><Award size={20} /></div>
               <span className="sidebar-btn-text">Ranking Mozos</span>
             </button>
+            {isAuthenticated && (
+              <>
+                <button onClick={() => setActiveView('volume')} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
+                  <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+                  <span className="sidebar-btn-text">Desempeño Volumen</span>
+                </button>
+                <button onClick={() => setActiveView('ventas')} className={`sidebar-btn ${activeView === 'ventas' ? 'active' : ''}`}>
+                  <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+                  <span className="sidebar-btn-text">Ventas (Confidencial)</span>
+                </button>
+              </>
+            )}
             
           </div>
 
@@ -360,6 +428,18 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><Award size={20} /></div>
                 <span className="sidebar-btn-text">Ranking Mozos</span>
               </button>
+              {isAuthenticated && (
+                <>
+                  <button onClick={() => { setActiveView('volume'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
+                    <div className="sidebar-btn-icon"><TrendingUp size={20} /></div>
+                    <span className="sidebar-btn-text">Desempeño Volumen</span>
+                  </button>
+                  <button onClick={() => { setActiveView('ventas'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'ventas' ? 'active' : ''}`}>
+                    <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+                    <span className="sidebar-btn-text">Ventas (Confidencial)</span>
+                  </button>
+                </>
+              )}
               
             </div>
 
@@ -528,6 +608,9 @@ const Dashboard = () => {
             )}
             {activeView === 'waiters' && (
               <WaitersView filePath={lastReport?.file_path} />
+            )}
+            {activeView === 'ventas' && (
+              <VentasView storedCreds={storedCreds} setStoredCreds={setStoredCreds} />
             )}
           </div>
 

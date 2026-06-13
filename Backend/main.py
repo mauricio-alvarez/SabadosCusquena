@@ -1,9 +1,10 @@
 import os
 import re
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 import login
 import analytics
@@ -35,6 +36,29 @@ app.add_middleware(
 
 # Ensure the downloads directory exists
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+security = HTTPBasic(auto_error=False)
+
+def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)):
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+    
+    user_1 = os.getenv("USER_1")
+    password_1 = os.getenv("PASSWORD_1")
+    
+    # Pre-load/verify fallback values
+    user_1 = user_1 or "admin"
+    password_1 = password_1 or "admin"
+        
+    if credentials.username != user_1 or credentials.password != password_1:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+    return credentials.username
 
 class DashboardDataRequest(BaseModel):
     file_path: str
@@ -201,6 +225,21 @@ def refresh_report():
         raise HTTPException(status_code=500, detail="Failed to download report or timeout occurred.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ventas")
+def get_ventas(username: str = Depends(authenticate_user)):
+    try:
+        data = analytics.get_sales_data()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ventas")
+def serve_ventas_view():
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if not os.path.exists(index_path):
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
+    return FileResponse(index_path)
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def serve_frontend(full_path: str):
