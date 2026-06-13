@@ -57,11 +57,11 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
   // Filter to Saturdays plus the specific Sunday 07/06/2026
   const availableEvaluationDates = useMemo(() => {
     if (!progressData || !progressData.available_dates) return [];
-    
+
     return progressData.available_dates.filter(dateStr => {
       const normalized = normalizeDateKey(dateStr);
       if (normalized === '07/06/2026') return true;
-      
+
       const parts = dateStr.split('/');
       if (parts.length !== 3) return false;
       const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
@@ -174,7 +174,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
 
       return Object.keys(groups).sort().map(name => {
         const groupClients = groups[name];
-        const children = levelIdx < LEVEL_KEYS.length - 1 
+        const children = levelIdx < LEVEL_KEYS.length - 1
           ? buildLevel(groupClients, levelIdx + 1)
           : null;
 
@@ -241,7 +241,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
   // Get the clients for the currently selected row
   const selectedClients = useMemo(() => {
     if (!selectedPath) return allClients || [];
-    
+
     // Walk the tree to find the node matching the path
     const pathParts = selectedPath.split('///');
     let currentNodes = tree;
@@ -312,7 +312,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
   // Download client detail list
   const downloadClientList = useCallback(() => {
     const wb = XLSX.utils.book_new();
-    
+
     const countOnDate = (c, date) => {
       if (!date || !c.redemption_dates || !Array.isArray(c.redemption_dates)) return 0;
       return c.redemption_dates.filter(d => d === date).length;
@@ -327,7 +327,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       'BDR': c.BDR,
       [`Redenciones (${latestSaturday || 'Último Sáb'})`]: countOnDate(c, latestSaturday),
     }));
-    
+
     const inactiveRows = inactiveClients.map(c => ({
       'Código Cliente': c.cliente_id,
       'Nombre Comercial': c.nombre_comercial,
@@ -337,7 +337,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       'BDR': c.BDR,
       [`Redenciones (${latestSaturday || 'Último Sáb'})`]: countOnDate(c, latestSaturday),
     }));
-    
+
     if (activeRows.length > 0) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(activeRows), 'Activos');
     }
@@ -402,7 +402,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
         'Clientes Inactivos': totals.inactive,
         '% Inactivos': totals.inactivePct,
         'VS SAB ACT (Abs)': totals.vsSabActiveDelta,
-        'VS SAB ACT (%)': totals.vsSabActivePct,        
+        'VS SAB ACT (%)': totals.vsSabActivePct,
         'VS SAB ACT MH (Abs)': totals.vsSabActiveDeltaSameHour,
         'VS SAB ACT MH (%)': totals.vsSabActivePctSameHour,
         'Redenciones Totales': totals.totalRedemptions,
@@ -583,17 +583,17 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                 flexShrink: 0,
               }}>
                 <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
-                <SortHeader label={<>Clientes<br/>Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Clientes<br/>Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Clientes<br/>Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Activos (Misma Hora)</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Redenc.<br/>Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Redenciones (Misma Hora)</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Red Prom<br/>x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Últ Sab vs Sab Pasado<br/>Promedio (Misma Hora)</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Clientes<br />Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Clientes<br />Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Clientes<br />Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Var vs Sab Pasado</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />(Hora Actual)</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Redenc.<br />Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Var vs Sab Pasado</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />(Hora Actual)</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Red Prom<br />x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Var vs Sab Pasado</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />(Hora Actual)</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
               </div>
 
               {/* Table Body - vertical scrolling only */}
@@ -892,7 +892,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                     whiteSpace: 'nowrap',
                     maxWidth: '75%',
                   }} title={`${c.nombre_comercial} (${c.cliente_id})`}>
-                    {c.cliente_id} - {c.nombre_comercial} 
+                    {c.cliente_id} - {c.nombre_comercial}
                   </span>
                   <span className="text-gold font-bold" style={{ fontSize: '0.75rem', flexShrink: 0 }}>
                     {getClientRedemptions(c)}
@@ -947,7 +947,7 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
   let currentSabCount = 0;
   let prevSabCount = 0;
   let prevSabCountSameHour = 0;
-  
+
   let activeOnLatest = 0;
   let activeOnPrev = 0;
   let activeOnPrevSameHour = 0;
@@ -957,7 +957,7 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
     let clientCurrentCount = 0;
     let clientPrevCount = 0;
     let clientPrevCountSameHour = 0;
-    
+
     c.redemption_dates.forEach((dateStr, idx) => {
       const hr = c.redemption_hours?.[idx] || '00:00:00';
       if (dateStr === latestSaturday) {
@@ -991,7 +991,7 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
   const inactivePct = total > 0 ? ((inactive / total) * 100).toFixed(0) : '0';
 
   const vsSabDelta = currentSabCount - prevSabCount;
-  const vsSabPct = prevSabCount > 0 
+  const vsSabPct = prevSabCount > 0
     ? ((vsSabDelta / prevSabCount) * 100).toFixed(1)
     : (currentSabCount > 0 ? '∞' : '0');
 
@@ -1171,9 +1171,9 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           fontSize: '0.7rem',
         }}>
           {row.vsSabActiveDelta > 0 ? '+' : ''}{row.vsSabActiveDelta}
-          <span style={{ 
-            fontSize: '0.6rem', 
-            marginLeft: '2px', 
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
@@ -1190,9 +1190,9 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           fontSize: '0.7rem',
         }}>
           {row.vsSabActiveDeltaSameHour > 0 ? '+' : ''}{row.vsSabActiveDeltaSameHour}
-          <span style={{ 
-            fontSize: '0.6rem', 
-            marginLeft: '2px', 
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
@@ -1216,9 +1216,9 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           fontSize: '0.7rem',
         }}>
           {row.vsSabDelta > 0 ? '+' : ''}{row.vsSabDelta}
-          <span style={{ 
-            fontSize: '0.6rem', 
-            marginLeft: '2px', 
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
@@ -1235,9 +1235,9 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           fontSize: '0.7rem',
         }}>
           {row.vsSabDeltaSameHour > 0 ? '+' : ''}{row.vsSabDeltaSameHour}
-          <span style={{ 
-            fontSize: '0.6rem', 
-            marginLeft: '2px', 
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
@@ -1261,9 +1261,9 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           fontSize: '0.7rem',
         }}>
           {row.vsSabAvgDelta > 0 ? '+' : ''}{row.vsSabAvgDelta}
-          <span style={{ 
-            fontSize: '0.6rem', 
-            marginLeft: '2px', 
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
@@ -1280,9 +1280,9 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
           fontSize: '0.7rem',
         }}>
           {row.vsSabAvgDeltaSameHour > 0 ? '+' : ''}{row.vsSabAvgDeltaSameHour}
-          <span style={{ 
-            fontSize: '0.6rem', 
-            marginLeft: '2px', 
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>

@@ -48,7 +48,7 @@ const GeneralView = ({ kpis, chartConfig, allClients, progressData, useAllTimeDa
           value={Number(kpis.avg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           change="Redenciones por cliente activo"
           isPositive={null}
-          icon={AlertCircle}
+          icon={TrendingUp}
         />
         <MetricCard
           title="Bajo Rendimiento"

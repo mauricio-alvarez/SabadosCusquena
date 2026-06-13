@@ -362,6 +362,17 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
     client_dict = df_fixed.set_index('cliente_id')['nombre_comercial'].to_dict()
 
     # Load dynamic db
+    import glob
+    import re
+
+    if not os.path.exists(dynamic_file_path):
+        raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
+
+    # 1. Load fixed db (Base Final)
+    df_fixed = _load_fixed_clients()
+    client_dict = df_fixed.set_index('cliente_id')['nombre_comercial'].to_dict()
+
+    # 2. Load dynamic db (canjes-institucion)
     df_dyn = pd.read_excel(dynamic_file_path)
     ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
     df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
@@ -382,108 +393,270 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
     # Filter for target month
     df_month = df_dyn[df_dyn['Month_Key'] == month_year].copy() if month_year else pd.DataFrame()
 
-    # Count total redemptions per restaurant in month
+    # Normalize mesero and other locations
     if not df_month.empty:
-        rest_counts = df_month.groupby(ref_col).size().reset_index(name='redemptions')
-    else:
-        rest_counts = pd.DataFrame(columns=[ref_col, 'redemptions'])
-
-    # Qualified restaurants: >= 50 redemptions
-    eligible_rests = rest_counts[rest_counts['redemptions'] >= 50]
-    eligible_rest_ids = set(eligible_rests[ref_col])
-
-    # Contest 1 & 2 logic
-    contest1_winner = None
-    contest2_list = []
+        df_month['Mesero'] = df_month['Mesero'].fillna('').astype(str).str.strip()
+        df_month = df_month[df_month['Mesero'] != '']
     
-    if not df_month.empty:
-        df_qual = df_month[df_month[ref_col].isin(eligible_rest_ids)].copy()
-        df_qual['Mesero'] = df_qual['Mesero'].fillna('').astype(str).str.strip()
-        df_qual = df_qual[df_qual['Mesero'] != '']
+    # 3. Load Venta_Mayo
+    downloads_dir = os.path.join(os.path.dirname(__file__), "downloads")
+    vm_path = os.path.join(downloads_dir, "Venta_Mayo.xlsx")
+    if os.path.exists(vm_path):
+        df_vm = pd.read_excel(vm_path)
+        df_vm['codigo'] = df_vm['codigo'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        cajas_sum = df_vm.groupby('codigo')['CAJAS'].sum().to_dict()
+    else:
+        cajas_sum = {}
+
+    # 4. Load ranking-mozos-institucion lookup
+    rmi_files = glob.glob(os.path.join(downloads_dir, "ranking-mozos-institucion_*.xlsx"))
+    if rmi_files:
+        rmi_path = sorted(rmi_files)[-1]
+    else:
+        rmi_path = os.path.join(downloads_dir, "ranking-mozos-institucion.xlsx")
+
+    rmi_lookup = {}
+    if os.path.exists(rmi_path):
+        df_rmi = pd.read_excel(rmi_path)
+        df_rmi['Nombres'] = df_rmi['Nombres'].fillna('').astype(str)
+        df_rmi['Apellidos'] = df_rmi['Apellidos'].fillna('').astype(str)
         
-        if not df_qual.empty:
-            waiter_groups = df_qual.groupby(['Mesero', ref_col]).size().reset_index(name='redemptions')
-            waiter_groups = waiter_groups.sort_values('redemptions', ascending=False).reset_index(drop=True)
+        def normalize_name(name):
+            if not name or pd.isna(name):
+                return ""
+            s = str(name).upper().strip()
+            s = re.sub(r'\s+', ' ', s)
+            return s
             
-            # Contest 1: Mejor Mozo Nacional
-            if not waiter_groups.empty:
-                top_waiter = waiter_groups.iloc[0]
-                c_id = top_waiter[ref_col]
-                rest_name = client_dict.get(c_id)
-                if not rest_name:
-                    fallback_df = df_month[df_month[ref_col] == c_id]
-                    rest_name = fallback_df['Empresa'].iloc[0] if not fallback_df.empty else f"Restaurante {c_id}"
+        df_rmi['normalized_name'] = (df_rmi['Nombres'] + " " + df_rmi['Apellidos']).apply(normalize_name)
+        
+        for _, row in df_rmi.iterrows():
+            name = row['normalized_name']
+            doc = str(row['Documento de identidad']).strip() if pd.notna(row['Documento de identidad']) else ""
+            tel = str(row['Celular']).strip() if pd.notna(row['Celular']) else ""
+            if doc == 'nan' or doc == 'None': doc = ""
+            if tel == 'nan' or tel == 'None': tel = ""
+            
+            if name not in rmi_lookup:
+                rmi_lookup[name] = (doc, tel)
+            else:
+                existing_doc, existing_tel = rmi_lookup[name]
+                new_doc = doc if doc else existing_doc
+                new_tel = tel if tel else existing_tel
+                rmi_lookup[name] = (new_doc, new_tel)
+
+    # 5. Client eligibility
+    red_counts = {}
+    if not df_month.empty:
+        red_counts = df_month.groupby(ref_col).size().to_dict()
+
+    eligible_clients = []
+    excl_sales = 0
+    excl_red = 0
+    clients_satisfying_rule = 0
+
+    all_client_ids = set(list(red_counts.keys()) + list(cajas_sum.keys()))
+    
+    # Pre-calculate mozo counts for the 3-mozos rule:
+    client_mozos_rule_status = {}
+    if not df_month.empty:
+        mozo_red = df_month.groupby([ref_col, 'Mesero']).size().reset_index(name='count')
+        mozos_gt_20 = mozo_red[mozo_red['count'] > 20]
+        client_mozo_counts = mozos_gt_20.groupby(ref_col).size().to_dict()
+        for cid in all_client_ids:
+            client_mozos_rule_status[cid] = client_mozo_counts.get(cid, 0) >= 3
+
+    # Check chosen month
+    is_mayo = (month_year == "05/2026")
+
+    for cid in all_client_ids:
+        reds = red_counts.get(cid, 0)
+        cajas = cajas_sum.get(cid, 0.0)
+        
+        # Base eligibility
+        base_eligible = (reds > 50) and (cajas >= 2)
+        
+        # Exclusions tracking
+        if reds > 50 and cajas < 2:
+            excl_sales += 1
+        if cajas >= 2 and reds <= 50:
+            excl_red += 1
+
+        if base_eligible:
+            satisfies_rule = client_mozos_rule_status.get(cid, False)
+            if satisfies_rule:
+                clients_satisfying_rule += 1
+            
+            # For Mayo: do not filter by the rule
+            # For other months: must satisfy the rule
+            if is_mayo or satisfies_rule:
+                eligible_clients.append(cid)
+
+    eligible_set = set(eligible_clients)
+
+    winners_list = []
+    top1_winner = None
+    top100_list = []
+    top_clients_list = []
+
+    kpis = {
+        'eligible_clients': len(eligible_clients),
+        'top_1_winners': 0,
+        'top_100_winners': 0,
+        'top_client_winners': 0,
+        'final_rows': 0,
+        'rows_with_documento': 0,
+        'rows_missing_documento': 0,
+        'rows_with_telefono': 0,
+        'rows_missing_telefono': 0,
+        'excl_sales': excl_sales,
+        'excl_red': excl_red,
+        'clients_satisfying_rule': f"{clients_satisfying_rule} / {len(eligible_clients)}" if eligible_clients else "0 / 0"
+    }
+
+    if not df_month.empty and eligible_set:
+        df_elig = df_month[df_month[ref_col].isin(eligible_set)].copy()
+        
+        df_elig['Departamento'] = df_elig['Departamento'].fillna('').astype(str).str.strip().str.upper()
+        df_elig['Provincia'] = df_elig['Provincia'].fillna('').astype(str).str.strip().str.upper()
+        df_elig['Distrito'] = df_elig['Distrito'].fillna('').astype(str).str.strip().str.upper()
+        df_elig['Mesero_upper'] = df_elig['Mesero'].str.upper()
+        
+        df_elig['mozo_key'] = (df_elig['Mesero_upper'] + "|" + 
+                               df_elig['Departamento'] + "|" + 
+                               df_elig['Provincia'] + "|" + 
+                               df_elig['Distrito'])
+        
+        # mozo_client_redemptions
+        mcr = df_elig.groupby([ref_col, 'mozo_key', 'Mesero', 'Departamento', 'Provincia', 'Distrito']).size().reset_index(name='cantidad_redenciones')
+        
+        if not mcr.empty:
+            # Sort for TOP 1 and TOP 100
+            mcr_sorted = mcr.sort_values(by=['cantidad_redenciones', ref_col, 'mozo_key'], ascending=[False, True, True]).reset_index(drop=True)
+            
+            top1_keys = set(mcr_sorted.head(1)['mozo_key'] + "@" + mcr_sorted.head(1)[ref_col])
+            top100_keys = set(mcr_sorted.head(100)['mozo_key'] + "@" + mcr_sorted.head(100)[ref_col])
+            
+            # TOP CLIENT
+            mcr['rn'] = mcr.sort_values(by=['cantidad_redenciones', 'mozo_key'], ascending=[False, True]).groupby(ref_col).cumcount() + 1
+            top_client_keys = set(mcr[mcr['rn'] == 1]['mozo_key'] + "@" + mcr[mcr['rn'] == 1][ref_col])
+            
+            kpis['top_1_winners'] = len(top1_keys)
+            kpis['top_100_winners'] = len(top100_keys)
+            kpis['top_client_winners'] = len(top_client_keys)
+            
+            # Deduplicate and merge prizes
+            dedup_rows = []
+            rows_with_doc = 0
+            rows_with_tel = 0
+            unique_winner_keys = top1_keys.union(top100_keys).union(top_client_keys)
+            mcr_lookup = mcr.set_index(['mozo_key', ref_col]).to_dict(orient='index')
+            
+            def norm_lookup_name(name):
+                s = str(name).upper().strip()
+                s = re.sub(r'\s+', ' ', s)
+                return s
                 
-                contest1_winner = {
-                    'rank': 1,
-                    'waiter': top_waiter['Mesero'],
-                    'client_id': c_id,
-                    'restaurant_name': rest_name,
-                    'redemptions': int(top_waiter['redemptions']),
-                    'prize': "S/ 1,000"
+            for wk in unique_winner_keys:
+                mkey, cid = wk.split("@")
+                info = mcr_lookup.get((mkey, cid))
+                if not info:
+                    continue
+                
+                # Check prizes
+                prizes = []
+                if wk in top1_keys:
+                    prizes.append('TOP 1')
+                if wk in top100_keys:
+                    prizes.append('TOP 100')
+                if wk in top_client_keys:
+                    prizes.append('TOP CLIENT')
+                premios_str = " + ".join(prizes)
+                
+                # Lookup contact details
+                mname = info['Mesero']
+                norm_name = norm_lookup_name(mname)
+                doc, tel = rmi_lookup.get(norm_name, ("", ""))
+                
+                if doc: rows_with_doc += 1
+                if tel: rows_with_tel += 1
+                
+                winner_obj = {
+                    'mesero_nombre': mname,
+                    'mesero_documento': doc,
+                    'mesero_telefono': tel,
+                    'cliente_id': cid,
+                    'cantidad_redenciones': int(info['cantidad_redenciones']),
+                    'premios': premios_str,
+                    'nombre_comercial': client_dict.get(cid, f"Cliente {cid}")
                 }
+                dedup_rows.append(winner_obj)
             
-            # Contest 2: Top 100 Waiters
-            for idx, row in waiter_groups.head(100).iterrows():
-                c_id = row[ref_col]
-                rest_name = client_dict.get(c_id)
-                if not rest_name:
-                    fallback_df = df_month[df_month[ref_col] == c_id]
-                    rest_name = fallback_df['Empresa'].iloc[0] if not fallback_df.empty else f"Restaurante {c_id}"
-                
-                contest2_list.append({
+            # Sort final list: cantidad_redenciones DESC, cliente_id ASC, mozo_key ASC
+            dedup_rows.sort(key=lambda x: (-x['cantidad_redenciones'], x['cliente_id'], x['mesero_nombre']))
+            winners_list = dedup_rows
+            
+            kpis['final_rows'] = len(dedup_rows)
+            kpis['rows_with_documento'] = rows_with_doc
+            kpis['rows_missing_documento'] = len(dedup_rows) - rows_with_doc
+            kpis['rows_with_telefono'] = rows_with_tel
+            kpis['rows_missing_telefono'] = len(dedup_rows) - rows_with_tel
+
+            # Populate separated prize lists for Mayo view
+            # top1
+            top1_item = mcr_sorted.iloc[0]
+            top1_cid = top1_item[ref_col]
+            top1_mname = top1_item['Mesero']
+            top1_doc, top1_tel = rmi_lookup.get(norm_lookup_name(top1_mname), ("", ""))
+            top1_winner = {
+                'rank': 1,
+                'waiter': top1_mname,
+                'client_id': top1_cid,
+                'restaurant_name': client_dict.get(top1_cid, f"Cliente {top1_cid}"),
+                'redemptions': int(top1_item['cantidad_redenciones']),
+                'prize': "S/ 1,000",
+                'mesero_documento': top1_doc,
+                'mesero_telefono': top1_tel
+            }
+
+            # top100
+            for idx, item in mcr_sorted.head(100).iterrows():
+                cid = item[ref_col]
+                mname = item['Mesero']
+                doc, tel = rmi_lookup.get(norm_lookup_name(mname), ("", ""))
+                top100_list.append({
                     'rank': idx + 1,
-                    'waiter': row['Mesero'],
-                    'client_id': c_id,
-                    'restaurant_name': rest_name,
-                    'redemptions': int(row['redemptions']),
-                    'prize': "S/ 100"
+                    'waiter': mname,
+                    'client_id': cid,
+                    'restaurant_name': client_dict.get(cid, f"Cliente {cid}"),
+                    'redemptions': int(item['cantidad_redenciones']),
+                    'prize': "S/ 100",
+                    'mesero_documento': doc,
+                    'mesero_telefono': tel
                 })
 
-    # Contest 3: Best Waiters of the Top 10 Restaurants
-    contest3_winners = []
-    if not rest_counts.empty:
-        top_10_rest = rest_counts.sort_values('redemptions', ascending=False).head(10).reset_index(drop=True)
-        for rank_idx, row in top_10_rest.iterrows():
-            c_id = row[ref_col]
-            rest_redemptions = int(row['redemptions'])
-            
-            rest_name = client_dict.get(c_id)
-            if not rest_name:
-                fallback_df = df_month[df_month[ref_col] == c_id]
-                rest_name = fallback_df['Empresa'].iloc[0] if not fallback_df.empty else f"Restaurante {c_id}"
-                
-            # Waiters for this restaurant
-            df_rest_waiters = df_month[df_month[ref_col] == c_id].copy()
-            df_rest_waiters['Mesero'] = df_rest_waiters['Mesero'].fillna('').astype(str).str.strip()
-            df_rest_waiters = df_rest_waiters[df_rest_waiters['Mesero'] != '']
-            
-            best_waiter_name = "Sin mesero registrado"
-            best_waiter_redemptions = 0
-            
-            if not df_rest_waiters.empty:
-                w_counts = df_rest_waiters.groupby('Mesero').size().reset_index(name='redemptions')
-                w_counts = w_counts.sort_values('redemptions', ascending=False)
-                best_waiter_row = w_counts.iloc[0]
-                best_waiter_name = best_waiter_row['Mesero']
-                best_waiter_redemptions = int(best_waiter_row['redemptions'])
-                
-            contest3_winners.append({
-                'restaurant_rank': rank_idx + 1,
-                'client_id': c_id,
-                'restaurant_name': rest_name,
-                'restaurant_redemptions': rest_redemptions,
-                'waiter': best_waiter_name,
-                'waiter_redemptions': best_waiter_redemptions,
-                'prize': "S/ 50"
-            })
+            # top_clients (113 rows)
+            top_clients_df = mcr[mcr['rn'] == 1].sort_values(by=['cantidad_redenciones', ref_col], ascending=[False, True])
+            for idx, item in top_clients_df.iterrows():
+                cid = item[ref_col]
+                mname = item['Mesero']
+                doc, tel = rmi_lookup.get(norm_lookup_name(mname), ("", ""))
+                top_clients_list.append({
+                    'waiter': mname,
+                    'client_id': cid,
+                    'restaurant_name': client_dict.get(cid, f"Cliente {cid}"),
+                    'redemptions': int(item['cantidad_redenciones']),
+                    'prize': "S/ 50",
+                    'mesero_documento': doc,
+                    'mesero_telefono': tel
+                })
 
     return {
         'available_months': available_months,
         'selected_month': month_year,
-        'contest1': contest1_winner,
-        'contest2': contest2_list,
-        'contest3': contest3_winners
+        'winners': winners_list,
+        'kpis': kpis,
+        'top1': top1_winner,
+        'top100': top100_list,
+        'top_clients': top_clients_list
     }
-
-

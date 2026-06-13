@@ -665,6 +665,8 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
     return Array.from(new Set(allClients.map(c => c.direccion).filter(Boolean))).sort();
   }, [allClients]);
 
+
+
   // Compute aggregated data
   const data = useMemo(() => {
     if (!allClients || !progressData || !progressData.available_dates || keys.length === 0) return [];
@@ -738,12 +740,92 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
     });
   }, [allClients, progressData, useAllTimeData, dateRange, keys]);
 
+  // Helper to parse date to YYYYMMDD
+  const parseDateToYYYYMMDD = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return '';
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}${month}${day}`;
+  };
+
+  // Compute total clients per date (for overall denominator)
+  const totalClientsPerDate = useMemo(() => {
+    const totals = {};
+    if (!allClients || !data) return totals;
+
+    data.forEach(item => {
+      const satYmd = parseDateToYYYYMMDD(item.date);
+      const isBeforeCutoff = satYmd < '20260523';
+      
+      let count = 0;
+      allClients.forEach(c => {
+        const wave = c.Ola || 1;
+        if (isBeforeCutoff && Number(wave) === 2) {
+          return;
+        }
+        count++;
+      });
+      totals[item.date] = count;
+    });
+
+    return totals;
+  }, [allClients, data]);
+
+  // Compute total clients per direction and date (for direction-specific denominator)
+  const totalClientsPerDirectionAndDate = useMemo(() => {
+    const totals = {};
+    if (!allClients || !data || keys.length === 0) return totals;
+
+    data.forEach(item => {
+      const satYmd = parseDateToYYYYMMDD(item.date);
+      const isBeforeCutoff = satYmd < '20260523';
+
+      keys.forEach(dir => {
+        let count = 0;
+        allClients.forEach(c => {
+          if (c.direccion !== dir) return;
+          const wave = c.Ola || 1;
+          if (isBeforeCutoff && Number(wave) === 2) {
+            return;
+          }
+          count++;
+        });
+        totals[`${item.date}|${dir}`] = count;
+      });
+    });
+
+    return totals;
+  }, [allClients, data, keys]);
+
+  const isSmall = containerWidth < 640;
+
+  // Define responsive margins
+  const margin = useMemo(() => {
+    return {
+      top: 30,
+      right: 30,
+      bottom: 40,
+      left: isSmall ? 130 : 210
+    };
+  }, [isSmall]);
+
+  // Define scaleBand x at component scope for JSX rendering
+  const x = useMemo(() => {
+    const innerWidth = containerWidth - margin.left - margin.right;
+    return d3.scaleBand()
+      .domain(data.map(d => d.date))
+      .range([0, innerWidth > 0 ? innerWidth : 0])
+      .padding(0.35);
+  }, [data, containerWidth, margin]);
+
   useEffect(() => {
     if (!data || data.length === 0 || keys.length === 0) return;
 
     const width = containerWidth;
-    const height = 350;
-    const margin = { top: 30, right: 30, bottom: 50, left: 50 };
+    const height = 300;
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -755,11 +837,6 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const x = d3.scaleBand()
-      .domain(data.map(d => d.date))
-      .range([0, innerWidth])
-      .padding(0.35);
-
     const maxVal = d3.max(data, d => d.totalRedemptions) || 10;
     const y = d3.scaleLinear()
       .domain([0, maxVal * 1.15]) // 15% padding at top for totals labels
@@ -769,14 +846,24 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
     const stack = d3.stack().keys(keys);
     const series = stack(data);
 
-    // X Axis
+    // X Axis with formatted ticks on mobile
+    const xAxis = d3.axisBottom(x).tickFormat(d => {
+      if (isSmall) {
+        const parts = d.split('/');
+        if (parts.length === 3) {
+          return `${parts[0]}/${parts[1]}`; // dd/MM
+        }
+      }
+      return d;
+    });
+
     g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x))
+      .call(xAxis)
       .attr('color', '#444444')
       .selectAll('text')
       .attr('fill', '#aaaaaa')
-      .style('font-size', '11px')
+      .style('font-size', isSmall ? '10px' : '11px')
       .style('font-weight', '600');
 
     // Y Axis
@@ -812,23 +899,65 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
         d3.select(this).attr('opacity', 0.85);
         const segmentColor = DIRECTION_COLORS[d.key] || '#9ca3af';
         
+        const canjes = d.data[d.key] || 0;
+        const totalRedemptions = d.data.totalRedemptions || 0;
+        const canjesShare = totalRedemptions > 0 ? ((canjes / totalRedemptions) * 100).toFixed(1) : '0.0';
+        
+        const active = d.data.activeClients[d.key] || 0;
+        const totalDirClients = totalClientsPerDirectionAndDate[`${d.data.date}|${d.key}`] || 0;
+        const activePct = totalDirClients > 0 ? ((active / totalDirClients) * 100).toFixed(1) : '0.0';
+        
+        const promedio = active > 0 ? (canjes / active).toFixed(1) : '0.0';
+
         tt.style('opacity', 1)
           .html(`
             <div style="font-weight: 700; margin-bottom: 4px; color: #CFA052;">Sábado ${d.data.date}</div>
             <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; color: ${segmentColor};">${d.key}</div>
-            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 11px; margin-bottom: 3px;">
+            <div style="display: flex; justify-content: space-between; gap: 24px; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
               <span style="color: #9ca3af;">Canjes:</span>
-              <span style="font-weight: 700; color: #fff;">${d.data[d.key].toLocaleString()}</span>
+              <span style="font-weight: 700; color: #fff;">${canjes.toLocaleString()} (${canjesShare}%)</span>
             </div>
-            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 11px;">
+            <div style="display: flex; justify-content: space-between; gap: 24px; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
               <span style="color: #9ca3af;">Locales Activos:</span>
-              <span style="font-weight: 700; color: #4ade80;">${d.data.activeClients[d.key].toLocaleString()}</span>
+              <span style="font-weight: 700; color: #4ade80;">${active.toLocaleString()} (${activePct}%)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; gap: 24px; font-size: 11px;">
+              <span style="color: #9ca3af;">Promedio:</span>
+              <span style="font-weight: 700; color: #CFA052;">${promedio}</span>
             </div>
           `);
       })
       .on('mousemove', (event) => {
-        tt.style('left', (event.pageX + 12) + 'px')
-          .style('top', (event.pageY - 28) + 'px');
+        const node = tt.node();
+        const ttWidth = node ? node.offsetWidth : 160;
+        const ttHeight = node ? node.offsetHeight : 140;
+
+        let left = event.pageX + 12;
+        let top = event.pageY - 28;
+
+        const scrollX = window.scrollX || window.pageXOffset || 0;
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Shift tooltip left if it overflows the right edge
+        if (left + ttWidth > viewportWidth + scrollX) {
+          left = event.pageX - ttWidth - 12;
+        }
+        // Shift tooltip up if it overflows the bottom edge
+        if (top + ttHeight > viewportHeight + scrollY) {
+          top = event.pageY - ttHeight - 12;
+        }
+        // Boundaries safety
+        if (left < scrollX) {
+          left = scrollX + 10;
+        }
+        if (top < scrollY) {
+          top = scrollY + 10;
+        }
+
+        tt.style('left', left + 'px')
+          .style('top', top + 'px');
       })
       .on('mouseout', function () {
         d3.select(this).attr('opacity', 1.0);
@@ -859,7 +988,7 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
       .style('font-weight', '700')
       .text(d => d.totalRedemptions > 0 ? formatTotalLabel(d.totalRedemptions) : '');
 
-  }, [data, containerWidth, keys]);
+  }, [data, containerWidth, keys, totalClientsPerDirectionAndDate, margin, x]);
 
   return (
     <div ref={containerRef} className="chart-container" style={{ width: '100%', height: '100%', minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
@@ -887,7 +1016,139 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
         ))}
       </div>
       {data.length > 0 ? (
-        <svg ref={svgRef} width="100%" height="100%"></svg>
+        <>
+          <div style={{ flex: 1, minHeight: '260px', position: 'relative' }}>
+            <svg ref={svgRef} width="100%" height="100%"></svg>
+          </div>
+          
+          {/* Aligned Summary Table */}
+          <div style={{
+            width: '100%',
+            marginTop: '12px',
+            borderTop: '1px solid rgba(255,255,255,0.05)',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+            overflow: 'hidden',
+            flexShrink: 0
+          }}>
+            {/* POCs Activos Row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              height: '38px',
+              borderBottom: '1px solid rgba(255,255,255,0.03)',
+              position: 'relative',
+              width: '100%'
+            }}>
+              {/* Label Column */}
+              <div style={{
+                width: `${margin.left}px`,
+                paddingLeft: isSmall ? '8px' : '12px',
+                paddingRight: '6px',
+                color: '#CFA052',
+                fontWeight: 'bold',
+                fontSize: isSmall ? '0.7rem' : '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                height: '100%',
+                background: 'rgba(20,15,10,0.6)',
+                borderRight: '1px solid rgba(207,160,82,0.15)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }} title={isSmall ? 'POCs Activos (% Cobertura)' : ''}>
+                {isSmall ? 'POCs Act. (% Cob.)' : 'POCs Activos (% Cobertura)'}
+              </div>
+              {/* Data Columns */}
+              {data.map(d => {
+                const activeCount = keys.reduce((sum, dir) => sum + (d.activeClients[dir] || 0), 0);
+                const totalClients = totalClientsPerDate[d.date] || 0;
+                const activePct = totalClients > 0 ? ((activeCount / totalClients) * 100).toFixed(0) : '0';
+                
+                const leftPos = margin.left + x(d.date);
+                const cellWidth = x.bandwidth();
+
+                return (
+                  <div key={d.date} style={{
+                    position: 'absolute',
+                    left: `${leftPos}px`,
+                    width: `${cellWidth}px`,
+                    textAlign: 'center',
+                    color: '#4ade80',
+                    fontWeight: '700',
+                    fontSize: isSmall ? '0.68rem' : '0.75rem',
+                    display: 'flex',
+                    flexDirection: isSmall ? 'column' : 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    gap: isSmall ? '1px' : '4px',
+                    lineHeight: isSmall ? '1.1' : '1.4'
+                  }}>
+                    <span>{activeCount.toLocaleString()}</span>
+                    <span style={{ fontSize: isSmall ? '0.58rem' : '0.65rem', color: '#aaaaaa', fontWeight: '500' }}>
+                      ({activePct}%)
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Redenciones Prom. por Activo Row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              height: '38px',
+              position: 'relative',
+              width: '100%'
+            }}>
+              {/* Label Column */}
+              <div style={{
+                width: `${margin.left}px`,
+                paddingLeft: isSmall ? '8px' : '12px',
+                paddingRight: '6px',
+                color: '#CFA052',
+                fontWeight: 'bold',
+                fontSize: isSmall ? '0.7rem' : '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                height: '100%',
+                background: 'rgba(20,15,10,0.6)',
+                borderRight: '1px solid rgba(207,160,82,0.15)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }} title={isSmall ? 'Redenciones Prom. por Activo' : ''}>
+                {isSmall ? 'Prom. por Act.' : 'Redenciones Prom. por Activo'}
+              </div>
+              {/* Data Columns */}
+              {data.map(d => {
+                const activeCount = keys.reduce((sum, dir) => sum + (d.activeClients[dir] || 0), 0);
+                const average = activeCount > 0 ? (d.totalRedemptions / activeCount).toFixed(1) : '0.0';
+                
+                const leftPos = margin.left + x(d.date);
+                const cellWidth = x.bandwidth();
+
+                return (
+                  <div key={d.date} style={{
+                    position: 'absolute',
+                    left: `${leftPos}px`,
+                    width: `${cellWidth}px`,
+                    textAlign: 'center',
+                    color: '#ffffff',
+                    fontWeight: '700',
+                    fontSize: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%'
+                  }}>
+                    {average}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <p className="text-secondary text-center">No hay sábados con datos en el rango seleccionado</p>
