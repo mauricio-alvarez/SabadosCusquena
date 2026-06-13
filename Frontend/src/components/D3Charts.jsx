@@ -758,12 +758,16 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
 
     data.forEach(item => {
       const satYmd = parseDateToYYYYMMDD(item.date);
-      const isBeforeCutoff = satYmd < '20260523';
+      const isBeforeOla2 = satYmd < '20260523';
+      const isBeforeOla3 = satYmd < '20260613';
       
       let count = 0;
       allClients.forEach(c => {
-        const wave = c.Ola || 1;
-        if (isBeforeCutoff && Number(wave) === 2) {
+        const wave = Number(c.Ola || 1);
+        if (isBeforeOla2 && wave >= 2) {
+          return;
+        }
+        if (isBeforeOla3 && wave >= 3) {
           return;
         }
         count++;
@@ -781,14 +785,18 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
 
     data.forEach(item => {
       const satYmd = parseDateToYYYYMMDD(item.date);
-      const isBeforeCutoff = satYmd < '20260523';
+      const isBeforeOla2 = satYmd < '20260523';
+      const isBeforeOla3 = satYmd < '20260613';
 
       keys.forEach(dir => {
         let count = 0;
         allClients.forEach(c => {
           if (c.direccion !== dir) return;
-          const wave = c.Ola || 1;
-          if (isBeforeCutoff && Number(wave) === 2) {
+          const wave = Number(c.Ola || 1);
+          if (isBeforeOla2 && wave >= 2) {
+            return;
+          }
+          if (isBeforeOla3 && wave >= 3) {
             return;
           }
           count++;

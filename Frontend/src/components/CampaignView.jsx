@@ -108,7 +108,9 @@ const CampaignView = ({ allClients, progressData }) => {
 
     allClients.forEach(c => {
       const wave = c.Ola || 1;
-      const relevantSats = wave === 2
+      const relevantSats = wave === 3
+        ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260613')
+        : wave === 2
         ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260523')
         : saturdays;
 
@@ -184,6 +186,10 @@ const CampaignView = ({ allClients, progressData }) => {
         if (wave === 2 && currentSatYmd < '20260523') {
           return;
         }
+        // If client is Ola 3 and the current week date is before 13/06/2026, skip client entirely
+        if (wave === 3 && currentSatYmd < '20260613') {
+          return;
+        }
 
         // Get relevant Saturdays up to week k
         const relevantSatsUpToWeek = [];
@@ -191,6 +197,9 @@ const CampaignView = ({ allClients, progressData }) => {
           const sat = saturdays[j];
           const satYmd = parseDateToYYYYMMDD(sat);
           if (wave === 2 && satYmd < '20260523') {
+            continue;
+          }
+          if (wave === 3 && satYmd < '20260613') {
             continue;
           }
           relevantSatsUpToWeek.push(sat);
@@ -397,7 +406,9 @@ const CampaignView = ({ allClients, progressData }) => {
       groupClients.forEach(c => {
         if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
         const wave = c.Ola || 1;
-        const relevantSats = wave === 2
+        const relevantSats = wave === 3
+          ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260613')
+          : wave === 2
           ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260523')
           : saturdays;
         relevantSats.forEach(sat => {

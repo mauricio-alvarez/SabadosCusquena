@@ -9,6 +9,71 @@ def _load_fixed_clients():
     return df_fixed.drop_duplicates(subset='cliente_id', keep='first').copy()
 
 
+def _load_dynamic_report(dynamic_file_path: str):
+    df_dyn = pd.read_excel(dynamic_file_path)
+    ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
+    if ref_col in df_dyn.columns:
+        df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    
+    # Apply Sucursales mapping update
+    if 'Sucursal' in df_dyn.columns and ref_col in df_dyn.columns:
+        if os.path.exists(FIXED_FILE_PATH):
+            try:
+                xl = pd.ExcelFile(FIXED_FILE_PATH, engine='pyxlsb')
+                if 'Sucursales' in xl.sheet_names:
+                    df_suc = pd.read_excel(FIXED_FILE_PATH, sheet_name='Sucursales', engine='pyxlsb')
+                    
+                    suc_col = 'Sucursal'
+                    new_code_col = None
+                    for c in df_suc.columns:
+                        c_norm = str(c).lower().strip()
+                        if 'nuevo' in c_norm and ('c' in c_norm or 'd' in c_norm or 'g' in c_norm):
+                            new_code_col = c
+                            break
+                    
+                    if suc_col in df_suc.columns and new_code_col is not None:
+                        df_suc[suc_col] = df_suc[suc_col].fillna('').astype(str).str.strip()
+                        df_suc[new_code_col] = df_suc[new_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                        df_suc = df_suc[df_suc[suc_col] != '']
+                        
+                        suc_mapping = df_suc.set_index(suc_col)[new_code_col].to_dict()
+                        
+                        # Apply mapping
+                        df_dyn['Sucursal_clean'] = df_dyn['Sucursal'].fillna('').astype(str).str.strip()
+                        mapped_codes = df_dyn['Sucursal_clean'].map(suc_mapping)
+                        df_dyn[ref_col] = mapped_codes.fillna(df_dyn[ref_col])
+                        df_dyn.drop(columns=['Sucursal_clean'], inplace=True)
+            except Exception as e:
+                print(f"Error applying Sucursales mapping: {e}")
+                
+    # Exclude Ola 3 redemptions before 13/06/2026
+    if ref_col in df_dyn.columns and 'Fecha' in df_dyn.columns:
+        if os.path.exists(FIXED_FILE_PATH):
+            try:
+                df_fixed = _load_fixed_clients()
+                client_ola = df_fixed.set_index('cliente_id')['Ola'].to_dict()
+                
+                # Temporary clean date
+                df_dyn['Fecha_dt_temp'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
+                cutoff_date = pd.to_datetime('13/06/2026', format='%d/%m/%Y')
+                
+                # Map Ola column temporarily
+                df_dyn['Ola_temp'] = df_dyn[ref_col].map(client_ola)
+                
+                # Mask for rows that should be excluded: (Ola_temp == 3) & (Fecha_dt_temp < cutoff_date)
+                exclude_mask = (df_dyn['Ola_temp'] == 3) & (df_dyn['Fecha_dt_temp'] < cutoff_date)
+                
+                # Filter out excluded rows
+                df_dyn = df_dyn[~exclude_mask].copy()
+                
+                # Drop temporary columns
+                df_dyn.drop(columns=['Fecha_dt_temp', 'Ola_temp'], errors='ignore', inplace=True)
+            except Exception as e:
+                print(f"Error filtering Ola 3 redemptions: {e}")
+                
+    return df_dyn
+
+
 def process_dashboard_data(dynamic_file_path: str):
     if not os.path.exists(dynamic_file_path):
         raise FileNotFoundError(f"Dynamic file not found: {dynamic_file_path}")
@@ -17,10 +82,8 @@ def process_dashboard_data(dynamic_file_path: str):
     df_fixed = _load_fixed_clients()
     
     # Load dynamic db
-    df_dyn = pd.read_excel(dynamic_file_path)
+    df_dyn = _load_dynamic_report(dynamic_file_path)
     ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
-    # Clean the column, handling possible floats/strings
-    df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     
     # KPIs
     total_clients = len(df_fixed)
@@ -105,6 +168,9 @@ def process_dashboard_data(dynamic_file_path: str):
         if ola == 2:
             # Ola 2: Only evaluation starting from 23/05/2026
             relevant_sats = [sat for sat in saturdays_list if pd.to_datetime(sat, format='%d/%m/%Y') >= pd.to_datetime('23/05/2026', format='%d/%m/%Y')]
+        elif ola == 3:
+            # Ola 3: Only evaluation starting from 13/06/2026
+            relevant_sats = [sat for sat in saturdays_list if pd.to_datetime(sat, format='%d/%m/%Y') >= pd.to_datetime('13/06/2026', format='%d/%m/%Y')]
         else:
             # Ola 1: All Saturdays
             relevant_sats = saturdays_list
@@ -340,9 +406,8 @@ def process_comparison(dynamic_file_path: str, date_a_str: str, date_b_str: str)
 
     df_fixed = _load_fixed_clients()
 
-    df_dyn = pd.read_excel(dynamic_file_path)
+    df_dyn = _load_dynamic_report(dynamic_file_path)
     ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
-    df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
 
     df_dyn_merged = pd.merge(df_dyn, df_fixed, left_on=ref_col, right_on='cliente_id', how='inner')
@@ -373,9 +438,8 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
     client_dict = df_fixed.set_index('cliente_id')['nombre_comercial'].to_dict()
 
     # 2. Load dynamic db (canjes-institucion)
-    df_dyn = pd.read_excel(dynamic_file_path)
+    df_dyn = _load_dynamic_report(dynamic_file_path)
     ref_col = 'Código de referencia (CERVECERIAS PERUANAS BACKUS SA)'
-    df_dyn[ref_col] = df_dyn[ref_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
 
     # Extract month-year (MM/YYYY)
     df_dyn['Fecha_dt'] = pd.to_datetime(df_dyn['Fecha'], format='%d/%m/%Y', errors='coerce')
