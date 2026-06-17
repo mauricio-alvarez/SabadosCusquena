@@ -15,7 +15,7 @@ const parseDateToYYYYMMDD = (dateStr) => {
 const LEVEL_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
 const LEVEL_LABELS = ['Dirección', 'Gerencia', 'Supervisor', 'BDR'];
 
-const CampaignView = ({ allClients, progressData }) => {
+const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
   const [selectedFilters, setSelectedFilters] = useState({ direccion: null, gerencia: null, supervisor: null, BDR: null });
   const chartContainerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(500);
@@ -41,6 +41,7 @@ const CampaignView = ({ allClients, progressData }) => {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [hoveredLegend, setHoveredLegend] = useState(null);
   const [tooltipLeft, setTooltipLeft] = useState(0);
+  const viewTitle = marchaBlanca ? 'Desempeño Campaña con Marcha Blanca' : 'Desempeño Campaña Total';
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -49,7 +50,7 @@ const CampaignView = ({ allClients, progressData }) => {
   }, []);
 
   // Determine the list of Saturdays from available_dates
-  const saturdays = useMemo(() => {
+  const rawSaturdays = useMemo(() => {
     if (!progressData || !progressData.available_dates) return [];
     return progressData.available_dates.filter(dateStr => {
       const parts = dateStr.split('/');
@@ -58,6 +59,35 @@ const CampaignView = ({ allClients, progressData }) => {
       return d.getDay() === 6; // 6 = Saturday
     });
   }, [progressData]);
+
+  const waveStartByOla = useMemo(() => {
+    if (!marchaBlanca) {
+      return {
+        1: '',
+        2: '20260523',
+        3: '20260613',
+      };
+    }
+
+    return {
+      1: rawSaturdays.length > 1 ? parseDateToYYYYMMDD(rawSaturdays[1]) : '',
+      2: '20260530',
+      3: '20260620',
+    };
+  }, [marchaBlanca, rawSaturdays]);
+
+  const saturdays = useMemo(() => {
+    if (!marchaBlanca) return rawSaturdays;
+    const ola1Start = waveStartByOla[1];
+    return ola1Start
+      ? rawSaturdays.filter(sat => parseDateToYYYYMMDD(sat) >= ola1Start)
+      : rawSaturdays;
+  }, [rawSaturdays, marchaBlanca, waveStartByOla]);
+
+  const isSaturdayRelevantForWave = useCallback((sat, wave) => {
+    const start = waveStartByOla[Number(wave) || 1] || '';
+    return !start || parseDateToYYYYMMDD(sat) >= start;
+  }, [waveStartByOla]);
 
   // Helper function to calculate Q1
   const getQ1 = useCallback((values) => {
@@ -108,11 +138,7 @@ const CampaignView = ({ allClients, progressData }) => {
 
     allClients.forEach(c => {
       const wave = c.Ola || 1;
-      const relevantSats = wave === 3
-        ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260613')
-        : wave === 2
-        ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260523')
-        : saturdays;
+      const relevantSats = saturdays.filter(sat => isSaturdayRelevantForWave(sat, wave));
 
       let aboveCount = 0;
       relevantSats.forEach(sat => {
@@ -141,7 +167,7 @@ const CampaignView = ({ allClients, progressData }) => {
       };
     });
     return classifications;
-  }, [allClients, saturdays, saturdayQ1s]);
+  }, [allClients, saturdays, saturdayQ1s, isSaturdayRelevantForWave]);
 
   // Filter clients by ALL active hierarchical filters (for charts, summary, and detail panel)
   const selectedClients = useMemo(() => {
@@ -180,14 +206,8 @@ const CampaignView = ({ allClients, progressData }) => {
       selectedClients.forEach(c => {
         const wave = c.Ola || 1;
         const currentSatDate = saturdays[k];
-        const currentSatYmd = parseDateToYYYYMMDD(currentSatDate);
 
-        // If client is Ola 2 and the current week date is before 23/05/2026, skip client entirely
-        if (wave === 2 && currentSatYmd < '20260523') {
-          return;
-        }
-        // If client is Ola 3 and the current week date is before 13/06/2026, skip client entirely
-        if (wave === 3 && currentSatYmd < '20260613') {
+        if (!isSaturdayRelevantForWave(currentSatDate, wave)) {
           return;
         }
 
@@ -195,11 +215,7 @@ const CampaignView = ({ allClients, progressData }) => {
         const relevantSatsUpToWeek = [];
         for (let j = 0; j <= k; j++) {
           const sat = saturdays[j];
-          const satYmd = parseDateToYYYYMMDD(sat);
-          if (wave === 2 && satYmd < '20260523') {
-            continue;
-          }
-          if (wave === 3 && satYmd < '20260613') {
+          if (!isSaturdayRelevantForWave(sat, wave)) {
             continue;
           }
           relevantSatsUpToWeek.push(sat);
@@ -236,7 +252,7 @@ const CampaignView = ({ allClients, progressData }) => {
       });
     }
     return points;
-  }, [selectedClients, saturdays, saturdayQ1s]);
+  }, [selectedClients, saturdays, saturdayQ1s, isSaturdayRelevantForWave]);
 
   // Overall summary (counts from filtered selectedClients only)
   const summary = useMemo(() => {
@@ -368,8 +384,9 @@ const CampaignView = ({ allClients, progressData }) => {
 
     const activeFilterNames = LEVEL_KEYS.map(k => selectedFilters[k]).filter(Boolean);
     const label = activeFilterNames.length > 0 ? activeFilterNames.join('_') : 'Todos';
-    XLSX.writeFile(wb, `Detalle_Campaña_${label}.xlsx`);
-  }, [detailClients, clientClassifications, saturdays, selectedFilters]);
+    const reportPrefix = marchaBlanca ? 'Detalle_Campaña_Marcha_Blanca' : 'Detalle_Campaña';
+    XLSX.writeFile(wb, `${reportPrefix}_${label}.xlsx`);
+  }, [detailClients, clientClassifications, saturdays, selectedFilters, marchaBlanca]);
 
   // General layout stats aggregator for subdivisions (each table filtered by levels ABOVE it)
   const getLevelData = useCallback((level) => {
@@ -406,11 +423,7 @@ const CampaignView = ({ allClients, progressData }) => {
       groupClients.forEach(c => {
         if (!c.redemption_dates || !Array.isArray(c.redemption_dates)) return;
         const wave = c.Ola || 1;
-        const relevantSats = wave === 3
-          ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260613')
-          : wave === 2
-          ? saturdays.filter(sat => parseDateToYYYYMMDD(sat) >= '20260523')
-          : saturdays;
+        const relevantSats = saturdays.filter(sat => isSaturdayRelevantForWave(sat, wave));
         relevantSats.forEach(sat => {
           const count = c.redemption_dates.filter(d => d === sat).length;
           if (count > 0) {
@@ -433,7 +446,7 @@ const CampaignView = ({ allClients, progressData }) => {
         avgPerActiveSat,
       };
     });
-  }, [getClientsForLevel, clientClassifications, saturdays]);
+  }, [getClientsForLevel, clientClassifications, saturdays, isSaturdayRelevantForWave]);
 
   const direccioneData = useMemo(() => getLevelData('direccion'), [getLevelData]);
   const gerenciasData = useMemo(() => getLevelData('gerencia'), [getLevelData]);
@@ -478,8 +491,11 @@ const CampaignView = ({ allClients, progressData }) => {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatRows(supervisoresData)), 'Supervisores');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formatRows(bdrsData)), 'BDRs');
 
-    XLSX.writeFile(wb, 'Desempeño_Campaña_Total.xlsx');
-  }, [direccioneData, gerenciasData, supervisoresData, bdrsData, summary]);
+    const fileName = marchaBlanca
+      ? 'Desempeño_Campaña_Marcha_Blanca.xlsx'
+      : 'Desempeño_Campaña_Total.xlsx';
+    XLSX.writeFile(wb, fileName);
+  }, [direccioneData, gerenciasData, supervisoresData, bdrsData, summary, marchaBlanca]);
 
   // Render Thermometer arc gauge
   const renderGauge = () => {
@@ -525,7 +541,7 @@ const CampaignView = ({ allClients, progressData }) => {
           </text>
         </svg>
         <div className="text-center mt-1">
-          <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Clientes Redimiendo <p/>más de 8 unidades</span>
+          <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Clientes Redimiendo <p/>más de 11 unidades</span>
         </div>
         <div style={{
           display: 'flex',
@@ -1298,7 +1314,7 @@ const CampaignView = ({ allClients, progressData }) => {
           </div>
           <div>
             <h2 className="text-white font-bold" style={{ fontSize: '1.1rem', margin: 0 }}>
-              Desempeño Campaña Total
+              {viewTitle}
             </h2>
             {saturdays.length > 0 && (
               <p className="text-secondary" style={{ fontSize: '0.7rem', marginTop: '1px' }}>

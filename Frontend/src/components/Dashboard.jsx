@@ -52,7 +52,7 @@ const Dashboard = () => {
     }
     if (path === '/volume' || path === '/volume/') {
       const hasCreds = !!sessionStorage.getItem('ventas_creds');
-      return hasCreds ? 'volume' : 'general';
+      return hasCreds ? 'volume' : 'ventas';
     }
     return 'general';
   };
@@ -95,8 +95,8 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated && (activeView === 'ventas' || activeView === 'volume')) {
-      setActiveView('general');
+    if (!isAuthenticated && activeView === 'volume') {
+      setActiveView('ventas');
     }
   }, [isAuthenticated, activeView]);
 
@@ -379,6 +379,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
+            <button onClick={() => setActiveView('campaign-marcha')} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Campaña<br/>con Marcha Blanca</span>
+            </button>
             <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><Award size={20} /></div>
               <span className="sidebar-btn-text">Ranking Mozos</span>
@@ -423,6 +427,10 @@ const Dashboard = () => {
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Campaña</span>
+              </button>
+              <button onClick={() => { setActiveView('campaign-marcha'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+                <span className="sidebar-btn-text">Desempeño Campaña con Marcha Blanca</span>
               </button>
               <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><Award size={20} /></div>
@@ -602,6 +610,9 @@ const Dashboard = () => {
             )}
             {activeView === 'campaign' && (
               <CampaignView allClients={dashboardData.clients} progressData={dashboardData.progress_data} />
+            )}
+            {activeView === 'campaign-marcha' && (
+              <CampaignView allClients={dashboardData.clients} progressData={dashboardData.progress_data} marchaBlanca />
             )}
             {activeView === 'volume' && (
               <VolumeView allClients={dashboardData.clients} />
