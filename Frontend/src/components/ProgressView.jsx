@@ -95,8 +95,8 @@ const ProgressView = ({ progressData, filePath }) => {
           'Varianza %': item.previous > 0 ? item.pctChange : '',
         };
         if (!isClientLevel) {
-          row[`Fecha A (${dateAShort}) Clientes Activos`] = item.currentClients ?? '';
-          row[`Fecha B (${dateBShort}) Clientes Activos`] = item.previousClients ?? '';
+          row[`Fecha A (${dateAShort}) Clientes Redimiendo`] = item.currentClients ?? '';
+          row[`Fecha B (${dateBShort}) Clientes Redimiendo`] = item.previousClients ?? '';
           row['Varianza Clientes Abs.'] = item.clientDiff ?? '';
           row['Varianza Clientes %'] = (item.previousClients && item.previousClients > 0)
             ? parseFloat(((item.clientDiff / item.previousClients) * 100).toFixed(1))

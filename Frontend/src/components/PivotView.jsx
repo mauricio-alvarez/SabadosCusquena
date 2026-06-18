@@ -363,10 +363,10 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           'Nombre': node.name,
           'Ruta': path,
           'Clientes Totales': node.total,
-          'Clientes Activos': node.active,
-          '% Activos': node.activePct,
-          'Clientes Inactivos': node.inactive,
-          '% Inactivos': node.inactivePct,
+          'Clientes Redimiendo': node.active,
+          '% Redimiendo': node.activePct,
+          'Clientes Sin Redimir': node.inactive,
+          '% Sin Redimir': node.inactivePct,
           'VS SAB ACT (Abs)': node.vsSabActiveDelta,
           'VS SAB ACT (%)': node.vsSabActivePct,
           'VS SAB ACT MH (Abs)': node.vsSabActiveDeltaSameHour,
@@ -397,10 +397,10 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
         'Nombre': 'TOTAL',
         'Ruta': '',
         'Clientes Totales': totals.total,
-        'Clientes Activos': totals.active,
-        '% Activos': totals.activePct,
-        'Clientes Inactivos': totals.inactive,
-        '% Inactivos': totals.inactivePct,
+        'Clientes Redimiendo': totals.active,
+        '% Redimiendo': totals.activePct,
+        'Clientes Sin Redimir': totals.inactive,
+        '% Sin Redimir': totals.inactivePct,
         'VS SAB ACT (Abs)': totals.vsSabActiveDelta,
         'VS SAB ACT (%)': totals.vsSabActivePct,
         'VS SAB ACT MH (Abs)': totals.vsSabActiveDeltaSameHour,
@@ -509,7 +509,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           </div>
           <div>
             <h2 className="text-white font-bold" style={{ fontSize: '1.25rem', margin: 0 }}>
-              {isDatesView ? 'Desempeño Fechas' : 'Desempeño Sábado Actual'}
+              {isDatesView ? 'Desempeño Fechas' : 'Sábado y Fecha Actual'}
             </h2>
             {latestSaturday && prevSaturday ? (
               <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
@@ -584,16 +584,17 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
               }}>
                 <SortHeader label="Nombre" sortKey="name" sortConfig={sortConfig} onSort={toggleSort} isName />
                 <SortHeader label={<>Clientes<br />Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Clientes<br />Activos</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Clientes<br />Inactivos</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Var vs Sab Pasado</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Var vs Sab Pasado<br />(Hora Actual)</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Clientes<br />Redimiendo</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Clientes<br />Sin Redimir</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
+                <SortHeader label={<>Var vs Sab Pasado<br />Misma Hora</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />Dia Completo</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />                
                 <SortHeader label={<>Redenc.<br />Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Var vs Sab Pasado</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Var vs Sab Pasado<br />(Hora Actual)</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />Misma Hora</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />Dia Completo</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />               
                 <SortHeader label={<>Red Prom<br />x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Var vs Sab Pasado</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Var vs Sab Pasado<br />(Hora Actual)</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />Misma Hora</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs Sab Pasado<br />Dia Completo</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                
               </div>
 
               {/* Table Body - vertical scrolling only */}
@@ -648,19 +649,6 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                         <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 500 }}>({totals.inactivePct}%)</span>
                       </span>
                     </div>
-                    {/* VS SAB ACT */}
-                    <div style={dataCellStyle}>
-                      <span style={{
-                        color: totals.vsSabActiveDelta > 0 ? '#4ade80' : totals.vsSabActiveDelta < 0 ? '#f87171' : '#9ca3af',
-                        fontWeight: 700,
-                        fontSize: '0.7rem',
-                      }}>
-                        {totals.vsSabActiveDelta > 0 ? '+' : ''}{totals.vsSabActiveDelta}
-                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
-                          {totals.vsSabActivePct !== '∞' ? `(${totals.vsSabActivePct}%)` : '(nuevo)'}
-                        </span>
-                      </span>
-                    </div>
                     {/* VS SAB ACT SAME HOUR */}
                     <div style={dataCellStyle}>
                       <span style={{
@@ -674,23 +662,24 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                         </span>
                       </span>
                     </div>
+                    {/* VS SAB ACT */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabActiveDelta > 0 ? '#4ade80' : totals.vsSabActiveDelta < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabActiveDelta > 0 ? '+' : ''}{totals.vsSabActiveDelta}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabActivePct !== '∞' ? `(${totals.vsSabActivePct}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
+                    
                     {/* Redenciones Totales */}
                     <div style={dataCellStyle}>
                       <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
                         {totals.totalRedemptions.toLocaleString()}
-                      </span>
-                    </div>
-                    {/* VS SAB RED */}
-                    <div style={dataCellStyle}>
-                      <span style={{
-                        color: totals.vsSabDelta > 0 ? '#4ade80' : totals.vsSabDelta < 0 ? '#f87171' : '#9ca3af',
-                        fontWeight: 700,
-                        fontSize: '0.7rem',
-                      }}>
-                        {totals.vsSabDelta > 0 ? '+' : ''}{totals.vsSabDelta}
-                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
-                          {totals.vsSabPct !== '∞' ? `(${totals.vsSabPct}%)` : '(nuevo)'}
-                        </span>
                       </span>
                     </div>
                     {/* VS SAB RED SAME HOUR */}
@@ -706,23 +695,24 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                         </span>
                       </span>
                     </div>
+                    {/* VS SAB RED */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabDelta > 0 ? '#4ade80' : totals.vsSabDelta < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabDelta > 0 ? '+' : ''}{totals.vsSabDelta}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabPct !== '∞' ? `(${totals.vsSabPct}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
+                    
                     {/* Red Prom x Activo */}
                     <div style={dataCellStyle}>
                       <span className="text-white font-bold" style={{ fontSize: '0.75rem' }}>
                         {totals.avgPerActive}
-                      </span>
-                    </div>
-                    {/* VS SAB PROM */}
-                    <div style={dataCellStyle}>
-                      <span style={{
-                        color: totals.vsSabAvgDelta > 0 ? '#4ade80' : totals.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
-                        fontWeight: 700,
-                        fontSize: '0.7rem',
-                      }}>
-                        {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
-                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
-                          {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
-                        </span>
                       </span>
                     </div>
                     {/* VS SAB PROM SAME HOUR */}
@@ -738,6 +728,20 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                         </span>
                       </span>
                     </div>
+                    {/* VS SAB PROM */}
+                    <div style={dataCellStyle}>
+                      <span style={{
+                        color: totals.vsSabAvgDelta > 0 ? '#4ade80' : totals.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                      }}>
+                        {totals.vsSabAvgDelta > 0 ? '+' : ''}{totals.vsSabAvgDelta}
+                        <span style={{ fontSize: '0.65rem', marginLeft: '2px', opacity: 0.8, fontWeight: 500 }}>
+                          {totals.vsSabAvgPct !== '∞' ? `(${totals.vsSabAvgPct}%)` : '(nuevo)'}
+                        </span>
+                      </span>
+                    </div>
+                    
                   </div>
                 )}
               </div>

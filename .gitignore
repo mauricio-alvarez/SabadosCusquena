@@ -11,3 +11,5 @@ dist-ssr
 *.xlsx
 *.local.log
 *.local.err
+/analysis
+/analysis_outputs

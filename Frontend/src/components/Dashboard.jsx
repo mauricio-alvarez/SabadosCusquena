@@ -369,7 +369,7 @@ const Dashboard = () => {
             
             <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
+              <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
             </button>
             <button onClick={() => setActiveView('pivot-dates')} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
@@ -418,7 +418,7 @@ const Dashboard = () => {
               
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Sábado Actual</span>
+                <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
               </button>
               <button onClick={() => { setActiveView('pivot-dates'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
