@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -61,6 +61,17 @@ const Dashboard = () => {
   const [showSideMenu, setShowSideMenu] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('dashboard_theme') || 'light');
+  const isDarkTheme = theme === 'dark';
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('dashboard_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   useEffect(() => {
     if (activeView === 'ventas') {
@@ -371,22 +382,11 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
             </button>
-            <button onClick={() => setActiveView('pivot-dates')} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Desempeño Fechas</span>
-            </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
-            <button onClick={() => setActiveView('campaign-marcha')} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
-              <span className="sidebar-btn-text">Desempeño Campaña<br/>con Marcha Blanca</span>
-            </button>
-            <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><Award size={20} /></div>
-              <span className="sidebar-btn-text">Ranking Mozos</span>
-            </button>
+            
             {isAuthenticated && (
               <>
                 <button onClick={() => setActiveView('volume')} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
@@ -420,21 +420,9 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
               </button>
-              <button onClick={() => { setActiveView('pivot-dates'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Fechas</span>
-              </button>
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Campaña</span>
-              </button>
-              <button onClick={() => { setActiveView('campaign-marcha'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Campaña con Marcha Blanca</span>
-              </button>
-              <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><Award size={20} /></div>
-                <span className="sidebar-btn-text">Ranking Mozos</span>
               </button>
               {isAuthenticated && (
                 <>
@@ -476,7 +464,19 @@ const Dashboard = () => {
               </p>
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4" style={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              title={isDarkTheme ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {isDarkTheme ? <Moon size={16} /> : <Sun size={16} />}
+              <span className="theme-toggle-label">{isDarkTheme ? 'Oscuro' : 'Claro'}</span>
+              <span className={`toggle-switch ${isDarkTheme ? 'on' : 'off'}`} aria-hidden="true">
+                <span className="toggle-knob" />
+              </span>
+            </button>
             <button
               className="btn-gold"
               onClick={handleRefresh}
