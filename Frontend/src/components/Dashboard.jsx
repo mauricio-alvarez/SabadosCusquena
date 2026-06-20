@@ -378,22 +378,11 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
             </button>
-            <button onClick={() => setActiveView('pivot-dates')} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Desempeño Fechas</span>
-            </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
-            <button onClick={() => setActiveView('campaign-marcha')} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
-              <span className="sidebar-btn-text">Desempeño Campaña<br/>con Marcha Blanca</span>
-            </button>
-            <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><Award size={20} /></div>
-              <span className="sidebar-btn-text">Ranking Mozos</span>
-            </button>
+
             {isAuthenticated && (
               <>
                 <button onClick={() => setActiveView('volume')} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
@@ -427,22 +416,12 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
               </button>
-              <button onClick={() => { setActiveView('pivot-dates'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Fechas</span>
-              </button>
+
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Campaña</span>
               </button>
-              <button onClick={() => { setActiveView('campaign-marcha'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
-                <span className="sidebar-btn-text">Desempeño Campaña con Marcha Blanca</span>
-              </button>
-              <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><Award size={20} /></div>
-                <span className="sidebar-btn-text">Ranking Mozos</span>
-              </button>
+
               {isAuthenticated && (
                 <>
                   <button onClick={() => { setActiveView('volume'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
