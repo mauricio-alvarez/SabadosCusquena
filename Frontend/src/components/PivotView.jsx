@@ -34,6 +34,23 @@ const findAvailableDate = (availableDates, targetDate) => {
   return availableDates.find(dateStr => normalizeDateKey(dateStr) === targetKey) || null;
 };
 
+const isInfinitePct = (value) => {
+  const text = String(value ?? '');
+  return text === '∞' || text === 'âˆž' || text.toLowerCase() === 'infinity';
+};
+
+const formatVsText = (delta, pct) => {
+  const prefix = delta > 0 ? '+' : '';
+  const pctText = isInfinitePct(pct) ? 'nuevo' : `${pct}%`;
+  return `${prefix}${delta} (${pctText})`;
+};
+
+const getDeltaColor = (delta) => {
+  if (delta > 0) return '#16a34a';
+  if (delta < 0) return '#dc2626';
+  return '#64748b';
+};
+
 const isOneWeekComparisonOverrideActive = () => {
   const today = new Date();
   return today >= ONE_WEEK_COMPARISON_OVERRIDE.startsAt
@@ -547,6 +564,17 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
         )}
       </div>
 
+      {isMobile ? (
+        <MobilePivotCards
+          totals={totals}
+          directions={tree}
+          latestSaturday={latestSaturday}
+          prevSaturday={prevSaturday}
+          latestHourLimit={latestHourLimit}
+          onDownload={downloadPivotTable}
+        />
+      ) : (
+      <>
       {/* Main content: Table + Detail panel */}
       <div style={{
         display: 'flex',
@@ -939,11 +967,184 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
 
 // ─── Metrics Computation (Saturday-specific) ────────────────────────
+const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, latestHourLimit, onDownload }) => {
+  if (!totals) return null;
+
+  const primaryCards = [
+    {
+      title: 'Clientes Redimiendo',
+      value: totals.active.toLocaleString(),
+      detail: `${totals.activePct}% de ${totals.total.toLocaleString()} clientes`,
+      sameHourDelta: totals.vsSabActiveDeltaSameHour,
+      sameHourPct: totals.vsSabActivePctSameHour,
+      fullDayDelta: totals.vsSabActiveDelta,
+      fullDayPct: totals.vsSabActivePct,
+      accent: '#16a34a',
+    },
+    {
+      title: 'Redenciones Totales',
+      value: totals.totalRedemptions.toLocaleString(),
+      detail: `${totals.avgPerActive} redenciones por cliente activo`,
+      sameHourDelta: totals.vsSabDeltaSameHour,
+      sameHourPct: totals.vsSabPctSameHour,
+      fullDayDelta: totals.vsSabDelta,
+      fullDayPct: totals.vsSabPct,
+      accent: '#CFA052',
+    },
+    {
+      title: 'Promedio por Activo',
+      value: totals.avgPerActive,
+      detail: `${totals.inactive.toLocaleString()} clientes sin redimir (${totals.inactivePct}%)`,
+      sameHourDelta: totals.vsSabAvgDeltaSameHour,
+      sameHourPct: totals.vsSabAvgPctSameHour,
+      fullDayDelta: totals.vsSabAvgDelta,
+      fullDayPct: totals.vsSabAvgPct,
+      accent: '#2563eb',
+    },
+  ];
+
+  const sortedDirections = [...(directions || [])].sort((a, b) => b.active - a.active);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+          <div>
+            <p className="text-secondary" style={{ fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+              Resumen móvil
+            </p>
+            <h3 className="text-white font-bold" style={{ fontSize: '1rem', marginTop: '2px' }}>
+              {latestSaturday ? `Sábado ${latestSaturday}` : 'Sábado actual'}
+            </h3>
+            {prevSaturday && (
+              <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                Vs sábado anterior {prevSaturday}
+              </p>
+            )}
+          </div>
+          <button
+            className="btn-secondary"
+            onClick={onDownload}
+            style={{ padding: '8px 10px', fontSize: '0.72rem', flexShrink: 0 }}
+          >
+            <Download size={14} />
+            Excel
+          </button>
+        </div>
+        <p className="text-secondary" style={{ fontSize: '0.72rem' }}>
+          Misma hora compara el sábado anterior hasta {latestHourLimit || '23:59:59'}. Día completo compara contra todo el sábado anterior.
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+        {primaryCards.map(card => (
+          <MobileMetricCard key={card.title} {...card} />
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px', gap: '8px' }}>
+        <h3 className="text-gold font-bold" style={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Por Dirección
+        </h3>
+        <span className="text-secondary" style={{ fontSize: '0.72rem', textAlign: 'right' }}>
+          Ordenado por clientes redimiendo
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {sortedDirections.map(direction => (
+          <MobileDirectionCard key={direction.name} direction={direction} />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const MobileMetricCard = ({ title, value, detail, sameHourDelta, sameHourPct, fullDayDelta, fullDayPct, accent }) => (
+  <div className="glass-panel" style={{ padding: '16px', borderLeft: `4px solid ${accent}` }}>
+    <p className="text-secondary" style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      {title}
+    </p>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+      <span className="text-white font-bold" style={{ fontSize: '2rem', lineHeight: 1 }}>
+        {value}
+      </span>
+      <span className="text-secondary" style={{ fontSize: '0.78rem' }}>
+        {detail}
+      </span>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '14px' }}>
+      <MobileVsChip label="Vs misma hora" delta={sameHourDelta} pct={sameHourPct} />
+      <MobileVsChip label="Vs día completo" delta={fullDayDelta} pct={fullDayPct} />
+    </div>
+  </div>
+);
+
+const MobileDirectionCard = ({ direction }) => (
+  <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
+      <div style={{ minWidth: 0 }}>
+        <h4 className="text-white font-bold" style={{ fontSize: '0.92rem', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {direction.name}
+        </h4>
+        <p className="text-secondary" style={{ fontSize: '0.72rem', marginTop: '3px' }}>
+          {direction.total.toLocaleString()} clientes totales
+        </p>
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '1.35rem', lineHeight: 1 }}>
+          {direction.active}
+        </span>
+        <p className="text-secondary" style={{ fontSize: '0.68rem' }}>
+          redimiendo ({direction.activePct}%)
+        </p>
+      </div>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      <div>
+        <p className="text-secondary" style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 800 }}>Redenciones</p>
+        <p className="text-gold font-bold" style={{ fontSize: '1.15rem' }}>{direction.totalRedemptions.toLocaleString()}</p>
+      </div>
+      <div>
+        <p className="text-secondary" style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 800 }}>Sin redimir</p>
+        <p style={{ color: '#dc2626', fontWeight: 800, fontSize: '1.15rem' }}>{direction.inactive} <span style={{ fontSize: '0.75rem' }}>({direction.inactivePct}%)</span></p>
+      </div>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      <MobileVsChip label="Clientes vs misma hora" delta={direction.vsSabActiveDeltaSameHour} pct={direction.vsSabActivePctSameHour} />
+      <MobileVsChip label="Clientes vs día completo" delta={direction.vsSabActiveDelta} pct={direction.vsSabActivePct} />
+      <MobileVsChip label="Redenc. vs misma hora" delta={direction.vsSabDeltaSameHour} pct={direction.vsSabPctSameHour} />
+      <MobileVsChip label="Redenc. vs día completo" delta={direction.vsSabDelta} pct={direction.vsSabPct} />
+    </div>
+  </div>
+);
+
+const MobileVsChip = ({ label, delta, pct }) => (
+  <div style={{
+    background: 'var(--subtle-surface)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: '8px',
+    padding: '8px',
+    minWidth: 0,
+  }}>
+    <p className="text-secondary" style={{ fontSize: '0.64rem', textTransform: 'uppercase', fontWeight: 800, lineHeight: 1.2 }}>
+      {label}
+    </p>
+    <p style={{ color: getDeltaColor(delta), fontSize: '0.86rem', fontWeight: 800, marginTop: '4px' }}>
+      {formatVsText(delta, pct)}
+    </p>
+  </div>
+);
+
 function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) {
   const total = clients.length;
 
