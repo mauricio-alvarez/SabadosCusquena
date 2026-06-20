@@ -979,7 +979,7 @@ const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, la
 
   const primaryCards = [
     {
-      title: 'Clientes Redimiendo',
+      title: 'Regalando Botellas',
       value: totals.active.toLocaleString(),
       detail: `${totals.activePct}% de ${totals.total.toLocaleString()} clientes`,
       sameHourDelta: totals.vsSabActiveDeltaSameHour,
@@ -1054,7 +1054,7 @@ const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, la
           Por Dirección
         </h3>
         <span className="text-secondary" style={{ fontSize: '0.72rem', textAlign: 'right' }}>
-          Ordenado por clientes redimiendo
+          Ordenado por clientes regalando botellas
         </span>
       </div>
 
@@ -1103,18 +1103,18 @@ const MobileDirectionCard = ({ direction }) => (
           {direction.active}
         </span>
         <p className="text-secondary" style={{ fontSize: '0.68rem' }}>
-          redimiendo ({direction.activePct}%)
+          regalando botellas ({direction.activePct}%)
         </p>
       </div>
     </div>
 
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
       <div>
-        <p className="text-secondary" style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 800 }}>Redenciones</p>
+        <p className="text-secondary" style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 800 }}>Regalando Botellas</p>
         <p className="text-gold font-bold" style={{ fontSize: '1.15rem' }}>{direction.totalRedemptions.toLocaleString()}</p>
       </div>
       <div>
-        <p className="text-secondary" style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 800 }}>Sin redimir</p>
+        <p className="text-secondary" style={{ fontSize: '0.68rem', textTransform: 'uppercase', fontWeight: 800 }}>Sin regalar</p>
         <p style={{ color: '#dc2626', fontWeight: 800, fontSize: '1.15rem' }}>{direction.inactive} <span style={{ fontSize: '0.75rem' }}>({direction.inactivePct}%)</span></p>
       </div>
     </div>
