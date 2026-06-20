@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -61,6 +61,13 @@ const Dashboard = () => {
   const [showSideMenu, setShowSideMenu] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('dashboard_theme') || 'light');
+  const isDarkMode = themeMode === 'dark';
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', themeMode);
+    localStorage.setItem('dashboard_theme', themeMode);
+  }, [themeMode]);
 
   useEffect(() => {
     if (activeView === 'ventas') {
@@ -457,7 +464,7 @@ const Dashboard = () => {
 
       {/* Main Content Area */}
       <div className="main-content" style={{ overflowY: (activeView === 'opportunity' && !isMobile) ? 'hidden' : 'auto' }}>
-        <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
+        <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid var(--glass-border)' }}>
           <div className="flex items-center gap-4">
             {isMobile && (
               <button
@@ -477,6 +484,19 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex gap-4">
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={() => setThemeMode(prev => prev === 'dark' ? 'light' : 'dark')}
+              aria-pressed={isDarkMode}
+              title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+              <span className="theme-toggle-label">{isDarkMode ? 'Oscuro' : 'Claro'}</span>
+              <span className={`toggle-switch ${isDarkMode ? 'on' : ''}`} aria-hidden="true">
+                <span className="toggle-knob"></span>
+              </span>
+            </button>
             <button
               className="btn-gold"
               onClick={handleRefresh}

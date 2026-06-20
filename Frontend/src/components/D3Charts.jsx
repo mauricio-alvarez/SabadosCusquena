@@ -40,7 +40,7 @@ export const BarChart = ({ data }) => {
       .call(d3.axisBottom(x))
       .attr('color', '#aaaaaa')
       .selectAll('text')
-      .attr('fill', '#ffffff')
+      .attr('fill', 'var(--text-primary)')
       .style('font-size', '11px')
       .style('text-anchor', 'end')
       .attr('dx', '-0.8em')
@@ -52,7 +52,7 @@ export const BarChart = ({ data }) => {
       .call(d3.axisLeft(y).ticks(5).tickFormat(d => d >= 1000 ? (d / 1000) + 'k' : d))
       .attr('color', '#aaaaaa')
       .selectAll('text')
-      .attr('fill', '#ffffff');
+      .attr('fill', 'var(--text-primary)');
 
     g.selectAll('.bar')
       .data(data)
@@ -92,7 +92,7 @@ export const BarChart = ({ data }) => {
       .attr('x', d => x(d.region) + x.bandwidth() / 2)
       .attr('y', d => y(d.value) - 6)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#ffffff')
+      .attr('fill', 'var(--text-primary)')
       .style('font-size', '11px')
       .style('font-weight', '600')
       .text(d => d.value >= 1000 ? (d.value / 1000).toFixed(1) + 'k' : d.value.toLocaleString())
@@ -207,7 +207,7 @@ export const DonutChart = ({ data }) => {
     legendRows.append('text')
       .attr('x', 20)
       .attr('y', 2)
-      .attr('fill', '#ffffff')
+      .attr('fill', 'var(--text-primary)')
       .style('font-size', '12px')
       .style('font-weight', '700')
       .text(d => d.data.department.length > 26 ? `${d.data.department.slice(0, 26)}...` : d.data.department);
@@ -274,14 +274,14 @@ export const LineChart = ({ data }) => {
       .call(d3.axisBottom(x).ticks(5).tickFormat(d3.timeFormat("%b %d")))
       .attr('color', '#aaaaaa')
       .selectAll('text')
-      .attr('fill', '#ffffff')
+      .attr('fill', 'var(--text-primary)')
       .style('font-size', '11px');
 
     g.append('g')
       .call(d3.axisLeft(y).ticks(5))
       .attr('color', '#aaaaaa')
       .selectAll('text')
-      .attr('fill', '#ffffff');
+      .attr('fill', 'var(--text-primary)');
 
     const line = d3.line()
       .x(d => x(d.date))
@@ -319,7 +319,7 @@ export const LineChart = ({ data }) => {
       .attr('stroke', 'var(--primary-dark)')
       .attr('stroke-width', 2)
       .on('mouseover', (event, d) => {
-        d3.select(event.currentTarget).attr('r', 7).attr('fill', '#ffffff');
+        d3.select(event.currentTarget).attr('r', 7).attr('fill', 'var(--text-primary)');
         tt.style('opacity', 1)
           .html(`<strong>${d3.timeFormat("%d/%m/%Y")(d.date)}</strong><br/>${d.value.toLocaleString()} canjes`);
       })
@@ -388,12 +388,12 @@ export const DualLineChart = ({ data }) => {
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(x).tickValues(data.filter((_, i) => i % 2 === 0).map(d => d.hour)))
       .attr('color', '#aaaaaa')
-      .selectAll('text').attr('fill', '#ffffff').style('font-size', '11px');
+      .selectAll('text').attr('fill', 'var(--text-primary)').style('font-size', '11px');
 
     g.append('g')
       .call(d3.axisLeft(y).ticks(5))
       .attr('color', '#aaaaaa')
-      .selectAll('text').attr('fill', '#ffffff');
+      .selectAll('text').attr('fill', 'var(--text-primary)');
 
     // Last week line
     const lwLine = d3.line()
@@ -463,7 +463,7 @@ export const DualLineChart = ({ data }) => {
       .attr('stroke', '#1a1a1a')
       .attr('stroke-width', 2)
       .on('mouseover', (event, d) => {
-        d3.select(event.currentTarget).attr('r', 7).attr('fill', '#fff');
+        d3.select(event.currentTarget).attr('r', 7).attr('fill', 'var(--text-primary)');
         tt.style('opacity', 1).html(`<strong>${d.hour} (Hoy)</strong><br/>${d.today} canjes`);
       })
       .on('mousemove', (event) => {
@@ -486,7 +486,7 @@ export const DualLineChart = ({ data }) => {
       row.append('line').attr('x1', 0).attr('x2', 20).attr('y1', 6).attr('y2', 6)
         .attr('stroke', item.color).attr('stroke-width', 2)
         .attr('stroke-dasharray', item.dash).attr('stroke-opacity', item.dash ? 0.5 : 1);
-      row.append('text').attr('x', 25).attr('y', 10).attr('fill', '#fff')
+      row.append('text').attr('x', 25).attr('y', 10).attr('fill', 'var(--text-primary)')
         .style('font-size', '11px').text(item.label);
     });
 
@@ -538,12 +538,12 @@ export const CumulativeChart = ({ todayData, lastWeekData }) => {
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(x).tickValues(todayData.filter((_, i) => i % 2 === 0).map(d => d.hour)))
       .attr('color', '#aaaaaa')
-      .selectAll('text').attr('fill', '#ffffff').style('font-size', '11px');
+      .selectAll('text').attr('fill', 'var(--text-primary)').style('font-size', '11px');
 
     g.append('g')
       .call(d3.axisLeft(y).ticks(5))
       .attr('color', '#aaaaaa')
-      .selectAll('text').attr('fill', '#ffffff');
+      .selectAll('text').attr('fill', 'var(--text-primary)');
 
     // Last week area
     if (lastWeekData && lastWeekData.length > 0) {
@@ -622,7 +622,7 @@ export const CumulativeChart = ({ todayData, lastWeekData }) => {
     ].forEach((item, i) => {
       const row = legend.append('g').attr('transform', `translate(0, ${i * 18})`);
       row.append('rect').attr('width', 12).attr('height', 12).attr('rx', 3).attr('fill', item.color);
-      row.append('text').attr('x', 18).attr('y', 10).attr('fill', '#fff').style('font-size', '11px').text(item.label);
+      row.append('text').attr('x', 18).attr('y', 10).attr('fill', 'var(--text-primary)').style('font-size', '11px').text(item.label);
     });
 
   }, [todayData, lastWeekData]);
@@ -923,7 +923,7 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
             <div style="font-weight: 600; margin-bottom: 8px; font-size: 12px; color: ${segmentColor};">${d.key}</div>
             <div style="display: flex; justify-content: space-between; gap: 24px; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
               <span style="color: #9ca3af;">Canjes:</span>
-              <span style="font-weight: 700; color: #fff;">${canjes.toLocaleString()} (${canjesShare}%)</span>
+              <span style="font-weight: 700; color: var(--tooltip-text);">${canjes.toLocaleString()} (${canjesShare}%)</span>
             </div>
             <div style="display: flex; justify-content: space-between; gap: 24px; font-size: 11px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px;">
               <span style="color: #9ca3af;">Locales Activos:</span>
@@ -991,7 +991,7 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
       .attr('x', d => x(d.date) + x.bandwidth() / 2)
       .attr('y', d => y(d.totalRedemptions) - 8)
       .attr('text-anchor', 'middle')
-      .attr('fill', '#ffffff')
+      .attr('fill', 'var(--text-primary)')
       .style('font-size', '11.5px')
       .style('font-weight', '700')
       .text(d => d.totalRedemptions > 0 ? formatTotalLabel(d.totalRedemptions) : '');
@@ -1017,7 +1017,7 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
               borderRadius: '3px',
               backgroundColor: DIRECTION_COLORS[key] || '#9ca3af'
             }} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ffffff' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               {key}
             </span>
           </div>
@@ -1142,7 +1142,7 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
                     left: `${leftPos}px`,
                     width: `${cellWidth}px`,
                     textAlign: 'center',
-                    color: '#ffffff',
+                    color: 'var(--text-primary)',
                     fontWeight: '700',
                     fontSize: '0.75rem',
                     display: 'flex',
