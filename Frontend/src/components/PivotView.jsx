@@ -645,7 +645,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                       gridTemplateColumns: 'minmax(180px, 2.2fr) repeat(11, minmax(90px, 1fr))',
                       gap: '0',
                       padding: '0 16px',
-                      background: '#151515', // Opaque dark grey to block text behind it
+                      background: 'var(--total-row-bg)',
                       borderTop: '2px solid rgba(207, 160, 82, 0.4)',
                       borderBottom: '2px solid rgba(207, 160, 82, 0.4)',
                       minHeight: '40px',
@@ -1368,25 +1368,6 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
         </span>
       </div>
 
-      {/* VS SAB ACT */}
-      <div style={dataCellStyle}>
-        <span style={{
-          color: row.vsSabActiveDelta > 0 ? '#4ade80' : row.vsSabActiveDelta < 0 ? '#f87171' : '#9ca3af',
-          fontWeight: 600,
-          fontSize: '0.7rem',
-        }}>
-          {row.vsSabActiveDelta > 0 ? '+' : ''}{row.vsSabActiveDelta}
-          <span style={{
-            fontSize: '0.6rem',
-            marginLeft: '2px',
-            opacity: 0.8,
-            fontWeight: 400,
-          }}>
-            {row.vsSabActivePct !== '∞' ? `(${row.vsSabActivePct}%)` : '(nuevo)'}
-          </span>
-        </span>
-      </div>
-
       {/* VS SAB ACT SAME HOUR */}
       <div style={dataCellStyle}>
         <span style={{
@@ -1406,29 +1387,29 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
         </span>
       </div>
 
-      {/* Redenciones Totales */}
-      <div style={dataCellStyle}>
-        <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
-          {row.totalRedemptions.toLocaleString()}
-        </span>
-      </div>
-
-      {/* VS SAB RED */}
+      {/* VS SAB ACT */}
       <div style={dataCellStyle}>
         <span style={{
-          color: row.vsSabDelta > 0 ? '#4ade80' : row.vsSabDelta < 0 ? '#f87171' : '#9ca3af',
+          color: row.vsSabActiveDelta > 0 ? '#4ade80' : row.vsSabActiveDelta < 0 ? '#f87171' : '#9ca3af',
           fontWeight: 600,
           fontSize: '0.7rem',
         }}>
-          {row.vsSabDelta > 0 ? '+' : ''}{row.vsSabDelta}
+          {row.vsSabActiveDelta > 0 ? '+' : ''}{row.vsSabActiveDelta}
           <span style={{
             fontSize: '0.6rem',
             marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
-            {row.vsSabPct !== '∞' ? `(${row.vsSabPct}%)` : '(nuevo)'}
+            {row.vsSabActivePct !== '∞' ? `(${row.vsSabActivePct}%)` : '(nuevo)'}
           </span>
+        </span>
+      </div>
+
+      {/* Redenciones Totales */}
+      <div style={dataCellStyle}>
+        <span className="text-gold font-bold" style={{ fontSize: '0.8rem' }}>
+          {row.totalRedemptions.toLocaleString()}
         </span>
       </div>
 
@@ -1451,29 +1432,29 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
         </span>
       </div>
 
-      {/* Red Prom x Activo */}
-      <div style={dataCellStyle}>
-        <span className="text-white" style={{ fontSize: '0.75rem' }}>
-          {row.avgPerActive}
-        </span>
-      </div>
-
-      {/* VS SAB PROM */}
+      {/* VS SAB RED */}
       <div style={dataCellStyle}>
         <span style={{
-          color: row.vsSabAvgDelta > 0 ? '#4ade80' : row.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
+          color: row.vsSabDelta > 0 ? '#4ade80' : row.vsSabDelta < 0 ? '#f87171' : '#9ca3af',
           fontWeight: 600,
           fontSize: '0.7rem',
         }}>
-          {row.vsSabAvgDelta > 0 ? '+' : ''}{row.vsSabAvgDelta}
+          {row.vsSabDelta > 0 ? '+' : ''}{row.vsSabDelta}
           <span style={{
             fontSize: '0.6rem',
             marginLeft: '2px',
             opacity: 0.8,
             fontWeight: 400,
           }}>
-            {row.vsSabAvgPct !== '∞' ? `(${row.vsSabAvgPct}%)` : '(nuevo)'}
+            {row.vsSabPct !== '∞' ? `(${row.vsSabPct}%)` : '(nuevo)'}
           </span>
+        </span>
+      </div>
+
+      {/* Red Prom x Activo */}
+      <div style={dataCellStyle}>
+        <span className="text-white" style={{ fontSize: '0.75rem' }}>
+          {row.avgPerActive}
         </span>
       </div>
 
@@ -1492,6 +1473,25 @@ const PivotRow = ({ row, isSelected, onToggle, onSelect }) => {
             fontWeight: 400,
           }}>
             {row.vsSabAvgPctSameHour !== '∞' ? `(${row.vsSabAvgPctSameHour}%)` : '(nuevo)'}
+          </span>
+        </span>
+      </div>
+
+      {/* VS SAB PROM */}
+      <div style={dataCellStyle}>
+        <span style={{
+          color: row.vsSabAvgDelta > 0 ? '#4ade80' : row.vsSabAvgDelta < 0 ? '#f87171' : '#9ca3af',
+          fontWeight: 600,
+          fontSize: '0.7rem',
+        }}>
+          {row.vsSabAvgDelta > 0 ? '+' : ''}{row.vsSabAvgDelta}
+          <span style={{
+            fontSize: '0.6rem',
+            marginLeft: '2px',
+            opacity: 0.8,
+            fontWeight: 400,
+          }}>
+            {row.vsSabAvgPct !== '∞' ? `(${row.vsSabAvgPct}%)` : '(nuevo)'}
           </span>
         </span>
       </div>

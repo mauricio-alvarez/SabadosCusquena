@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -61,13 +61,6 @@ const Dashboard = () => {
   const [showSideMenu, setShowSideMenu] = useState(window.innerWidth > 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
-  const [themeMode, setThemeMode] = useState(() => localStorage.getItem('dashboard_theme') || 'light');
-  const isDarkMode = themeMode === 'dark';
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', themeMode);
-    localStorage.setItem('dashboard_theme', themeMode);
-  }, [themeMode]);
 
   useEffect(() => {
     if (activeView === 'ventas') {
@@ -378,11 +371,22 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
             </button>
+            <button onClick={() => setActiveView('pivot-dates')} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Fechas</span>
+            </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
             </button>
-
+            <button onClick={() => setActiveView('campaign-marcha')} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+              <span className="sidebar-btn-text">Desempeño Campaña<br/>con Marcha Blanca</span>
+            </button>
+            <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Award size={20} /></div>
+              <span className="sidebar-btn-text">Ranking Mozos</span>
+            </button>
             {isAuthenticated && (
               <>
                 <button onClick={() => setActiveView('volume')} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
@@ -416,12 +420,22 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
               </button>
-
+              <button onClick={() => { setActiveView('pivot-dates'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-dates' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
+                <span className="sidebar-btn-text">Desempeño Fechas</span>
+              </button>
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Campaña</span>
               </button>
-
+              <button onClick={() => { setActiveView('campaign-marcha'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign-marcha' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
+                <span className="sidebar-btn-text">Desempeño Campaña con Marcha Blanca</span>
+              </button>
+              <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Award size={20} /></div>
+                <span className="sidebar-btn-text">Ranking Mozos</span>
+              </button>
               {isAuthenticated && (
                 <>
                   <button onClick={() => { setActiveView('volume'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'volume' ? 'active' : ''}`}>
@@ -443,7 +457,7 @@ const Dashboard = () => {
 
       {/* Main Content Area */}
       <div className="main-content" style={{ overflowY: (activeView === 'opportunity' && !isMobile) ? 'hidden' : 'auto' }}>
-        <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid var(--glass-border)' }}>
+        <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
           <div className="flex items-center gap-4">
             {isMobile && (
               <button
@@ -463,19 +477,6 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex gap-4">
-            <button
-              type="button"
-              className="theme-toggle"
-              onClick={() => setThemeMode(prev => prev === 'dark' ? 'light' : 'dark')}
-              aria-pressed={isDarkMode}
-              title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-            >
-              {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
-              <span className="theme-toggle-label">{isDarkMode ? 'Oscuro' : 'Claro'}</span>
-              <span className={`toggle-switch ${isDarkMode ? 'on' : ''}`} aria-hidden="true">
-                <span className="toggle-knob"></span>
-              </span>
-            </button>
             <button
               className="btn-gold"
               onClick={handleRefresh}
