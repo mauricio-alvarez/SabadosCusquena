@@ -16,6 +16,12 @@ const LEVEL_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
 const LEVEL_LABELS = ['Dirección', 'Gerencia', 'Supervisor', 'BDR'];
 
 const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
+  const getAdherenceColor = (percentage) => {
+    if (percentage >= 75) return '#10b981';
+    if (percentage >= 25) return '#f59e0b';
+    return '#ef4444';
+  };
+
   const [selectedFilters, setSelectedFilters] = useState({ direccion: null, gerencia: null, supervisor: null, BDR: null });
   const chartContainerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(500);
@@ -506,6 +512,7 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
     const pct = parseFloat(summary.adheridoPct) + parseFloat(summary.intermitentePct);
     const percentage = pct;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
+    const gaugeColor = getAdherenceColor(percentage);
 
     return (
       <div className="flex flex-col items-center justify-center" style={{ position: 'relative', height: '100%' }}>
@@ -514,7 +521,7 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
           <path
             d="M 15,75 A 65,65 0 0,1 145,75"
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--campaign-gauge-track)"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
@@ -536,7 +543,7 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
               <stop offset="100%" stopColor="#10b981" /> {/* Green */}
             </linearGradient>
           </defs>
-          <text x="80" y="68" textAnchor="middle" fill="#ffffff" fontSize="18" fontWeight="bold">
+          <text x="80" y="68" textAnchor="middle" fill={gaugeColor} fontSize="18" fontWeight="bold">
             {pct}%
           </text>
         </svg>
@@ -549,7 +556,7 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
           gap: '12px',
           marginTop: '6px',
           paddingTop: '6px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          borderTop: '1px solid var(--campaign-divider)',
           width: '100%',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -844,22 +851,22 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
                   : hoveredIdx > evolutionData.length - 3 
                     ? 'translateX(-105%)' 
                     : 'translateX(-50%)',
-                background: 'rgba(15, 23, 42, 0.95)',
+                background: 'var(--campaign-tooltip-bg)',
                 backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(207, 160, 82, 0.35)',
+                border: '1px solid var(--campaign-tooltip-border)',
                 borderRadius: '6px',
                 padding: '8px 12px',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 pointerEvents: 'none',
                 zIndex: 50,
                 minWidth: '160px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+                boxShadow: '0 10px 25px -5px var(--campaign-tooltip-shadow), 0 8px 10px -6px var(--campaign-tooltip-shadow)',
                 transition: 'left 0.1s ease-out, transform 0.1s ease-out'
               }}>
                 <div style={{ 
                   fontSize: '10.5px', 
                   fontWeight: 'bold', 
-                  borderBottom: '1px solid rgba(255,255,255,0.08)', 
+                  borderBottom: '1px solid var(--campaign-divider)', 
                   paddingBottom: '4px', 
                   marginBottom: '6px', 
                   color: '#CFA052',
@@ -868,35 +875,35 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
                   Sábado {d.date}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '9.5px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.06)', paddingBottom: '4px', marginBottom: '4px' }}>
-                    <span style={{ color: '#9ca3af' }}>Activo con (Q1):</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed var(--campaign-divider)', paddingBottom: '4px', marginBottom: '4px' }}>
+                    <span className="text-secondary">Activo con (Q1):</span>
                     <span style={{ fontWeight: 'bold', color: '#cfa052' }}>&gt;{saturdayQ1s[d.date] || 0} canjes</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                      <span style={{ color: '#9ca3af' }}>Adheridos:</span>
+                      <span className="text-secondary">Adheridos:</span>
                     </div>
                     <span style={{ fontWeight: 'bold', color: '#10b981' }}>
-                      {d.adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.adherido / total) * 100).toFixed(0) : 0}%)</span>
+                      {d.adherido} <span className="text-secondary" style={{ fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.adherido / total) * 100).toFixed(0) : 0}%)</span>
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
-                      <span style={{ color: '#9ca3af' }}>Intermitentes:</span>
+                      <span className="text-secondary">Intermitentes:</span>
                     </div>
                     <span style={{ fontWeight: 'bold', color: '#f59e0b' }}>
-                      {d.intermitente} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.intermitente / total) * 100).toFixed(0) : 0}%)</span>
+                      {d.intermitente} <span className="text-secondary" style={{ fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.intermitente / total) * 100).toFixed(0) : 0}%)</span>
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
-                      <span style={{ color: '#9ca3af' }}>No Adheridos:</span>
+                      <span className="text-secondary">No Adheridos:</span>
                     </div>
                     <span style={{ fontWeight: 'bold', color: '#ef4444' }}>
-                      {d.no_adherido} <span style={{ color: '#9ca3af', fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.no_adherido / total) * 100).toFixed(0) : 0}%)</span>
+                      {d.no_adherido} <span className="text-secondary" style={{ fontWeight: 'normal', fontSize: '8.5px' }}>({total > 0 ? ((d.no_adherido / total) * 100).toFixed(0) : 0}%)</span>
                     </span>
                   </div>
                 </div>
@@ -1250,8 +1257,8 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
           {/* Right Part: Adherence Rules */}
           <div style={{
             flex: isMobile ? '1 1 auto' : '0 0 200px',
-            borderLeft: isMobile ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
-            borderTop: isMobile ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+            borderLeft: isMobile ? 'none' : '1px solid var(--campaign-divider)',
+            borderTop: isMobile ? '1px solid var(--campaign-divider)' : 'none',
             paddingLeft: isMobile ? '0' : '16px',
             paddingTop: isMobile ? '12px' : '0',
             display: 'flex',
