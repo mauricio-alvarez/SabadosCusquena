@@ -58,6 +58,29 @@ const getDeltaColor = (delta) => {
   return '#64748b';
 };
 
+const normalizeTime = (timeStr) => {
+  const [h = '0', m = '0', s = '0'] = String(timeStr || '00:00:00').split(':');
+  return `${String(Number(h) || 0).padStart(2, '0')}:${String(Number(m) || 0).padStart(2, '0')}:${String(Number(s) || 0).padStart(2, '0')}`;
+};
+
+const isSameCutoffOrEarlier = (timeStr, latestHourLimit) => (
+  normalizeTime(timeStr) <= normalizeTime(latestHourLimit || '23:59:59')
+);
+
+const isDateToday = (dateStr) => {
+  const parts = String(dateStr || '').split('/');
+  if (parts.length !== 3) return false;
+  const [day, month, year] = parts.map(Number);
+  const date = new Date(year, month - 1, day);
+  const today = new Date();
+  return date.toDateString() === today.toDateString();
+};
+
+const formatTimeCutoff = (timeStr) => {
+  const [hour = '00', minute = '00', second = '00'] = normalizeTime(timeStr).split(':');
+  return `${hour}:${minute}:${second}`;
+};
+
 const isOneWeekComparisonOverrideActive = () => {
   const today = new Date();
   return today >= ONE_WEEK_COMPARISON_OVERRIDE.startsAt
@@ -1096,7 +1119,7 @@ const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, la
           </button>
         </div>
         <p className="text-secondary" style={{ fontSize: '0.72rem' }}>
-          Misma hora compara el {comparisonDayLabelLower} hasta {latestHourLimit || '23:59:59'}. Día completo compara contra todo el {comparisonDayLabelLower}.
+          Misma hora compara el {comparisonDayLabelLower} hasta {formatTimeCutoff(latestHourLimit)}. Día completo usa el mismo corte si la fecha evaluada ya cerró.
         </p>
       </div>
 
@@ -1229,7 +1252,7 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
       if (dateStr === prevSaturday) {
         prevSabCount++;
         clientPrevCount++;
-        if (hr <= latestHourLimit) {
+        if (isSameCutoffOrEarlier(hr, latestHourLimit)) {
           prevSabCountSameHour++;
           clientPrevCountSameHour++;
         }
@@ -1244,7 +1267,10 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
   const inactive = total - active;
   const totalRedemptions = currentSabCount; // Only latest Saturday
   const avgPerActive = active > 0 ? (totalRedemptions / active).toFixed(1) : '0.0';
-  const prevAvgPerActive = activeOnPrev > 0 ? (prevSabCount / activeOnPrev).toFixed(1) : '0.0';
+  const useClosedDateCutoff = latestSaturday ? !isDateToday(latestSaturday) : false;
+  const prevSabCountForFullDay = useClosedDateCutoff ? prevSabCountSameHour : prevSabCount;
+  const activeOnPrevForFullDay = useClosedDateCutoff ? activeOnPrevSameHour : activeOnPrev;
+  const prevAvgPerActive = activeOnPrevForFullDay > 0 ? (prevSabCountForFullDay / activeOnPrevForFullDay).toFixed(1) : '0.0';
   const vsSabAvgDelta = (parseFloat(avgPerActive) - parseFloat(prevAvgPerActive)).toFixed(1);
   const vsSabAvgPct = parseFloat(prevAvgPerActive) > 0
     ? (((parseFloat(avgPerActive) - parseFloat(prevAvgPerActive)) / parseFloat(prevAvgPerActive)) * 100).toFixed(1)
@@ -1252,14 +1278,14 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
   const activePct = total > 0 ? ((active / total) * 100).toFixed(0) : '0';
   const inactivePct = total > 0 ? ((inactive / total) * 100).toFixed(0) : '0';
 
-  const vsSabDelta = currentSabCount - prevSabCount;
-  const vsSabPct = prevSabCount > 0
-    ? ((vsSabDelta / prevSabCount) * 100).toFixed(1)
+  const vsSabDelta = currentSabCount - prevSabCountForFullDay;
+  const vsSabPct = prevSabCountForFullDay > 0
+    ? ((vsSabDelta / prevSabCountForFullDay) * 100).toFixed(1)
     : (currentSabCount > 0 ? '∞' : '0');
 
-  const vsSabActiveDelta = activeOnLatest - activeOnPrev;
-  const vsSabActivePct = activeOnPrev > 0
-    ? ((vsSabActiveDelta / activeOnPrev) * 100).toFixed(1)
+  const vsSabActiveDelta = activeOnLatest - activeOnPrevForFullDay;
+  const vsSabActivePct = activeOnPrevForFullDay > 0
+    ? ((vsSabActiveDelta / activeOnPrevForFullDay) * 100).toFixed(1)
     : (activeOnLatest > 0 ? '∞' : '0');
 
   // Same hour metrics

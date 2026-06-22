@@ -1,65 +1,101 @@
 :root {
-  --primary-dark: #ffffff;
-  --secondary-dark: #f8fafc;
-  --cusquena-gold: #CFA052;
-  --cusquena-gold-light: #b9822f;
-  --text-on-gold: #000000;
-  --cusquena-red: #8B0000;
-  --text-primary: #111827;
-  --text-secondary: #64748b;
-  --glass-bg: rgba(255, 255, 255, 0.94);
-  --glass-border: rgba(207, 160, 82, 0.28);
-  --panel-shadow: rgba(15, 23, 42, 0.08);
-  --sidebar-bg: #ffffff;
-  --sidebar-text: #334155;
-  --sidebar-hover: rgba(15, 23, 42, 0.06);
-  --sidebar-active: rgba(207, 160, 82, 0.16);
+  --primary-dark: #f6f7f4;
+  --secondary-dark: #eef1ec;
+  --surface-raised: #ffffff;
+  --surface-muted: #f0f3ef;
+  --cusquena-gold: #b9822f;
+  --cusquena-gold-light: #d6a85d;
+  --cusquena-gold-dark: #8f6322;
+  --text-on-gold: #17120a;
+  --cusquena-red: #a23a3a;
+  --cusquena-red-dark: #7f2626;
+  --text-primary: #18201d;
+  --text-secondary: #62706a;
+  --text-muted: #87918c;
+  --success: #0f9f6e;
+  --success-soft: rgba(15, 159, 110, 0.13);
+  --danger: #dc4a4a;
+  --danger-soft: rgba(220, 74, 74, 0.13);
+  --warning: #d99018;
+  --warning-soft: rgba(217, 144, 24, 0.15);
+  --info: #2f7bbd;
+  --info-soft: rgba(47, 123, 189, 0.13);
+  --accent-purple: #8464c8;
+  --accent-purple-soft: rgba(132, 100, 200, 0.13);
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(134, 101, 47, 0.20);
+  --panel-shadow: rgba(35, 45, 39, 0.10);
+  --sidebar-bg: #f0f3ef;
+  --sidebar-text: #36433d;
+  --sidebar-hover: rgba(49, 61, 55, 0.08);
+  --sidebar-active: rgba(185, 130, 47, 0.18);
   --select-bg: #ffffff;
-  --select-text: #111827;
+  --select-text: #18201d;
   --select-option-bg: #ffffff;
-  --tooltip-bg: #111827;
+  --tooltip-bg: #202720;
   --tooltip-text: #ffffff;
-  --loader-track: rgba(15, 23, 42, 0.12);
-  --subtle-surface: rgba(15, 23, 42, 0.04);
-  --subtle-surface-hover: rgba(15, 23, 42, 0.07);
-  --total-row-bg: #fffaf0;
-  --campaign-gauge-track: rgba(15, 23, 42, 0.10);
-  --campaign-divider: rgba(15, 23, 42, 0.10);
+  --loader-track: rgba(24, 32, 29, 0.14);
+  --loader-accent: #8f6322;
+  --subtle-surface: rgba(24, 32, 29, 0.045);
+  --subtle-surface-hover: rgba(24, 32, 29, 0.075);
+  --table-header-bg: #eef1ec;
+  --table-row-hover: rgba(24, 32, 29, 0.055);
+  --total-row-bg: #f2eadc;
+  --campaign-gauge-track: rgba(24, 32, 29, 0.11);
+  --campaign-divider: rgba(24, 32, 29, 0.10);
   --campaign-tooltip-bg: rgba(255, 255, 255, 0.98);
-  --campaign-tooltip-border: rgba(207, 160, 82, 0.45);
-  --campaign-tooltip-shadow: rgba(15, 23, 42, 0.16);
+  --campaign-tooltip-border: rgba(185, 130, 47, 0.42);
+  --campaign-tooltip-shadow: rgba(35, 45, 39, 0.18);
 }
 
 :root[data-theme="dark"] {
-  --primary-dark: #0a0a0a;
-  --secondary-dark: #1a1a1a;
-  --cusquena-gold: #CFA052;
-  --cusquena-gold-light: #e8c07d;
-  --text-on-gold: #000000;
-  --cusquena-red: #8B0000;
-  --text-primary: #ffffff;
-  --text-secondary: #aaaaaa;
-  --glass-bg: rgba(26, 26, 26, 0.7);
-  --glass-border: rgba(207, 160, 82, 0.2);
-  --panel-shadow: rgba(0, 0, 0, 0.3);
-  --sidebar-bg: #1a1a1a;
-  --sidebar-text: #e5e7eb;
-  --sidebar-hover: rgba(255, 255, 255, 0.1);
-  --sidebar-active: rgba(207, 160, 82, 0.15);
-  --select-bg: rgba(26, 26, 26, 0.9);
-  --select-text: #ffffff;
-  --select-option-bg: #0a0a0a;
-  --tooltip-bg: #1a1a1a;
+  --primary-dark: #111411;
+  --secondary-dark: #1b201c;
+  --surface-raised: #202720;
+  --surface-muted: #171d19;
+  --cusquena-gold: #d4a44f;
+  --cusquena-gold-light: #f0c978;
+  --cusquena-gold-dark: #a8732a;
+  --text-on-gold: #161108;
+  --cusquena-red: #e05a5a;
+  --cusquena-red-dark: #9f3030;
+  --text-primary: #f6f4ee;
+  --text-secondary: #b4bdb7;
+  --text-muted: #87918c;
+  --success: #33c98d;
+  --success-soft: rgba(51, 201, 141, 0.15);
+  --danger: #f06b6b;
+  --danger-soft: rgba(240, 107, 107, 0.15);
+  --warning: #f0aa35;
+  --warning-soft: rgba(240, 170, 53, 0.16);
+  --info: #6aa9e8;
+  --info-soft: rgba(106, 169, 232, 0.15);
+  --accent-purple: #b59af4;
+  --accent-purple-soft: rgba(181, 154, 244, 0.15);
+  --glass-bg: rgba(32, 39, 32, 0.78);
+  --glass-border: rgba(212, 164, 79, 0.22);
+  --panel-shadow: rgba(0, 0, 0, 0.36);
+  --sidebar-bg: #171d19;
+  --sidebar-text: #e5e9e2;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-active: rgba(212, 164, 79, 0.18);
+  --select-bg: rgba(27, 32, 28, 0.96);
+  --select-text: #f6f4ee;
+  --select-option-bg: #171d19;
+  --tooltip-bg: #202720;
   --tooltip-text: #ffffff;
-  --loader-track: rgba(255, 255, 255, 0.1);
-  --subtle-surface: rgba(255, 255, 255, 0.03);
-  --subtle-surface-hover: rgba(255, 255, 255, 0.05);
-  --total-row-bg: #151515;
-  --campaign-gauge-track: rgba(255, 255, 255, 0.08);
-  --campaign-divider: rgba(255, 255, 255, 0.08);
-  --campaign-tooltip-bg: rgba(15, 23, 42, 0.95);
-  --campaign-tooltip-border: rgba(207, 160, 82, 0.35);
-  --campaign-tooltip-shadow: rgba(0, 0, 0, 0.50);
+  --loader-track: rgba(255, 255, 255, 0.12);
+  --loader-accent: #d4a44f;
+  --subtle-surface: rgba(255, 255, 255, 0.045);
+  --subtle-surface-hover: rgba(255, 255, 255, 0.075);
+  --table-header-bg: #171d19;
+  --table-row-hover: rgba(255, 255, 255, 0.065);
+  --total-row-bg: #211e17;
+  --campaign-gauge-track: rgba(255, 255, 255, 0.09);
+  --campaign-divider: rgba(255, 255, 255, 0.09);
+  --campaign-tooltip-bg: rgba(23, 29, 25, 0.96);
+  --campaign-tooltip-border: rgba(212, 164, 79, 0.36);
+  --campaign-tooltip-shadow: rgba(0, 0, 0, 0.55);
 }
 
 * {
@@ -121,8 +157,8 @@ body {
 
 /* Button Styling */
 .btn-gold {
-  background: linear-gradient(135deg, var(--cusquena-gold) 0%, #a67c33 100%);
-  color: #000;
+  background: linear-gradient(135deg, var(--cusquena-gold-light) 0%, var(--cusquena-gold-dark) 100%);
+  color: var(--text-on-gold);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;
@@ -390,13 +426,13 @@ body {
   display: none;
 }
 
-.text-green { color: #4ade80; }
-.text-red-light { color: #f87171; }
+.text-green { color: var(--success); }
+.text-red-light { color: var(--danger); }
 
 .loader {
   border: 3px solid var(--loader-track);
   border-radius: 50%;
-  border-top: 3px solid #000;
+  border-top: 3px solid var(--loader-accent);
   width: 20px;
   height: 20px;
   animation: spin 1s linear infinite;
@@ -441,7 +477,7 @@ body {
 .filter-select {
   appearance: none;
   background-color: var(--select-bg);
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23CFA052' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9822f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 1rem center;
   background-size: 1.2em;
@@ -452,7 +488,7 @@ body {
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: inset 0 1px 2px var(--panel-shadow);
   width: 100%;
 }
 
@@ -551,12 +587,12 @@ body {
 }
 
 .perf-diff.positive {
-  color: #4ade80;
+  color: var(--success);
   font-weight: bold;
 }
 
 .perf-diff.negative {
-  color: #f87171;
+  color: var(--danger);
   font-weight: bold;
 }
 
@@ -668,7 +704,7 @@ body {
   width: 44px;
   height: 24px;
   border-radius: 12px;
-  background-color: rgba(100, 116, 139, 0.28);
+  background-color: var(--subtle-surface-hover);
   position: relative;
   cursor: pointer;
   transition: background-color 0.3s;
@@ -682,13 +718,13 @@ body {
 .toggle-knob {
   width: 20px;
   height: 20px;
-  background-color: #fff;
+  background-color: var(--surface-raised);
   border-radius: 50%;
   position: absolute;
   top: 2px;
   left: 2px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px var(--panel-shadow);
 }
 
 @media (max-width: 640px) {
@@ -721,8 +757,8 @@ body {
   --rdp-background-color-dark: rgba(207, 160, 82, 0.25);
   --rdp-outline: 2px solid var(--cusquena-gold);
   --rdp-outline-selected: 2px solid rgba(207, 160, 82, 0.5);
-  --rdp-selected-color: #000;
-  color: #fff;
+  --rdp-selected-color: var(--text-on-gold);
+  color: var(--tooltip-text);
 }
 
 /* Arrow Colors */
@@ -734,7 +770,7 @@ body {
 .dark-calendar .rdp-day_selected:focus-visible:not([disabled]), 
 .dark-calendar .rdp-day_selected:hover:not([disabled]) {
   background-color: var(--cusquena-gold) !important;
-  color: #000 !important;
+  color: var(--text-on-gold) !important;
   font-weight: bold;
 }
 
@@ -748,15 +784,15 @@ body {
 }
 
 .rdp-root {
-  --rdp-accent-color: #cfa052 !important;
+  --rdp-accent-color: var(--cusquena-gold) !important;
   --rdp-accent-background-color: rgba(207, 160, 82, 0.15) !important;
   --rdp-range_start-color: transparent !important;
   --rdp-range_end-color: transparent !important;
-  --rdp-range_start-date-background-color: #cfa052 !important;
-  --rdp-range_end-date-background-color: #cfa052 !important;
+  --rdp-range_start-date-background-color: var(--cusquena-gold) !important;
+  --rdp-range_end-date-background-color: var(--cusquena-gold) !important;
   --rdp-range_middle-background-color: rgba(207, 160, 82, 0.15) !important;
-  --rdp-range_middle-color: #cfa052 !important;
-  --rdp-selected-color: #000 !important;
+  --rdp-range_middle-color: var(--cusquena-gold) !important;
+  --rdp-selected-color: var(--text-on-gold) !important;
   --rdp-selected-font: bold !important;
   --rdp-day-height: 36px !important;
   --rdp-day-width: 36px !important;
@@ -769,14 +805,14 @@ body {
 .rdp-root .rdp-button_previous,
 .rdp-root .rdp-button_next,
 .rdp-root .rdp-nav button {
-  color: #cfa052 !important;
+  color: var(--cusquena-gold) !important;
 }
 
 .rdp-root .rdp-button_previous svg,
 .rdp-root .rdp-button_next svg,
 .rdp-root .rdp-nav svg {
-  fill: #cfa052 !important;
-  color: #cfa052 !important;
+  fill: var(--cusquena-gold) !important;
+  color: var(--cusquena-gold) !important;
 }
 
 /* Remove the square background on range start/end cells */
@@ -788,8 +824,8 @@ body {
 /* The actual day button gets the gold circle */
 .rdp-root .rdp-range_start .rdp-day_button,
 .rdp-root .rdp-range_end .rdp-day_button {
-  background-color: #cfa052 !important;
-  color: #000 !important;
+  background-color: var(--cusquena-gold) !important;
+  color: var(--text-on-gold) !important;
   font-weight: bold !important;
   border-radius: 50% !important;
 }
@@ -801,13 +837,13 @@ body {
 
 .rdp-root .rdp-range_middle .rdp-day_button {
   background: transparent !important;
-  color: #cfa052 !important;
+  color: var(--cusquena-gold) !important;
 }
 
 /* Middle range days: override the fallback — no circle, just text color */
 .rdp-root .rdp-selected.rdp-range_middle .rdp-day_button {
   background: transparent !important;
-  color: #cfa052 !important;
+  color: var(--cusquena-gold) !important;
   font-weight: normal !important;
 }
 
@@ -819,7 +855,7 @@ body {
 
 /* Today indicator */
 .rdp-root .rdp-today .rdp-day_button {
-  color: #cfa052 !important;
+  color: var(--cusquena-gold) !important;
   font-weight: bold !important;
 }
 
@@ -838,9 +874,9 @@ body {
   top: 50%;
   transform: translateY(-50%);
   width: 290px;
-  background-color: #120e0a; /* Dark gold-tinted background */
+  background-color: var(--tooltip-bg);
   border: 1px solid var(--cusquena-gold);
-  color: #fff;
+  color: var(--tooltip-text);
   text-align: left;
   padding: 12px;
   border-radius: 8px;
@@ -925,7 +961,7 @@ body {
   justify-content: center;
   flex-shrink: 0;
   color: var(--text-on-gold);
-  background: linear-gradient(135deg, var(--cusquena-gold) 0%, #a67c33 100%);
+  background: linear-gradient(135deg, var(--cusquena-gold-light) 0%, var(--cusquena-gold-dark) 100%);
 }
 
 .ventas-title {
@@ -1135,7 +1171,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 4;
-  background: var(--secondary-dark);
+  background: var(--table-header-bg);
 }
 
 .ventas-table th {
@@ -1158,7 +1194,7 @@ body {
 }
 
 .ventas-table tbody tr:hover {
-  background: var(--subtle-surface);
+  background: var(--table-row-hover);
 }
 
 .ventas-sortable {
@@ -1437,7 +1473,7 @@ body {
 
 .volume-summary-card h4 {
   margin: 0;
-  color: #111827;
+  color: var(--text-on-gold);
   text-align: center;
   font-size: 0.78rem;
   font-weight: 900;
@@ -1446,11 +1482,12 @@ body {
 }
 
 .volume-card-yellow h4 {
-  background: #fff200;
+  background: var(--warning);
 }
 
 .volume-card-pink h4 {
-  background: #dc8bd5;
+  background: var(--accent-purple);
+  color: var(--tooltip-text);
 }
 
 .volume-mini-table {
