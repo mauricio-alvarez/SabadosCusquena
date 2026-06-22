@@ -59,12 +59,12 @@ const GeneralView = ({ kpis, chartConfig, allClients, progressData, useAllTimeDa
         />
       </div>
 
-      <div className="glass-panel flex flex-col" style={{ padding: '1.25rem', animationDelay: '0.2s' }}>
+      <div className="glass-panel flex flex-col general-evolution-panel" style={{ padding: isMobile ? '1rem 0.875rem' : '1.25rem', animationDelay: '0.2s' }}>
         <div className="mb-4 text-center">
           <h2 className="text-gold font-bold" style={{ fontSize: '1.5rem', letterSpacing: '0.05em' }}>Evolución de Canjes por Sábado</h2>
           <p className="text-secondary mt-1 text-sm">Distribución de redenciones y locales activos por Dirección</p>
         </div>
-        <div style={{ minHeight: '340px', width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ minHeight: isMobile ? '450px' : '340px', width: '100%', display: 'flex', flexDirection: 'column' }}>
           <SaturdaysStackedBarChart
             allClients={allClients}
             progressData={progressData}

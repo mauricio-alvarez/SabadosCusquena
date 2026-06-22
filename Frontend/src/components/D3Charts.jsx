@@ -634,6 +634,57 @@ export const CumulativeChart = ({ todayData, lastWeekData }) => {
   );
 };
 
+function MobileSummaryMetric({ label, color, values }) {
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '74px 1fr',
+      borderBottom: '1px solid var(--glass-border)'
+    }}>
+      <div style={{
+        padding: '8px 6px',
+        color: '#CFA052',
+        fontWeight: 800,
+        fontSize: '0.64rem',
+        display: 'flex',
+        alignItems: 'center',
+        background: 'var(--glass-bg)',
+        borderRight: '1px solid var(--glass-border)'
+      }}>
+        {label}
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${values.length}, minmax(30px, 1fr))`
+      }}>
+        {values.map(value => (
+          <div key={value.key} style={{
+            minHeight: '38px',
+            padding: '5px 2px',
+            textAlign: 'center',
+            color,
+            fontWeight: 800,
+            fontSize: '0.66rem',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1.15,
+            borderRight: '1px solid var(--glass-border)'
+          }}>
+            <span>{value.primary}</span>
+            {value.secondary && (
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.55rem', fontWeight: 700 }}>
+                {value.secondary}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeData, dateRange }) => {
   const svgRef = useRef();
   const [containerWidth, setContainerWidth] = useState(600);
@@ -808,15 +859,31 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
     return totals;
   }, [allClients, data, keys]);
 
+  const summaryStats = useMemo(() => {
+    return data.map(d => {
+      const activeCount = keys.reduce((sum, dir) => sum + (d.activeClients[dir] || 0), 0);
+      const totalClients = totalClientsPerDate[d.date] || 0;
+      const activePct = totalClients > 0 ? ((activeCount / totalClients) * 100).toFixed(0) : '0';
+      const average = activeCount > 0 ? (d.totalRedemptions / activeCount).toFixed(1) : '0.0';
+
+      return {
+        date: d.date,
+        activeCount,
+        activePct,
+        average,
+      };
+    });
+  }, [data, keys, totalClientsPerDate]);
+
   const isSmall = containerWidth < 640;
 
   // Define responsive margins
   const margin = useMemo(() => {
     return {
-      top: 30,
-      right: 30,
-      bottom: 40,
-      left: isSmall ? 130 : 210
+      top: isSmall ? 24 : 30,
+      right: isSmall ? 12 : 30,
+      bottom: isSmall ? 36 : 40,
+      left: isSmall ? 46 : 210
     };
   }, [isSmall]);
 
@@ -826,14 +893,14 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
     return d3.scaleBand()
       .domain(data.map(d => d.date))
       .range([0, innerWidth > 0 ? innerWidth : 0])
-      .padding(0.35);
-  }, [data, containerWidth, margin]);
+      .padding(isSmall ? 0.24 : 0.35);
+  }, [data, containerWidth, margin, isSmall]);
 
   useEffect(() => {
     if (!data || data.length === 0 || keys.length === 0) return;
 
     const width = containerWidth;
-    const height = 300;
+    const height = isSmall ? 280 : 300;
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -871,7 +938,7 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
       .attr('color', '#444444')
       .selectAll('text')
       .attr('fill', '#aaaaaa')
-      .style('font-size', isSmall ? '10px' : '11px')
+      .style('font-size', isSmall ? '9px' : '11px')
       .style('font-weight', '600');
 
     // Y Axis
@@ -992,11 +1059,11 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
       .attr('y', d => y(d.totalRedemptions) - 8)
       .attr('text-anchor', 'middle')
       .attr('fill', 'var(--text-primary)')
-      .style('font-size', '11.5px')
+      .style('font-size', isSmall ? '10.5px' : '11.5px')
       .style('font-weight', '700')
       .text(d => d.totalRedemptions > 0 ? formatTotalLabel(d.totalRedemptions) : '');
 
-  }, [data, containerWidth, keys, totalClientsPerDirectionAndDate, margin, x]);
+  }, [data, containerWidth, keys, totalClientsPerDirectionAndDate, margin, x, isSmall]);
 
   return (
     <div ref={containerRef} className="chart-container" style={{ width: '100%', height: '100%', minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
@@ -1029,133 +1096,188 @@ export const SaturdaysStackedBarChart = ({ allClients, progressData, useAllTimeD
             <svg ref={svgRef} width="100%" height="100%"></svg>
           </div>
           
-          {/* Aligned Summary Table */}
-          <div style={{
-            width: '100%',
-            marginTop: '12px',
-            borderTop: '1px solid rgba(255,255,255,0.05)',
-            borderBottom: '1px solid rgba(255,255,255,0.05)',
-            overflow: 'hidden',
-            flexShrink: 0
-          }}>
-            {/* POCs Activos Row */}
+          {/* Summary Table */}
+          {isSmall ? (
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '38px',
-              borderBottom: '1px solid rgba(255,255,255,0.03)',
-              position: 'relative',
-              width: '100%'
+              width: '100%',
+              marginTop: '10px',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              flexShrink: 0,
+              background: 'var(--subtle-surface)'
             }}>
-              {/* Label Column */}
               <div style={{
-                width: `${margin.left}px`,
-                paddingLeft: isSmall ? '8px' : '12px',
-                paddingRight: '6px',
-                color: '#CFA052',
-                fontWeight: 'bold',
-                fontSize: isSmall ? '0.7rem' : '0.75rem',
+                display: 'grid',
+                gridTemplateColumns: '74px 1fr',
+                borderBottom: '1px solid var(--glass-border)'
+              }}>
+                <div style={{
+                  background: 'var(--glass-bg)',
+                  borderRight: '1px solid var(--glass-border)'
+                }} />
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${summaryStats.length}, minmax(30px, 1fr))`
+                }}>
+                  {summaryStats.map(item => {
+                    const parts = item.date.split('/');
+                    const shortDate = parts.length === 3 ? `${parts[0]}/${parts[1]}` : item.date;
+                    return (
+                      <div key={item.date} style={{
+                        padding: '6px 2px',
+                        textAlign: 'center',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.58rem',
+                        fontWeight: 700,
+                        borderRight: '1px solid var(--glass-border)'
+                      }}>
+                        {shortDate}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <MobileSummaryMetric
+                label="POCs Act."
+                color="#16a34a"
+                values={summaryStats.map(item => ({
+                  key: item.date,
+                  primary: item.activeCount.toLocaleString(),
+                  secondary: `${item.activePct}%`,
+                }))}
+              />
+
+              <MobileSummaryMetric
+                label="Prom. por Act."
+                color="var(--text-primary)"
+                values={summaryStats.map(item => ({
+                  key: item.date,
+                  primary: item.average,
+                }))}
+              />
+            </div>
+          ) : (
+            <div style={{
+              width: '100%',
+              marginTop: '12px',
+              borderTop: '1px solid var(--glass-border)',
+              borderBottom: '1px solid var(--glass-border)',
+              overflow: 'hidden',
+              flexShrink: 0
+            }}>
+              {/* POCs Activos Row */}
+              <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                height: '100%',
-                background: 'rgba(20,15,10,0.6)',
-                borderRight: '1px solid rgba(207,160,82,0.15)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }} title={isSmall ? 'POCs Activos (% Cobertura)' : ''}>
-                {isSmall ? 'POCs Act. (% Cob.)' : 'POCs Activos (% Cobertura)'}
+                height: '38px',
+                borderBottom: '1px solid var(--glass-border)',
+                position: 'relative',
+                width: '100%'
+              }}>
+                {/* Label Column */}
+                <div style={{
+                  width: `${margin.left}px`,
+                  paddingLeft: '12px',
+                  paddingRight: '6px',
+                  color: '#CFA052',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: '100%',
+                  background: 'var(--subtle-surface)',
+                  borderRight: '1px solid var(--glass-border)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  POCs Activos (% Cobertura)
+                </div>
+                {/* Data Columns */}
+                {summaryStats.map(item => {
+                  const leftPos = margin.left + x(item.date);
+                  const cellWidth = x.bandwidth();
+
+                  return (
+                    <div key={item.date} style={{
+                      position: 'absolute',
+                      left: `${leftPos}px`,
+                      width: `${cellWidth}px`,
+                      textAlign: 'center',
+                      color: '#4ade80',
+                      fontWeight: '700',
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      gap: '4px',
+                      lineHeight: '1.4'
+                    }}>
+                      <span>{item.activeCount.toLocaleString()}</span>
+                      <span style={{ fontSize: '0.65rem', color: '#aaaaaa', fontWeight: '500' }}>
+                        ({item.activePct}%)
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-              {/* Data Columns */}
-              {data.map(d => {
-                const activeCount = keys.reduce((sum, dir) => sum + (d.activeClients[dir] || 0), 0);
-                const totalClients = totalClientsPerDate[d.date] || 0;
-                const activePct = totalClients > 0 ? ((activeCount / totalClients) * 100).toFixed(0) : '0';
-                
-                const leftPos = margin.left + x(d.date);
-                const cellWidth = x.bandwidth();
 
-                return (
-                  <div key={d.date} style={{
-                    position: 'absolute',
-                    left: `${leftPos}px`,
-                    width: `${cellWidth}px`,
-                    textAlign: 'center',
-                    color: '#4ade80',
-                    fontWeight: '700',
-                    fontSize: isSmall ? '0.68rem' : '0.75rem',
-                    display: 'flex',
-                    flexDirection: isSmall ? 'column' : 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    gap: isSmall ? '1px' : '4px',
-                    lineHeight: isSmall ? '1.1' : '1.4'
-                  }}>
-                    <span>{activeCount.toLocaleString()}</span>
-                    <span style={{ fontSize: isSmall ? '0.58rem' : '0.65rem', color: '#aaaaaa', fontWeight: '500' }}>
-                      ({activePct}%)
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Redenciones Prom. por Activo Row */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '38px',
-              position: 'relative',
-              width: '100%'
-            }}>
-              {/* Label Column */}
+              {/* Redenciones Prom. por Activo Row */}
               <div style={{
-                width: `${margin.left}px`,
-                paddingLeft: isSmall ? '8px' : '12px',
-                paddingRight: '6px',
-                color: '#CFA052',
-                fontWeight: 'bold',
-                fontSize: isSmall ? '0.7rem' : '0.75rem',
                 display: 'flex',
                 alignItems: 'center',
-                height: '100%',
-                background: 'rgba(20,15,10,0.6)',
-                borderRight: '1px solid rgba(207,160,82,0.15)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }} title={isSmall ? 'Redenciones Prom. por Activo' : ''}>
-                {isSmall ? 'Prom. por Act.' : 'Redenciones Prom. por Activo'}
-              </div>
-              {/* Data Columns */}
-              {data.map(d => {
-                const activeCount = keys.reduce((sum, dir) => sum + (d.activeClients[dir] || 0), 0);
-                const average = activeCount > 0 ? (d.totalRedemptions / activeCount).toFixed(1) : '0.0';
-                
-                const leftPos = margin.left + x(d.date);
-                const cellWidth = x.bandwidth();
+                height: '38px',
+                position: 'relative',
+                width: '100%'
+              }}>
+                {/* Label Column */}
+                <div style={{
+                  width: `${margin.left}px`,
+                  paddingLeft: '12px',
+                  paddingRight: '6px',
+                  color: '#CFA052',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: '100%',
+                  background: 'var(--subtle-surface)',
+                  borderRight: '1px solid var(--glass-border)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  Redenciones Prom. por Activo
+                </div>
+                {/* Data Columns */}
+                {summaryStats.map(item => {
+                  const leftPos = margin.left + x(item.date);
+                  const cellWidth = x.bandwidth();
 
-                return (
-                  <div key={d.date} style={{
-                    position: 'absolute',
-                    left: `${leftPos}px`,
-                    width: `${cellWidth}px`,
-                    textAlign: 'center',
-                    color: 'var(--text-primary)',
-                    fontWeight: '700',
-                    fontSize: '0.75rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%'
-                  }}>
-                    {average}
-                  </div>
-                );
-              })}
+                  return (
+                    <div key={item.date} style={{
+                      position: 'absolute',
+                      left: `${leftPos}px`,
+                      width: `${cellWidth}px`,
+                      textAlign: 'center',
+                      color: 'var(--text-primary)',
+                      fontWeight: '700',
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%'
+                    }}>
+                      {item.average}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </>
       ) : (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -695,6 +695,17 @@ body {
   .theme-toggle-label {
     display: none;
   }
+
+  .general-evolution-panel h2 {
+    font-size: 1.25rem !important;
+    letter-spacing: 0.02em !important;
+    line-height: 1.2;
+  }
+
+  .general-evolution-panel p {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
 }
 
 .toggle-switch.on .toggle-knob {
