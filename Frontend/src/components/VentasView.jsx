@@ -1,31 +1,71 @@
-import { useEffect, useState, useMemo } from 'react';
-import { ShieldCheck, Search, ArrowUpDown, TrendingUp, Inbox, Download, Lock, Key, LogOut } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowUpDown, Download, Inbox, Key, Lock, LogOut, Search, ShieldCheck, TrendingUp, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
+const filterKeys = ['direccion', 'gerencia', 'supervisor', 'BDR', 'Ola'];
+const filterLabels = {
+  direccion: 'Dirección',
+  gerencia: 'Gerencia',
+  supervisor: 'Supervisor',
+  BDR: 'BDR',
+  Ola: 'Ola',
+};
+
+const defaultMetadata = {
+  period: 'Mayo 2026',
+  scope: 'Solo clientes incluidos en el programa',
+  source_file: 'Venta_Mayo.xlsx',
+  filtered_to_program_clients: true,
+};
+
+const emptyFilters = {
+  direccion: 'All',
+  gerencia: 'All',
+  supervisor: 'All',
+  BDR: 'All',
+  Ola: 'All',
+};
+
+const formatNumber = (value, digits = 0) => Number(value || 0).toLocaleString('es-PE', {
+  minimumFractionDigits: digits,
+  maximumFractionDigits: digits,
+});
+
+const normalizeSalesPayload = (payload) => {
+  if (Array.isArray(payload)) {
+    return { records: payload, metadata: defaultMetadata };
+  }
+
+  return {
+    records: Array.isArray(payload?.records) ? payload.records : [],
+    metadata: { ...defaultMetadata, ...(payload?.metadata || {}) },
+  };
+};
+
 const VentasView = ({ storedCreds, setStoredCreds }) => {
   const [salesData, setSalesData] = useState([]);
+  const [salesMeta, setSalesMeta] = useState(defaultMetadata);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'CAJAS', direction: 'desc' });
-  const [filters, setFilters] = useState({
-    direccion: 'All',
-    gerencia: 'All',
-    supervisor: 'All',
-    BDR: 'All',
-    Ola: 'All',
-  });
+  const [filters, setFilters] = useState(emptyFilters);
 
-  // Custom Form Login States
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [submittingLogin, setSubmittingLogin] = useState(false);
   const [loginError, setLoginError] = useState('');
 
   const isAuthenticated = !!storedCreds;
+
+  const applySalesPayload = (payload) => {
+    const { records, metadata } = normalizeSalesPayload(payload);
+    setSalesData(records);
+    setSalesMeta(metadata);
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -36,33 +76,30 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
       try {
         const response = await fetch(apiUrl('/api/ventas'), {
           method: 'GET',
-          headers: {
-            'Authorization': `Basic ${storedCreds}`
-          }
+          headers: { Authorization: `Basic ${storedCreds}` },
         });
+
         if (response.status === 401) {
           setError('Sesión expirada o credenciales inválidas. Por favor inicie sesión nuevamente.');
           sessionStorage.removeItem('ventas_creds');
           setStoredCreds('');
-          setLoading(false);
           return;
         }
-        if (!response.ok) {
-          throw new Error('Error al cargar datos de ventas.');
-        }
-        const data = await response.json();
-        setSalesData(data);
+
+        if (!response.ok) throw new Error('Error al cargar datos de ventas.');
+        applySalesPayload(await response.json());
       } catch (err) {
         setError(err.message || 'Error de conexión.');
       } finally {
         setLoading(false);
       }
     };
-    fetchSales();
-  }, [isAuthenticated, storedCreds]);
 
-  const handleLoginSubmit = async (e) => {
-    e.preventDefault();
+    fetchSales();
+  }, [isAuthenticated, setStoredCreds, storedCreds]);
+
+  const handleLoginSubmit = async (event) => {
+    event.preventDefault();
     if (!usernameInput.trim() || !passwordInput.trim()) {
       setLoginError('Por favor ingrese el usuario y la contraseña.');
       return;
@@ -73,27 +110,20 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
 
     try {
       const base64Creds = btoa(`${usernameInput.trim()}:${passwordInput.trim()}`);
-      
       const response = await fetch(apiUrl('/api/ventas'), {
         method: 'GET',
-        headers: {
-          'Authorization': `Basic ${base64Creds}`
-        }
+        headers: { Authorization: `Basic ${base64Creds}` },
       });
 
       if (response.status === 401) {
         setLoginError('Usuario o contraseña incorrectos.');
-        setSubmittingLogin(false);
         return;
       }
 
-      if (!response.ok) {
-        throw new Error('Error al conectar con el servidor.');
-      }
+      if (!response.ok) throw new Error('Error al conectar con el servidor.');
 
-      const data = await response.json();
+      applySalesPayload(await response.json());
       sessionStorage.setItem('ventas_creds', base64Creds);
-      setSalesData(data);
       setStoredCreds(base64Creds);
     } catch (err) {
       setLoginError(err.message || 'Error de conexión.');
@@ -106,104 +136,111 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
     sessionStorage.removeItem('ventas_creds');
     setStoredCreds('');
     setSalesData([]);
+    setSalesMeta(defaultMetadata);
+    setSearchTerm('');
+    setFilters(emptyFilters);
     setUsernameInput('');
     setPasswordInput('');
   };
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilters(emptyFilters);
   };
 
   const getFilterOptions = (key) => {
-    return Array.from(new Set(salesData.map(c => c[key]).filter(Boolean))).sort();
+    const base = salesData.filter((client) => (
+      filterKeys.every((filterKey) => (
+        filterKey === key || filters[filterKey] === 'All' || String(client[filterKey]) === String(filters[filterKey])
+      ))
+    ));
+
+    return Array.from(new Set(base.map((client) => client[key]).filter((value) => value !== null && value !== undefined && value !== '')))
+      .sort((a, b) => String(a).localeCompare(String(b), 'es', { numeric: true }));
   };
 
-  // Sort and filter logic
   const filteredAndSortedData = useMemo(() => {
     let result = [...salesData];
 
-    // Search term
-    if (searchTerm.trim() !== '') {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(c => 
-        String(c.cliente_id).toLowerCase().includes(term) ||
-        String(c.nombre_comercial).toLowerCase().includes(term)
-      );
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      result = result.filter((client) => (
+        String(client.cliente_id).toLowerCase().includes(term)
+        || String(client.nombre_comercial).toLowerCase().includes(term)
+        || String(client.BDR).toLowerCase().includes(term)
+        || String(client.supervisor).toLowerCase().includes(term)
+      ));
     }
 
-    // Dropdown filters
-    Object.keys(filters).forEach(key => {
+    filterKeys.forEach((key) => {
       if (filters[key] !== 'All') {
-        result = result.filter(c => String(c[key]) === String(filters[key]));
+        result = result.filter((client) => String(client[key]) === String(filters[key]));
       }
     });
 
-    // Sort
     if (sortConfig.key) {
       result.sort((a, b) => {
-        let valA = a[sortConfig.key];
-        let valB = b[sortConfig.key];
+        let valueA = a[sortConfig.key] ?? '';
+        let valueB = b[sortConfig.key] ?? '';
 
-        if (typeof valA === 'string') {
-          valA = valA.toLowerCase();
-          valB = valB.toLowerCase();
-        }
+        if (typeof valueA === 'string') valueA = valueA.toLowerCase();
+        if (typeof valueB === 'string') valueB = valueB.toLowerCase();
 
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (valueA < valueB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valueA > valueB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
 
     return result;
-  }, [salesData, searchTerm, filters, sortConfig]);
+  }, [filters, salesData, searchTerm, sortConfig]);
 
-  const requestSort = (key) => {
-    let direction = 'desc';
-    if (sortConfig.key === key && sortConfig.direction === 'desc') {
-      direction = 'asc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  // Summary Metrics
   const metrics = useMemo(() => {
-    if (filteredAndSortedData.length === 0) return { totalClients: 0, totalCajas: 0, totalBeer: 0, totalCsq: 0 };
     const totalClients = filteredAndSortedData.length;
-    const totalCajas = filteredAndSortedData.reduce((acc, c) => acc + (c.CAJAS || 0), 0);
-    const totalBeer = filteredAndSortedData.reduce((acc, c) => acc + (c['BEER LM'] || 0), 0);
-    const totalCsq = filteredAndSortedData.reduce((acc, c) => acc + (c['CSQ LM'] || 0), 0);
+    const totalCajas = filteredAndSortedData.reduce((acc, client) => acc + Number(client.CAJAS || 0), 0);
+    const totalBeer = filteredAndSortedData.reduce((acc, client) => acc + Number(client['BEER LM'] || 0), 0);
+    const totalCsq = filteredAndSortedData.reduce((acc, client) => acc + Number(client['CSQ LM'] || 0), 0);
+    const avgCajas = totalClients > 0 ? totalCajas / totalClients : 0;
 
-    return {
-      totalClients,
-      totalCajas,
-      totalBeer: totalBeer.toFixed(2),
-      totalCsq: totalCsq.toFixed(2),
-    };
+    return { totalClients, totalCajas, totalBeer, totalCsq, avgCajas };
   }, [filteredAndSortedData]);
 
-  // Excel Export
-  const downloadReport = () => {
-    const wb = XLSX.utils.book_new();
-    const rows = filteredAndSortedData.map(d => ({
-      'Código de Cliente': d.cliente_id,
-      'Cliente': d.nombre_comercial,
-      'Dirección': d.direccion,
-      'Gerencia': d.gerencia,
-      'Supervisor': d.supervisor,
-      'BDR': d.BDR,
-      'Ola': d.Ola,
-      'Beer LM (MTD)': d['BEER LM'] || 0,
-      'CSQ LM (MTD)': d['CSQ LM'] || 0,
-      'Cajas': d.CAJAS || 0,
-      'Nolo LM (MTD)': d['NOLO LM'] || 0,
-    }));
+  const activeFilterCount = filterKeys.filter((key) => filters[key] !== 'All').length + (searchTerm.trim() ? 1 : 0);
 
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Ventas');
-    XLSX.writeFile(wb, 'Reporte_Ventas_Seguras.xlsx');
+  const requestSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+    }));
   };
 
-  // 1. Render Login Screen if not authenticated
+  const downloadReport = () => {
+    const wb = XLSX.utils.book_new();
+    const scopeRows = [
+      { Campo: 'Periodo válido', Valor: salesMeta.period },
+      { Campo: 'Alcance', Valor: salesMeta.scope },
+      { Campo: 'Archivo fuente', Valor: salesMeta.source_file },
+      { Campo: 'Registros exportados', Valor: filteredAndSortedData.length },
+    ];
+    const rows = filteredAndSortedData.map((client) => ({
+      'Código de Cliente': client.cliente_id,
+      Cliente: client.nombre_comercial,
+      Dirección: client.direccion,
+      Gerencia: client.gerencia,
+      Supervisor: client.supervisor,
+      BDR: client.BDR,
+      Ola: client.Ola,
+      'Beer LM (MTD)': client['BEER LM'] || 0,
+      'CSQ LM (MTD)': client['CSQ LM'] || 0,
+      Cajas: client.CAJAS || 0,
+      'Nolo LM (MTD)': client['NOLO LM'] || 0,
+    }));
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(scopeRows), 'Alcance');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Ventas');
+    XLSX.writeFile(wb, 'Reporte_Ventas_Mayo_Clientes_Programa.xlsx');
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 w-full p-4" style={{ minHeight: '80vh' }}>
@@ -228,7 +265,7 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
                   style={{ paddingLeft: '38px', height: '42px' }}
                   placeholder="Ingrese su usuario..."
                   value={usernameInput}
-                  onChange={(e) => setUsernameInput(e.target.value)}
+                  onChange={(event) => setUsernameInput(event.target.value)}
                   disabled={submittingLogin}
                 />
                 <Lock size={16} className="text-secondary" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
@@ -242,9 +279,9 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
                   type="password"
                   className="filter-select w-full"
                   style={{ paddingLeft: '38px', height: '42px' }}
-                  placeholder="••••••••"
+                  placeholder="Contraseña"
                   value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onChange={(event) => setPasswordInput(event.target.value)}
                   disabled={submittingLogin}
                 />
                 <Key size={16} className="text-secondary" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
@@ -257,15 +294,8 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
               </p>
             )}
 
-            <button type="submit" className="btn-gold w-full mt-2" style={{ height: '42px' }} disabled={submittingLogin}>
-              {submittingLogin ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="loader" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTop: '2px solid var(--text-dark)' }}></div>
-                  Validando...
-                </div>
-              ) : (
-                'Iniciar Sesión'
-              )}
+            <button type="submit" className="btn-gold w-full mt-2" style={{ height: '42px', justifyContent: 'center' }} disabled={submittingLogin}>
+              {submittingLogin ? 'Validando...' : 'Iniciar Sesión'}
             </button>
           </form>
         </div>
@@ -273,37 +303,41 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
     );
   }
 
-  // 2. Render Main Sales Page if authenticated
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full p-4 p-lg-6">
-      {/* Title block */}
-      <div className="flex justify-between items-center flex-wrap gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="header-icon bg-gold-gradient p-2 rounded-lg" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={28} className="text-dark" />
+    <div className="ventas-view animate-fade-in">
+      <div className="ventas-header">
+        <div className="ventas-title-block">
+          <div className="ventas-title-icon">
+            <ShieldCheck size={24} />
           </div>
           <div>
-            <h2 className="text-gold text-2xl font-bold font-display uppercase tracking-wider">Desempeño de Ventas</h2>
+            <h2 className="ventas-title">Desempeño de Ventas</h2>
             <p className="text-secondary text-sm">Vista confidencial de volumen y cajas vendidas</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {salesData.length > 0 && (
-            <button onClick={downloadReport} className="btn-gold flex items-center gap-2">
-              <Download size={18} />
-              Exportar Excel
-            </button>
-          )}
-          <button onClick={handleLogout} className="btn-secondary flex items-center gap-2 border-red-hover" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+        <div className="ventas-actions">
+          <button onClick={downloadReport} className="btn-gold" disabled={filteredAndSortedData.length === 0}>
+            <Download size={18} />
+            Descargar
+          </button>
+          <button onClick={handleLogout} className="btn-secondary ventas-logout">
             <LogOut size={18} />
             Salir
           </button>
         </div>
       </div>
 
+      <div className="ventas-scope">
+        <ShieldCheck size={18} />
+        <div>
+          <strong>Alcance del dato:</strong> válido solo para {salesMeta.period}. La base está cruzada únicamente con clientes que están en el programa.
+          <span> Fuente: {salesMeta.source_file}</span>
+        </div>
+      </div>
+
       {error && (
-        <div className="glass-panel p-6 mb-6 animate-fade-in flex items-center gap-4 border-red" style={{ borderColor: 'var(--cusquena-red)' }}>
+        <div className="glass-panel p-6 animate-fade-in flex items-center gap-4" style={{ borderColor: 'var(--cusquena-red)' }}>
           <ShieldCheck className="text-red" size={24} />
           <p className="text-red font-semibold">{error}</p>
         </div>
@@ -311,162 +345,157 @@ const VentasView = ({ storedCreds, setStoredCreds }) => {
 
       {loading ? (
         <div className="glass-panel p-8 animate-fade-in flex flex-col items-center gap-4 justify-center" style={{ minHeight: '300px' }}>
-          <div className="loader"></div>
+          <div className="loader" />
           <p className="text-gold font-medium">Cargando datos sensibles de ventas...</p>
         </div>
       ) : (
-        <div className="flex flex-col flex-1 min-h-0 w-full gap-6">
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-4 flex-shrink-0">
-            <div className="glass-panel card-metric p-4 p-lg-5 text-center flex flex-col items-center justify-center">
-              <span className="text-secondary text-xs uppercase tracking-wider font-semibold">Total Locales</span>
-              <span className="text-gold text-2xl font-bold mt-2">{metrics.totalClients}</span>
-            </div>
-            <div className="glass-panel card-metric p-4 p-lg-5 text-center flex flex-col items-center justify-center">
-              <span className="text-secondary text-xs uppercase tracking-wider font-semibold">Volumen Total Beer (MTD)</span>
-              <span className="text-gold text-2xl font-bold mt-2">{metrics.totalBeer} HL</span>
-            </div>
-            <div className="glass-panel card-metric p-4 p-lg-5 text-center flex flex-col items-center justify-center">
-              <span className="text-secondary text-xs uppercase tracking-wider font-semibold">Cusqueña (MTD)</span>
-              <span className="text-gold text-2xl font-bold mt-2">{metrics.totalCsq} HL</span>
-            </div>
-            <div className="glass-panel card-metric p-4 p-lg-5 text-center flex flex-col items-center justify-center">
-              <span className="text-secondary text-xs uppercase tracking-wider font-semibold">Total Cajas</span>
-              <span className="text-gold text-2xl font-bold mt-2">{metrics.totalCajas}</span>
-            </div>
+        <>
+          <div className="ventas-kpi-grid">
+            <SalesMetricCard title="Locales del programa" value={formatNumber(metrics.totalClients)} detail={`${formatNumber(salesData.length)} locales en la base de ventas`} />
+            <SalesMetricCard title="Volumen Beer MTD" value={`${formatNumber(metrics.totalBeer, 2)} HL`} detail="Ventas de mayo, acumulado MTD" />
+            <SalesMetricCard title="Cusqueña MTD" value={`${formatNumber(metrics.totalCsq, 2)} HL`} detail="Solo clientes dentro del programa" />
+            <SalesMetricCard title="Cajas totales" value={formatNumber(metrics.totalCajas)} detail={`${formatNumber(metrics.avgCajas, 1)} cajas promedio por local`} />
           </div>
 
-          {/* Filters Card */}
-          <div className="glass-panel p-4 flex flex-col gap-4 flex-shrink-0">
-            <div className="flex flex-col flex-md-row gap-4 items-end">
-              {/* Search bar */}
-              <div className="flex flex-col gap-2 flex-1 w-full">
-                <label className="text-secondary text-xs font-semibold uppercase tracking-wider">Buscar Cliente</label>
-                <div className="position-relative" style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    className="filter-select w-full"
-                    style={{ paddingLeft: '38px' }}
-                    placeholder="Código o nombre de cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Search size={18} className="text-secondary" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                </div>
+          <div className="glass-panel ventas-controls">
+            <div className="ventas-controls-header">
+              <div>
+                <h3 className="text-gold font-bold">Explorar locales</h3>
+                <p className="text-secondary text-sm">Busca por cliente, código, supervisor o BDR; luego refina por jerarquía.</p>
               </div>
-
-              {/* Reset button */}
-              <button
-                className="btn-secondary flex-shrink-0"
-                style={{ height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilters({ direccion: 'All', gerencia: 'All', supervisor: 'All', BDR: 'All', Ola: 'All' });
-                }}
-              >
-                Resetear Filtros
+              <button className="btn-secondary" onClick={resetFilters} disabled={activeFilterCount === 0}>
+                <X size={16} />
+                Limpiar filtros
               </button>
             </div>
 
-            {/* Dropdowns Filters Grid */}
-            <div className="grid grid-cols-2 grid-cols-md-3 grid-cols-lg-5 gap-3">
-              {['direccion', 'gerencia', 'supervisor', 'BDR', 'Ola'].map(key => (
-                <div key={key} className="flex flex-col gap-1.5">
-                  <label className="text-secondary text-2xs uppercase tracking-wider font-bold">
-                    {key === 'direccion' ? 'Dirección' : key === 'Ola' ? 'Ola/Wave' : key}
-                  </label>
-                  <select
-                    className="filter-select text-xs"
-                    value={filters[key]}
-                    onChange={(e) => handleFilterChange(key, e.target.value)}
-                  >
+            <div className="ventas-search-row">
+              <div className="ventas-search">
+                <Search size={18} className="text-secondary" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar por código, cliente, supervisor o BDR"
+                />
+              </div>
+              <div className="ventas-result-count">
+                {formatNumber(filteredAndSortedData.length)} de {formatNumber(salesData.length)} locales
+              </div>
+            </div>
+
+            <div className="ventas-filter-grid">
+              {filterKeys.map((key) => (
+                <label key={key} className="ventas-filter">
+                  <span>{filterLabels[key]}</span>
+                  <select value={filters[key]} onChange={(event) => setFilters((prev) => ({ ...prev, [key]: event.target.value }))}>
                     <option value="All">Todos</option>
-                    {getFilterOptions(key).map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                    {getFilterOptions(key).map((option) => (
+                      <option key={option} value={option}>{option}</option>
                     ))}
                   </select>
-                </div>
+                </label>
               ))}
             </div>
           </div>
 
-          {/* Table Card */}
-          <div className="glass-panel flex-1 min-h-0 flex flex-col" style={{ padding: '0px', overflow: 'hidden' }}>
-            <div className="flex-1 overflow-auto custom-scrollbar" style={{ maxHeight: '600px' }}>
-              {filteredAndSortedData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center text-secondary gap-3" style={{ minHeight: '200px' }}>
-                  <Inbox size={48} className="opacity-40 text-gold" />
-                  <p className="font-semibold text-lg">No se encontraron registros</p>
-                  <p className="text-sm">Pruebe ajustando el buscador o los filtros</p>
-                </div>
-              ) : (
-                <table className="gemini-table w-full">
-                  <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                    <tr>
-                      <th onClick={() => requestSort('cliente_id')} style={{ cursor: 'pointer' }}>
-                        <div className="flex items-center gap-1.5">Código <ArrowUpDown size={14} /></div>
-                      </th>
-                      <th onClick={() => requestSort('nombre_comercial')} style={{ cursor: 'pointer' }}>
-                        <div className="flex items-center gap-1.5">Cliente <ArrowUpDown size={14} /></div>
-                      </th>
-                      <th>Dirección</th>
-                      <th>Gerencia</th>
-                      <th>Supervisor</th>
-                      <th>BDR</th>
-                      <th onClick={() => requestSort('Ola')} style={{ cursor: 'pointer', textAlign: 'center' }}>
-                        <div className="flex items-center gap-1.5 justify-center">Ola <ArrowUpDown size={14} /></div>
-                      </th>
-                      <th onClick={() => requestSort('BEER LM')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-                        <div className="flex items-center gap-1.5 justify-end">Beer LM <ArrowUpDown size={14} /></div>
-                      </th>
-                      <th onClick={() => requestSort('CSQ LM')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-                        <div className="flex items-center gap-1.5 justify-end">CSQ LM <ArrowUpDown size={14} /></div>
-                      </th>
-                      <th onClick={() => requestSort('CAJAS')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-                        <div className="flex items-center gap-1.5 justify-end">Cajas <ArrowUpDown size={14} /></div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAndSortedData.map(d => (
-                      <tr key={d.cliente_id}>
-                        <td className="font-mono text-xs">{d.cliente_id}</td>
-                        <td className="font-bold text-gold">{d.nombre_comercial}</td>
-                        <td>{d.direccion || 'N/A'}</td>
-                        <td>{d.gerencia || 'N/A'}</td>
-                        <td>{d.supervisor || 'N/A'}</td>
-                        <td>{d.BDR || 'N/A'}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className={`badge-ola wave-${d.Ola || 1}`}>Ola {d.Ola || 1}</span>
-                        </td>
-                        <td style={{ textAlign: 'right' }} className="font-mono font-bold">{(d['BEER LM'] || 0).toFixed(2)} HL</td>
-                        <td style={{ textAlign: 'right' }} className="font-mono text-gold font-bold">{(d['CSQ LM'] || 0).toFixed(2)} HL</td>
-                        <td style={{ textAlign: 'right' }} className="font-mono font-bold text-gold font-display" style={{ color: 'var(--cusquena-gold)', fontSize: '1.05rem' }}>{d.CAJAS || 0}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+          <div className="glass-panel ventas-list-panel">
+            <div className="ventas-list-header">
+              <div>
+                <h3 className="text-white font-bold">Locales con ventas</h3>
+                <p className="text-secondary text-sm">Orden actual: {filterLabels[sortConfig.key] || sortConfig.key} ({sortConfig.direction === 'desc' ? 'mayor a menor' : 'menor a mayor'})</p>
+              </div>
+              <span className="ventas-total-pill">
+                <TrendingUp size={14} />
+                {formatNumber(metrics.totalCajas)} cajas
+              </span>
             </div>
 
-            {/* Sticky Table Footer */}
-            {filteredAndSortedData.length > 0 && (
-              <div 
-                className="flex justify-between items-center p-3 border-t border-gold border-opacity-10 text-xs text-secondary font-semibold"
-                style={{ backgroundColor: 'rgba(23, 23, 23, 0.9)', backdropFilter: 'blur(10px)' }}
-              >
-                <span>Mostrando {filteredAndSortedData.length} de {salesData.length} locales</span>
-                <span className="flex items-center gap-2">
-                  <TrendingUp size={14} className="text-gold" />
-                  Suma de Cajas: <strong className="text-gold font-display" style={{ fontSize: '1.05rem' }}>{metrics.totalCajas}</strong>
-                </span>
+            {filteredAndSortedData.length === 0 ? (
+              <div className="ventas-empty">
+                <Inbox size={48} />
+                <p>No se encontraron registros</p>
+                <span>Prueba ajustando el buscador o los filtros.</span>
               </div>
+            ) : (
+              <>
+                <div className="ventas-table-wrap">
+                  <table className="ventas-table">
+                    <thead>
+                      <tr>
+                        <SortableHeader label="Código" sortKey="cliente_id" requestSort={requestSort} />
+                        <SortableHeader label="Cliente" sortKey="nombre_comercial" requestSort={requestSort} />
+                        <th>Dirección</th>
+                        <th>Gerencia</th>
+                        <th>Supervisor</th>
+                        <th>BDR</th>
+                        <SortableHeader label="Ola" sortKey="Ola" requestSort={requestSort} align="center" />
+                        <SortableHeader label="Beer LM" sortKey="BEER LM" requestSort={requestSort} align="right" />
+                        <SortableHeader label="CSQ LM" sortKey="CSQ LM" requestSort={requestSort} align="right" />
+                        <SortableHeader label="Cajas" sortKey="CAJAS" requestSort={requestSort} align="right" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAndSortedData.map((client) => (
+                        <tr key={client.cliente_id}>
+                          <td className="ventas-code">{client.cliente_id}</td>
+                          <td>
+                            <strong className="text-gold">{client.nombre_comercial}</strong>
+                          </td>
+                          <td>{client.direccion || 'N/A'}</td>
+                          <td>{client.gerencia || 'N/A'}</td>
+                          <td>{client.supervisor || 'N/A'}</td>
+                          <td>{client.BDR || 'N/A'}</td>
+                          <td style={{ textAlign: 'center' }}><span className="ventas-wave">Ola {client.Ola || 1}</span></td>
+                          <td style={{ textAlign: 'right' }}>{formatNumber(client['BEER LM'], 2)} HL</td>
+                          <td style={{ textAlign: 'right' }}>{formatNumber(client['CSQ LM'], 2)} HL</td>
+                          <td className="ventas-cajas">{formatNumber(client.CAJAS)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="ventas-card-list">
+                  {filteredAndSortedData.map((client) => (
+                    <div className="ventas-client-card" key={client.cliente_id}>
+                      <div>
+                        <span className="ventas-code">{client.cliente_id}</span>
+                        <h4>{client.nombre_comercial}</h4>
+                        <p>{client.direccion || 'N/A'} · {client.gerencia || 'N/A'}</p>
+                      </div>
+                      <div className="ventas-client-metrics">
+                        <span><strong>{formatNumber(client.CAJAS)}</strong> cajas</span>
+                        <span>{formatNumber(client['CSQ LM'], 2)} HL CSQ</span>
+                        <span>{client.BDR || 'N/A'} · Ola {client.Ola || 1}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
+
+const SalesMetricCard = ({ title, value, detail }) => (
+  <div className="glass-panel ventas-metric-card">
+    <span>{title}</span>
+    <strong>{value}</strong>
+    <p>{detail}</p>
+  </div>
+);
+
+const SortableHeader = ({ label, sortKey, requestSort, align = 'left' }) => (
+  <th onClick={() => requestSort(sortKey)} style={{ cursor: 'pointer', textAlign: align }}>
+    <span className={`ventas-sortable ventas-sortable-${align}`}>
+      {label}
+      <ArrowUpDown size={13} />
+    </span>
+  </th>
+);
 
 export default VentasView;

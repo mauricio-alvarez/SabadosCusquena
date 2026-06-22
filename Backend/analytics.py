@@ -751,17 +751,7 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
 
 
 def get_sales_data():
-    vm_pattern = "Venta_*.xlsx"
-    vm_files = []
-    data_dir = os.environ.get("DATA_DIR")
-    if data_dir:
-        vm_files.extend(glob.glob(os.path.join(data_dir, vm_pattern)))
-    vm_files.extend(glob.glob(os.path.join(BASE_DIR, "downloads", vm_pattern)))
-
-    if vm_files:
-        vm_path = sorted(vm_files)[-1]
-    else:
-        vm_path = get_path_for_file("Venta_Mayo.xlsx")
+    vm_path = get_path_for_file("Venta_Mayo.xlsx")
         
     if not os.path.exists(vm_path):
         raise FileNotFoundError(f"Sales file not found: {vm_path}")
@@ -778,7 +768,18 @@ def get_sales_data():
     for c in num_cols:
         df_merged[c] = df_merged[c].fillna(0)
         
-    return df_merged[[
+    records = df_merged[[
         'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'Ola'
     ] + num_cols].to_dict(orient='records')
+
+    return {
+        'metadata': {
+            'period': 'Mayo 2026',
+            'scope': 'Solo clientes incluidos en el programa',
+            'source_file': os.path.basename(vm_path),
+            'client_count': len(records),
+            'filtered_to_program_clients': True,
+        },
+        'records': records,
+    }
 

@@ -34,6 +34,13 @@ const findAvailableDate = (availableDates, targetDate) => {
   return availableDates.find(dateStr => normalizeDateKey(dateStr) === targetKey) || null;
 };
 
+const isDateForWeekday = (dateStr, weekday) => {
+  const parts = String(dateStr || '').split('/');
+  if (parts.length !== 3) return false;
+  const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  return d.getDay() === weekday;
+};
+
 const isInfinitePct = (value) => {
   const text = String(value ?? '');
   return text === '∞' || text === 'âˆž' || text.toLowerCase() === 'infinity';
@@ -57,13 +64,19 @@ const isOneWeekComparisonOverrideActive = () => {
     && today < ONE_WEEK_COMPARISON_OVERRIDE.endsBefore;
 };
 
-const PivotView = ({ allClients, progressData, isDatesView = false }) => {
+const PivotView = ({ allClients, progressData, isDatesView = false, targetDay = 6, dayLabel = 'Sábado' }) => {
   const [expanded, setExpanded] = useState({});
   const [selectedPath, setSelectedPath] = useState(null);
   const [detailTab, setDetailTab] = useState('activos');
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null }); // { key: 'name'|'total'|..., direction: 'asc'|'desc' }
   const [customSelectedDate, setCustomSelectedDate] = useState('');
+  const [selectedComparisonDate, setSelectedComparisonDate] = useState('');
+  const dayLabelLower = dayLabel.toLowerCase();
+  const previousDayShortLabel = targetDay === 0 ? 'Dom' : 'Sab';
+  const previousDayKey = previousDayShortLabel.toUpperCase();
+  const comparisonColumnLabel = isDatesView ? `${previousDayShortLabel} Pasado` : `${previousDayShortLabel} Base`;
+  const comparisonDayLabelLower = isDatesView ? `${dayLabelLower} anterior` : `${dayLabelLower} base`;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
@@ -79,12 +92,19 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       const normalized = normalizeDateKey(dateStr);
       if (normalized === '07/06/2026') return true;
 
-      const parts = dateStr.split('/');
-      if (parts.length !== 3) return false;
-      const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-      return d.getDay() === 6; // 6 = Saturday
+      return isDateForWeekday(dateStr, 6); // 6 = Saturday
     }).reverse(); // Latest first
   }, [progressData]);
+
+  const weekdayComparisonDates = useMemo(() => {
+    if (!progressData || !progressData.available_dates) return [];
+    return progressData.available_dates.filter(dateStr => isDateForWeekday(dateStr, targetDay));
+  }, [progressData, targetDay]);
+
+  const availableComparisonDates = useMemo(() => {
+    if (weekdayComparisonDates.length <= 1) return [];
+    return weekdayComparisonDates.slice(0, -1).reverse(); // Exclude current date and show latest first
+  }, [weekdayComparisonDates]);
 
   // Set default selection when dates are loaded or isDatesView becomes active
   useEffect(() => {
@@ -92,6 +112,23 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       setCustomSelectedDate(availableEvaluationDates[0]);
     }
   }, [isDatesView, availableEvaluationDates, customSelectedDate]);
+
+  useEffect(() => {
+    if (isDatesView) return;
+
+    if (availableComparisonDates.length === 0) {
+      if (selectedComparisonDate) setSelectedComparisonDate('');
+      return;
+    }
+
+    const selectedExists = availableComparisonDates.some(
+      dateStr => normalizeDateKey(dateStr) === normalizeDateKey(selectedComparisonDate)
+    );
+
+    if (!selectedExists) {
+      setSelectedComparisonDate(availableComparisonDates[0]);
+    }
+  }, [isDatesView, availableComparisonDates, selectedComparisonDate]);
 
   // Determine the dates to compare.
   const { latestSaturday, prevSaturday } = useMemo(() => {
@@ -115,12 +152,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
         prev = findAvailableDate(dates, '06/06/2026');
       } else {
         // Find preceding Saturday in the sorted list of Saturdays
-        const saturdays = dates.filter(dateStr => {
-          const parts = dateStr.split('/');
-          if (parts.length !== 3) return false;
-          const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-          return d.getDay() === 6; // 6 = Saturday
-        }); // Sorted oldest to newest
+        const saturdays = dates.filter(dateStr => isDateForWeekday(dateStr, 6)); // Sorted oldest to newest
 
         const idx = saturdays.findIndex(dateStr => normalizeDateKey(dateStr) === normalizedSelected);
         if (idx > 0) {
@@ -133,27 +165,32 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
         prevSaturday: prev,
       };
     } else {
-      // In standard view: compare the two last Saturdays only. Ignore Sunday 07/06.
-      const saturdays = dates.filter(dateStr => {
-        const parts = dateStr.split('/');
-        if (parts.length !== 3) return false;
-        const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-        return d.getDay() === 6; // 6 = Saturday
-      });
+      // In standard view: latest configured weekday is current; dropdown chooses the baseline.
+      const currentDate = weekdayComparisonDates[weekdayComparisonDates.length - 1] || null;
 
-      if (saturdays.length < 2) {
+      if (!currentDate) {
         return {
-          latestSaturday: dates[dates.length - 1] || null,
-          prevSaturday: dates.length >= 2 ? dates[dates.length - 2] : null,
+          latestSaturday: null,
+          prevSaturday: null,
         };
       }
 
+      const selectedBaseline = selectedComparisonDate
+        ? findAvailableDate(weekdayComparisonDates, selectedComparisonDate)
+        : null;
+      const selectedIsCurrent = selectedBaseline
+        ? normalizeDateKey(selectedBaseline) === normalizeDateKey(currentDate)
+        : false;
+      const fallbackBaseline = weekdayComparisonDates.length >= 2
+        ? weekdayComparisonDates[weekdayComparisonDates.length - 2]
+        : null;
+
       return {
-        latestSaturday: saturdays[saturdays.length - 1],
-        prevSaturday: saturdays[saturdays.length - 2],
+        latestSaturday: currentDate,
+        prevSaturday: selectedBaseline && !selectedIsCurrent ? selectedBaseline : fallbackBaseline,
       };
     }
-  }, [progressData, isDatesView, customSelectedDate, availableEvaluationDates]);
+  }, [progressData, isDatesView, customSelectedDate, availableEvaluationDates, weekdayComparisonDates, selectedComparisonDate]);
 
   // Calculate the maximum hour limit in latestSaturday's dynamic data
   const latestHourLimit = useMemo(() => {
@@ -342,7 +379,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       'Gerencia': c.gerencia,
       'Supervisor': c.supervisor,
       'BDR': c.BDR,
-      [`Redenciones (${latestSaturday || 'Último Sáb'})`]: countOnDate(c, latestSaturday),
+      [`Redenciones (${latestSaturday || `Último ${previousDayShortLabel}`})`]: countOnDate(c, latestSaturday),
     }));
 
     const inactiveRows = inactiveClients.map(c => ({
@@ -352,7 +389,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
       'Gerencia': c.gerencia,
       'Supervisor': c.supervisor,
       'BDR': c.BDR,
-      [`Redenciones (${latestSaturday || 'Último Sáb'})`]: countOnDate(c, latestSaturday),
+      [`Redenciones (${latestSaturday || `Último ${previousDayShortLabel}`})`]: countOnDate(c, latestSaturday),
     }));
 
     if (activeRows.length > 0) {
@@ -364,7 +401,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
 
     const label = selectedPath ? selectedPath.replace(/\/\/\//g, '_') : 'Todos';
     XLSX.writeFile(wb, `Detalle_Clientes_${label}.xlsx`);
-  }, [activeClients, inactiveClients, latestSaturday, selectedPath]);
+  }, [activeClients, inactiveClients, latestSaturday, previousDayShortLabel, selectedPath]);
 
   // Download full pivot table
   const downloadPivotTable = useCallback(() => {
@@ -384,20 +421,20 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           '% Redimiendo': node.activePct,
           'Clientes Sin Redimir': node.inactive,
           '% Sin Redimir': node.inactivePct,
-          'VS SAB ACT (Abs)': node.vsSabActiveDelta,
-          'VS SAB ACT (%)': node.vsSabActivePct,
-          'VS SAB ACT MH (Abs)': node.vsSabActiveDeltaSameHour,
-          'VS SAB ACT MH (%)': node.vsSabActivePctSameHour,
+          [`VS ${previousDayKey} ACT (Abs)`]: node.vsSabActiveDelta,
+          [`VS ${previousDayKey} ACT (%)`]: node.vsSabActivePct,
+          [`VS ${previousDayKey} ACT MH (Abs)`]: node.vsSabActiveDeltaSameHour,
+          [`VS ${previousDayKey} ACT MH (%)`]: node.vsSabActivePctSameHour,
           'Redenciones Totales': node.totalRedemptions,
-          'VS SAB RED (Abs)': node.vsSabDelta,
-          'VS SAB RED (%)': node.vsSabPct,
-          'VS SAB RED MH (Abs)': node.vsSabDeltaSameHour,
-          'VS SAB RED MH (%)': node.vsSabPctSameHour,
+          [`VS ${previousDayKey} RED (Abs)`]: node.vsSabDelta,
+          [`VS ${previousDayKey} RED (%)`]: node.vsSabPct,
+          [`VS ${previousDayKey} RED MH (Abs)`]: node.vsSabDeltaSameHour,
+          [`VS ${previousDayKey} RED MH (%)`]: node.vsSabPctSameHour,
           'Red Prom x Activo': node.avgPerActive,
-          'VS SAB PROM (Abs)': node.vsSabAvgDelta,
-          'VS SAB PROM (%)': node.vsSabAvgPct,
-          'VS SAB PROM MH (Abs)': node.vsSabAvgDeltaSameHour,
-          'VS SAB PROM MH (%)': node.vsSabAvgPctSameHour,
+          [`VS ${previousDayKey} PROM (Abs)`]: node.vsSabAvgDelta,
+          [`VS ${previousDayKey} PROM (%)`]: node.vsSabAvgPct,
+          [`VS ${previousDayKey} PROM MH (Abs)`]: node.vsSabAvgDeltaSameHour,
+          [`VS ${previousDayKey} PROM MH (%)`]: node.vsSabAvgPctSameHour,
         });
         if (node.children) {
           flattenTree(node.children, path);
@@ -418,28 +455,28 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
         '% Redimiendo': totals.activePct,
         'Clientes Sin Redimir': totals.inactive,
         '% Sin Redimir': totals.inactivePct,
-        'VS SAB ACT (Abs)': totals.vsSabActiveDelta,
-        'VS SAB ACT (%)': totals.vsSabActivePct,
-        'VS SAB ACT MH (Abs)': totals.vsSabActiveDeltaSameHour,
-        'VS SAB ACT MH (%)': totals.vsSabActivePctSameHour,
+        [`VS ${previousDayKey} ACT (Abs)`]: totals.vsSabActiveDelta,
+        [`VS ${previousDayKey} ACT (%)`]: totals.vsSabActivePct,
+        [`VS ${previousDayKey} ACT MH (Abs)`]: totals.vsSabActiveDeltaSameHour,
+        [`VS ${previousDayKey} ACT MH (%)`]: totals.vsSabActivePctSameHour,
         'Redenciones Totales': totals.totalRedemptions,
-        'VS SAB RED (Abs)': totals.vsSabDelta,
-        'VS SAB RED (%)': totals.vsSabPct,
-        'VS SAB RED MH (Abs)': totals.vsSabDeltaSameHour,
-        'VS SAB RED MH (%)': totals.vsSabPctSameHour,
+        [`VS ${previousDayKey} RED (Abs)`]: totals.vsSabDelta,
+        [`VS ${previousDayKey} RED (%)`]: totals.vsSabPct,
+        [`VS ${previousDayKey} RED MH (Abs)`]: totals.vsSabDeltaSameHour,
+        [`VS ${previousDayKey} RED MH (%)`]: totals.vsSabPctSameHour,
         'Red Prom x Activo': totals.avgPerActive,
-        'VS SAB PROM (Abs)': totals.vsSabAvgDelta,
-        'VS SAB PROM (%)': totals.vsSabAvgPct,
-        'VS SAB PROM MH (Abs)': totals.vsSabAvgDeltaSameHour,
-        'VS SAB PROM MH (%)': totals.vsSabAvgPctSameHour,
+        [`VS ${previousDayKey} PROM (Abs)`]: totals.vsSabAvgDelta,
+        [`VS ${previousDayKey} PROM (%)`]: totals.vsSabAvgPct,
+        [`VS ${previousDayKey} PROM MH (Abs)`]: totals.vsSabAvgDeltaSameHour,
+        [`VS ${previousDayKey} PROM MH (%)`]: totals.vsSabAvgPctSameHour,
       });
     }
 
     if (rows.length > 0) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Tabla Dinámica');
     }
-    XLSX.writeFile(wb, 'Tabla_Dinamica_Desempeno.xlsx');
-  }, [tree, totals]);
+    XLSX.writeFile(wb, `Tabla_Dinamica_Desempeno_${dayLabel}.xlsx`);
+  }, [tree, totals, dayLabel, previousDayKey]);
 
   // Flatten tree into renderable rows (with sorting at each level)
   const flatRows = useMemo(() => {
@@ -526,7 +563,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           </div>
           <div>
             <h2 className="text-white font-bold" style={{ fontSize: '1.25rem', margin: 0 }}>
-              {isDatesView ? 'Desempeño Fechas' : 'Sábado y Fecha Actual'}
+              {isDatesView ? 'Desempeño Fechas' : `${dayLabel} y Fecha Actual`}
             </h2>
             {latestSaturday && prevSaturday ? (
               <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
@@ -562,6 +599,23 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
             </select>
           </div>
         )}
+        {!isDatesView && availableComparisonDates.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <label className="text-secondary text-xs font-semibold whitespace-nowrap">Comparar contra:</label>
+            <select
+              className="filter-select"
+              value={selectedComparisonDate || availableComparisonDates[0]}
+              onChange={(e) => setSelectedComparisonDate(e.target.value)}
+              style={{ width: 'auto', padding: '6px 32px 6px 12px', fontSize: '0.85rem' }}
+            >
+              {availableComparisonDates.map(dateStr => (
+                <option key={dateStr} value={dateStr}>
+                  {dayLabel} {dateStr}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {isMobile ? (
@@ -572,6 +626,9 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
           prevSaturday={prevSaturday}
           latestHourLimit={latestHourLimit}
           onDownload={downloadPivotTable}
+          dayLabel={dayLabel}
+          dayLabelLower={dayLabelLower}
+          comparisonDayLabelLower={comparisonDayLabelLower}
         />
       ) : (
       <>
@@ -614,14 +671,14 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
                 <SortHeader label={<>Clientes<br />Totales</>} sortKey="total" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Clientes<br />Redimiendo</>} sortKey="active" sortConfig={sortConfig} onSort={toggleSort} />
                 <SortHeader label={<>Clientes<br />Sin Redimir</>} sortKey="inactive" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Var vs Sab Pasado<br />Misma Hora</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Var vs Sab Pasado<br />Dia Completo</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />                
+                <SortHeader label={<>Var vs {comparisonColumnLabel}<br />Misma Hora</>} sortKey="vsSabActiveDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs {comparisonColumnLabel}<br />Dia Completo</>} sortKey="vsSabActiveDelta" sortConfig={sortConfig} onSort={toggleSort} purple />                
                 <SortHeader label={<>Redenc.<br />Totales</>} sortKey="totalRedemptions" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Var vs Sab Pasado<br />Misma Hora</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Var vs Sab Pasado<br />Dia Completo</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />               
+                <SortHeader label={<>Var vs {comparisonColumnLabel}<br />Misma Hora</>} sortKey="vsSabDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs {comparisonColumnLabel}<br />Dia Completo</>} sortKey="vsSabDelta" sortConfig={sortConfig} onSort={toggleSort} purple />               
                 <SortHeader label={<>Red Prom<br />x Activo</>} sortKey="avgPerActive" sortConfig={sortConfig} onSort={toggleSort} />
-                <SortHeader label={<>Var vs Sab Pasado<br />Misma Hora</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
-                <SortHeader label={<>Var vs Sab Pasado<br />Dia Completo</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs {comparisonColumnLabel}<br />Misma Hora</>} sortKey="vsSabAvgDeltaSameHour" sortConfig={sortConfig} onSort={toggleSort} purple />
+                <SortHeader label={<>Var vs {comparisonColumnLabel}<br />Dia Completo</>} sortKey="vsSabAvgDelta" sortConfig={sortConfig} onSort={toggleSort} purple />
                 
               </div>
 
@@ -974,7 +1031,7 @@ const PivotView = ({ allClients, progressData, isDatesView = false }) => {
 };
 
 // ─── Metrics Computation (Saturday-specific) ────────────────────────
-const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, latestHourLimit, onDownload }) => {
+const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, latestHourLimit, onDownload, dayLabel = 'Sábado', dayLabelLower = 'sábado', comparisonDayLabelLower = 'sábado base' }) => {
   if (!totals) return null;
 
   const primaryCards = [
@@ -1021,11 +1078,11 @@ const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, la
               Resumen móvil
             </p>
             <h3 className="text-white font-bold" style={{ fontSize: '1rem', marginTop: '2px' }}>
-              {latestSaturday ? `Sábado ${latestSaturday}` : 'Sábado actual'}
+              {latestSaturday ? `${dayLabel} ${latestSaturday}` : `${dayLabel} actual`}
             </h3>
             {prevSaturday && (
               <p className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
-                Vs sábado anterior {prevSaturday}
+                Vs {comparisonDayLabelLower} {prevSaturday}
               </p>
             )}
           </div>
@@ -1039,7 +1096,7 @@ const MobilePivotCards = ({ totals, directions, latestSaturday, prevSaturday, la
           </button>
         </div>
         <p className="text-secondary" style={{ fontSize: '0.72rem' }}>
-          Misma hora compara el sábado anterior hasta {latestHourLimit || '23:59:59'}. Día completo compara contra todo el sábado anterior.
+          Misma hora compara el {comparisonDayLabelLower} hasta {latestHourLimit || '23:59:59'}. Día completo compara contra todo el {comparisonDayLabelLower}.
         </p>
       </div>
 

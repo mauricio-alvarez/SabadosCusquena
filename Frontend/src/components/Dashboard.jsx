@@ -54,6 +54,9 @@ const Dashboard = () => {
       const hasCreds = !!sessionStorage.getItem('ventas_creds');
       return hasCreds ? 'volume' : 'ventas';
     }
+    if (path === '/domingo' || path === '/domingo/') {
+      return 'pivot-sunday';
+    }
     return 'general';
   };
 
@@ -82,6 +85,10 @@ const Dashboard = () => {
       if (window.location.pathname !== '/volume') {
         window.history.pushState(null, '', '/volume');
       }
+    } else if (activeView === 'pivot-sunday') {
+      if (window.location.pathname !== '/domingo') {
+        window.history.pushState(null, '', '/domingo');
+      }
     } else {
       if (window.location.pathname !== '/') {
         window.history.pushState(null, '', '/');
@@ -97,6 +104,8 @@ const Dashboard = () => {
       } else if (path === '/volume' || path === '/volume/') {
         const hasCreds = !!sessionStorage.getItem('ventas_creds');
         setActiveView(hasCreds ? 'volume' : 'general');
+      } else if (path === '/domingo' || path === '/domingo/') {
+        setActiveView('pivot-sunday');
       } else {
         setActiveView('general');
       }
@@ -382,6 +391,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
             </button>
+            <button onClick={() => setActiveView('pivot-sunday')} className={`sidebar-btn ${activeView === 'pivot-sunday' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
+              <span className="sidebar-btn-text">Domingo y Fecha Actual</span>
+            </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
@@ -419,6 +432,10 @@ const Dashboard = () => {
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
+              </button>
+              <button onClick={() => { setActiveView('pivot-sunday'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-sunday' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
+                <span className="sidebar-btn-text">Domingo y Fecha Actual</span>
               </button>
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
@@ -603,7 +620,10 @@ const Dashboard = () => {
               <OpportunityView allClients={dashboardData.clients} />
             )}
             {activeView === 'pivot' && (
-              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} />
+              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} targetDay={6} dayLabel="Sábado" />
+            )}
+            {activeView === 'pivot-sunday' && (
+              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} targetDay={0} dayLabel="Domingo" />
             )}
             {activeView === 'pivot-dates' && (
               <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={true} />
@@ -615,7 +635,7 @@ const Dashboard = () => {
               <CampaignView allClients={dashboardData.clients} progressData={dashboardData.progress_data} marchaBlanca />
             )}
             {activeView === 'volume' && (
-              <VolumeView allClients={dashboardData.clients} />
+              <VolumeView allClients={dashboardData.clients} storedCreds={storedCreds} />
             )}
             {activeView === 'waiters' && (
               <WaitersView filePath={lastReport?.file_path} />
