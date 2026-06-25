@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon, CalendarDays } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
 import RankingsView from './RankingsView';
 import OpportunityView from './OpportunityView';
 import PivotView from './PivotView';
+import SaturdayUpdateView from './SaturdayUpdateView';
 import CampaignView from './CampaignView';
 import VolumeView from './VolumeView';
 import WaitersView from './WaitersView';
@@ -57,6 +58,12 @@ const Dashboard = () => {
     if (path === '/domingo' || path === '/domingo/') {
       return 'pivot-sunday';
     }
+    if (path === '/actualizacion-sabado' || path === '/actualizacion-sabado/') {
+      return 'saturday-update';
+    }
+    if (path === '/mozos' || path === '/mozos/') {
+      return 'waiters';
+    }
     return 'general';
   };
 
@@ -89,6 +96,14 @@ const Dashboard = () => {
       if (window.location.pathname !== '/domingo') {
         window.history.pushState(null, '', '/domingo');
       }
+    } else if (activeView === 'saturday-update') {
+      if (window.location.pathname !== '/actualizacion-sabado') {
+        window.history.pushState(null, '', '/actualizacion-sabado');
+      }
+    } else if (activeView === 'waiters') {
+      if (window.location.pathname !== '/mozos') {
+        window.history.pushState(null, '', '/mozos');
+      }
     } else {
       if (window.location.pathname !== '/') {
         window.history.pushState(null, '', '/');
@@ -106,6 +121,10 @@ const Dashboard = () => {
         setActiveView(hasCreds ? 'volume' : 'general');
       } else if (path === '/domingo' || path === '/domingo/') {
         setActiveView('pivot-sunday');
+      } else if (path === '/actualizacion-sabado' || path === '/actualizacion-sabado/') {
+        setActiveView('saturday-update');
+      } else if (path === '/mozos' || path === '/mozos/') {
+        setActiveView('waiters');
       } else {
         setActiveView('general');
       }
@@ -376,7 +395,7 @@ const Dashboard = () => {
               title="Alternar Menú"
               style={{ padding: '8px', border: 'none', background: 'transparent' }}
             >
-              <Menu size={24} color="#e5e7eb" />
+              <Menu size={24} color="var(--sidebar-text)" />
             </button>
             <span className="gemini-logo-text text-gold">Cusqueña</span>
           </div>
@@ -391,6 +410,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
             </button>
+            <button onClick={() => setActiveView('saturday-update')} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
+              <span className="sidebar-btn-text">Actualización Sábado</span>
+            </button>
             <button onClick={() => setActiveView('pivot-sunday')} className={`sidebar-btn ${activeView === 'pivot-sunday' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Domingo y Fecha Actual</span>
@@ -398,6 +421,10 @@ const Dashboard = () => {
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
               <span className="sidebar-btn-text">Desempeño Campaña</span>
+            </button>
+            <button onClick={() => setActiveView('waiters')} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Award size={20} /></div>
+              <span className="sidebar-btn-text">Ranking Mozos</span>
             </button>
             
             {isAuthenticated && (
@@ -433,6 +460,10 @@ const Dashboard = () => {
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
               </button>
+              <button onClick={() => { setActiveView('saturday-update'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
+                <span className="sidebar-btn-text">Actualización Sábado</span>
+              </button>
               <button onClick={() => { setActiveView('pivot-sunday'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-sunday' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
                 <span className="sidebar-btn-text">Domingo y Fecha Actual</span>
@@ -440,6 +471,10 @@ const Dashboard = () => {
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
                 <span className="sidebar-btn-text">Desempeño Campaña</span>
+              </button>
+              <button onClick={() => { setActiveView('waiters'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'waiters' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Award size={20} /></div>
+                <span className="sidebar-btn-text">Ranking Mozos</span>
               </button>
               {isAuthenticated && (
                 <>
@@ -621,6 +656,14 @@ const Dashboard = () => {
             )}
             {activeView === 'pivot' && (
               <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} targetDay={6} dayLabel="Sábado" />
+            )}
+            {activeView === 'saturday-update' && (
+              <SaturdayUpdateView
+                allClients={dashboardData.clients}
+                progressData={dashboardData.progress_data}
+                onRefresh={handleRefresh}
+                refreshing={refreshing || loadingData}
+              />
             )}
             {activeView === 'pivot-sunday' && (
               <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} targetDay={0} dayLabel="Domingo" />

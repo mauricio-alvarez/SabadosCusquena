@@ -6,7 +6,29 @@ import * as XLSX from 'xlsx';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
-const MEDAL_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']; // Gold, Silver, Bronze
+const MEDAL_COLORS = ['var(--warning)', 'var(--text-secondary)', 'var(--cusquena-gold-dark)'];
+const PRIZE_BADGE_STYLES = {
+  default: {
+    background: 'var(--subtle-surface)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--glass-border)'
+  },
+  'TOP 1': {
+    background: 'var(--warning-soft)',
+    color: 'var(--warning)',
+    border: '1px solid var(--glass-border)'
+  },
+  'TOP 100': {
+    background: 'var(--info-soft)',
+    color: 'var(--info)',
+    border: '1px solid var(--glass-border)'
+  },
+  'TOP CLIENT': {
+    background: 'var(--accent-purple-soft)',
+    color: 'var(--accent-purple)',
+    border: '1px solid var(--glass-border)'
+  }
+};
 
 const formatMonthDisplay = (monthStr) => {
   if (!monthStr) return '';
@@ -22,7 +44,7 @@ const formatMonthDisplay = (monthStr) => {
 const InfoTooltip = ({ content }) => {
   return (
     <span className="info-tooltip-container">
-      <HelpCircle size={15} color="#CFA052" style={{ cursor: 'pointer', opacity: 0.8 }} />
+      <HelpCircle size={15} color="var(--cusquena-gold)" style={{ cursor: 'pointer', opacity: 0.8 }} />
       <span className="info-tooltip-popup">
         {content}
       </span>
@@ -85,6 +107,8 @@ const WaitersView = ({ filePath }) => {
 
   // Handle month selection change
   const handleMonthChange = (e) => {
+    setLoading(true);
+    setSearchQuery('');
     setSelectedMonth(e.target.value);
   };
 
@@ -96,6 +120,8 @@ const WaitersView = ({ filePath }) => {
     kpis = {}, 
     available_months = [] 
   } = rankingsData || {};
+
+  const loadingMonthLabel = selectedMonth ? formatMonthDisplay(selectedMonth) : 'el mes seleccionado';
 
   const downloadWinnersExcel = () => {
     if (!winners || winners.length === 0) return;
@@ -181,23 +207,7 @@ const WaitersView = ({ filePath }) => {
     return (
       <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
         {parts.map(p => {
-          let bg = 'rgba(255, 255, 255, 0.05)';
-          let color = '#ffffff';
-          let border = '1px solid rgba(255, 255, 255, 0.15)';
-          
-          if (p === 'TOP 1') {
-            bg = 'rgba(255, 215, 0, 0.1)';
-            color = '#FFD700';
-            border = '1px solid rgba(255, 215, 0, 0.3)';
-          } else if (p === 'TOP 100') {
-            bg = 'rgba(192, 192, 192, 0.1)';
-            color = '#E5E7EB';
-            border = '1px solid rgba(192, 192, 192, 0.3)';
-          } else if (p === 'TOP CLIENT') {
-            bg = 'rgba(207, 160, 82, 0.1)';
-            color = '#CFA052';
-            border = '1px solid rgba(207, 160, 82, 0.3)';
-          }
+          const badgeStyle = PRIZE_BADGE_STYLES[p] || PRIZE_BADGE_STYLES.default;
           
           return (
             <span 
@@ -209,9 +219,9 @@ const WaitersView = ({ filePath }) => {
                 fontSize: '0.62rem',
                 fontWeight: 'bold',
                 textTransform: 'uppercase',
-                background: bg,
-                color: color,
-                border: border
+                background: badgeStyle.background,
+                color: badgeStyle.color,
+                border: badgeStyle.border
               }}
             >
               {p}
@@ -228,15 +238,15 @@ const WaitersView = ({ filePath }) => {
       {/* Header Section */}
       <div className="border-b border-gold border-opacity-10 pb-4">
         <h2 className="text-gold font-bold text-2xl mb-1 flex items-center gap-2">
-          <Award size={28} color="#CFA052" /> Ranking e Incentivos de Mozos
+          <Award size={28} color="var(--cusquena-gold)" /> Ranking e Incentivos de Mozos
         </h2>
         <p className="text-secondary text-sm">Control mensual de concursos y premios para meseros de locales participantes</p>
       </div>
 
       {/* Control Panel Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 glass-panel" style={{ 
-        background: 'rgba(255,255,255,0.02)', 
-        borderColor: 'rgba(255,255,255,0.06)',
+        background: 'var(--subtle-surface)', 
+        borderColor: 'var(--glass-border)',
         borderRadius: '12px',
         marginTop: '4px',
         marginBottom: '4px'
@@ -247,15 +257,16 @@ const WaitersView = ({ filePath }) => {
             className="filter-select"
             value={selectedMonth}
             onChange={handleMonthChange}
+            disabled={loading}
             style={{ 
               width: 'auto', 
               minWidth: '160px', 
               padding: '6px 32px 6px 12px', 
               fontSize: '0.85rem', 
-              background: '#100c08', 
-              border: '1px solid rgba(207, 160, 82, 0.3)',
+              background: 'var(--select-bg)', 
+              border: '1px solid var(--glass-border)',
               borderRadius: '8px',
-              color: '#ffffff'
+              color: 'var(--text-primary)'
             }}
           >
             {available_months.map(m => (
@@ -267,7 +278,7 @@ const WaitersView = ({ filePath }) => {
           <button
             onClick={downloadWinnersExcel}
             className="btn-gold"
-            disabled={!winners || winners.length === 0}
+            disabled={loading || !winners || winners.length === 0}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -293,8 +304,23 @@ const WaitersView = ({ filePath }) => {
         </div>
       )}
 
+      {loading && rankingsData && (
+        <div className="glass-panel p-6 animate-fade-in flex items-center justify-center gap-4" style={{
+          minHeight: '260px',
+          borderColor: 'var(--cusquena-gold)',
+          flexDirection: 'column',
+          textAlign: 'center'
+        }}>
+          <div className="loader"></div>
+          <div>
+            <p className="text-gold font-bold">Cargando Ranking Mozos</p>
+            <p className="text-secondary text-sm mt-1">Actualizando información para {loadingMonthLabel}...</p>
+          </div>
+        </div>
+      )}
+
       {/* KPI Validation Metrics Grid */}
-      {kpis && (
+      {!loading && kpis && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -302,7 +328,7 @@ const WaitersView = ({ filePath }) => {
           width: '100%'
         }}>
           {/* Card: Locales Aptos */}
-          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--cusquena-gold)', background: 'rgba(255,255,255,0.01)' }}>
+          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--cusquena-gold)', background: 'var(--subtle-surface)' }}>
             <span className="text-secondary text-2xs font-bold uppercase tracking-wider block mb-1">Locales Aptos</span>
             <div className="flex flex-col gap-0.5 mt-1">
               <span className="text-white font-extrabold text-2xl">{kpis.eligible_clients || 0}</span>
@@ -311,7 +337,7 @@ const WaitersView = ({ filePath }) => {
           </div>
 
           {/* Card: Premios Asignados */}
-          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid #4ade80', background: 'rgba(255,255,255,0.01)' }}>
+          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--success)', background: 'var(--subtle-surface)' }}>
             <span className="text-secondary text-2xs font-bold uppercase tracking-wider block mb-1">Premios Asignados</span>
             <div className="flex flex-col gap-0.5 mt-1">
               <span className="text-white font-extrabold text-2xl">{kpis.final_rows || 0}</span>
@@ -320,7 +346,7 @@ const WaitersView = ({ filePath }) => {
           </div>
 
           {/* Card: Regla de 3 Mozos */}
-          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid #38bdf8', background: 'rgba(255,255,255,0.01)' }}>
+          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--info)', background: 'var(--subtle-surface)' }}>
             <span className="text-secondary text-2xs font-bold uppercase tracking-wider block mb-1">Regla 3 Mozos</span>
             <div className="flex flex-col gap-0.5 mt-1">
               <span className="text-white font-extrabold text-2xl">
@@ -331,18 +357,18 @@ const WaitersView = ({ filePath }) => {
           </div>
 
           {/* Card: Locales Excluidos */}
-          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--cusquena-red)', background: 'rgba(255,255,255,0.01)' }}>
+          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--cusquena-red)', background: 'var(--subtle-surface)' }}>
             <span className="text-secondary text-2xs font-bold uppercase tracking-wider block mb-1">Locales Excluidos</span>
             <div className="flex flex-col gap-0.5 mt-1">
               <span className="text-red font-extrabold text-2xl">{(kpis.excl_sales || 0) + (kpis.excl_red || 0)}</span>
-              <span className="text-secondary text-3xs" style={{ color: 'rgba(239, 68, 68, 0.8)' }}>
+              <span className="text-secondary text-3xs" style={{ color: 'var(--danger)' }}>
                 Falta de ventas: {kpis.excl_sales || 0} | Falta de canjes: {kpis.excl_red || 0}
               </span>
             </div>
           </div>
 
           {/* Card: Cobertura de Contactos */}
-          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid #a78bfa', background: 'rgba(255,255,255,0.01)' }}>
+          <div className="glass-panel p-4 flex flex-col justify-between" style={{ borderLeft: '3px solid var(--accent-purple)', background: 'var(--subtle-surface)' }}>
             <span className="text-secondary text-2xs font-bold uppercase tracking-wider block mb-1">Cobertura de Contactos</span>
             <div className="flex flex-col gap-0.5 mt-1">
               <span className="text-white font-extrabold text-2xl">
@@ -357,7 +383,7 @@ const WaitersView = ({ filePath }) => {
       )}
 
       {/* CONDITIONAL RENDER: MAY vs JUNIO */}
-      {isMayo ? (
+      {!loading && (isMayo ? (
         /* ================= MAYO 2026 LAYOUT (3 Sections) ================= */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
           
@@ -368,15 +394,15 @@ const WaitersView = ({ filePath }) => {
             <div className="contest-1-col flex flex-col">
               <div className="glass-panel p-6 flex-1 flex flex-col justify-between" style={{
                 position: 'relative',
-                border: '1px solid rgba(207, 160, 82, 0.4)',
-                boxShadow: '0 0 25px rgba(207, 160, 82, 0.1)',
-                background: 'linear-gradient(180deg, rgba(20,15,10,0.7) 0%, rgba(10,8,5,0.9) 100%)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: '0 0 25px var(--panel-shadow)',
+                background: 'linear-gradient(180deg, var(--glass-bg) 0%, var(--subtle-surface) 100%)',
                 minHeight: '430px'
               }}>
                 <div>
                   <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(207,160,82,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Crown size={20} color="#FFD700" />
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Crown size={20} color="var(--warning)" />
                     </div>
                     <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center">
                       Concurso 01 - Mejor Mozo Nacional
@@ -384,7 +410,7 @@ const WaitersView = ({ filePath }) => {
                         <div>
                           <p className="font-bold text-gold mb-1" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>CONCURSO 01: MEJOR MOZO NACIONAL</p>
                           <p className="mb-2">El mesero con mayor número de canjes en el mes a nivel nacional recibe un premio de <strong className="text-white">S/ 1,000</strong>.</p>
-                          <div style={{ borderTop: '1px solid rgba(207, 160, 82, 0.2)', paddingTop: '6px', marginTop: '6px' }}>
+                          <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '6px', marginTop: '6px' }}>
                             <p className="text-2xs text-secondary"><strong className="text-white">Candado de Calificación:</strong> Solo participan meseros de locales con 50 o más canjes totales en el mes.</p>
                           </div>
                         </div>
@@ -398,19 +424,19 @@ const WaitersView = ({ filePath }) => {
                       <div style={{ display: 'inline-flex', position: 'relative', marginBottom: '16px' }}>
                         <div style={{
                           width: '70px', height: '70px', borderRadius: '50%',
-                          background: 'radial-gradient(circle, rgba(207,160,82,0.2) 0%, rgba(207,160,82,0.02) 70%)',
+                          background: 'radial-gradient(circle, var(--warning-soft) 0%, transparent 72%)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
-                          <Trophy size={40} color="#FFD700" />
+                          <Trophy size={40} color="var(--warning)" />
                         </div>
                       </div>
 
                       <p className="text-gold font-bold text-xs uppercase tracking-widest mb-1">Ganador Absoluto</p>
-                      <h4 className="text-white font-bold text-xl mb-2" style={{ textShadow: '0 0 10px rgba(255,255,255,0.15)' }}>
+                      <h4 className="text-white font-bold text-xl mb-2" style={{ textShadow: 'none' }}>
                         {top1.waiter}
                       </h4>
 
-                      <div className="glass-panel p-2.5 mb-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', margin: '0 auto' }}>
+                      <div className="glass-panel p-2.5 mb-3" style={{ background: 'var(--subtle-surface)', border: '1px solid var(--glass-border)', borderRadius: '8px', margin: '0 auto' }}>
                         <p className="text-white text-xs font-semibold truncate" title={top1.restaurant_name}>{top1.restaurant_name}</p>
                         <p className="text-secondary text-2xs mt-0.5">Código: {top1.client_id}</p>
                         {top1.mesero_documento && <p className="text-secondary text-3xs mt-1">DNI: {top1.mesero_documento}</p>}
@@ -425,7 +451,7 @@ const WaitersView = ({ filePath }) => {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
                       <Info size={32} style={{ margin: '0 auto 10px' }} />
                       <p className="text-sm">Sin datos para este mes</p>
                     </div>
@@ -434,13 +460,13 @@ const WaitersView = ({ filePath }) => {
 
                 {top1 && (
                   <div style={{
-                    background: 'linear-gradient(90deg, rgba(207,160,82,0.15), rgba(207,160,82,0.03))',
-                    border: '1px solid rgba(207, 160, 82, 0.3)',
+                    background: 'linear-gradient(90deg, var(--warning-soft), var(--subtle-surface))',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: '8px', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     marginTop: '10px'
                   }}>
                     <div className="flex items-center gap-2">
-                      <Coins size={16} color="#FFD700" />
+                      <Coins size={16} color="var(--warning)" />
                       <span className="text-white text-3xs font-bold uppercase tracking-wider">Incentivo Ganado</span>
                     </div>
                     <span className="text-gold font-extrabold text-md">{top1.prize}</span>
@@ -455,12 +481,12 @@ const WaitersView = ({ filePath }) => {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-gold border-opacity-10" style={{ position: 'relative', zIndex: 10 }}>
                   <div>
                     <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                      <Medal size={20} color="#C0C0C0" /> Concurso 02 - Los Mejores 100 Mozos Nacionales
+                      <Medal size={20} color="var(--text-secondary)" /> Concurso 02 - Los Mejores 100 Mozos Nacionales
                       <InfoTooltip content={
                         <div>
                           <p className="font-bold text-gold mb-1" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>CONCURSO 02: TOP 100 MOZOS</p>
                           <p className="mb-2">El ranking nacional de los 100 meseros con más canjes en el mes. Cada ganador recibe <strong className="text-white">S/ 100</strong>.</p>
-                          <div style={{ borderTop: '1px solid rgba(207, 160, 82, 0.2)', paddingTop: '6px', marginTop: '6px' }}>
+                          <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '6px', marginTop: '6px' }}>
                             <p className="text-2xs text-secondary"><strong className="text-white">Candado de Calificación:</strong> Solo participan meseros de restaurantes con 50 o más canjes totales en el mes.</p>
                           </div>
                         </div>
@@ -472,7 +498,7 @@ const WaitersView = ({ filePath }) => {
                   {/* Search Box */}
                   <div style={{ position: 'relative', width: '100%', maxWidth: '240px' }}>
                     <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
-                      <Search size={14} color="#CFA052" />
+                      <Search size={14} color="var(--cusquena-gold)" />
                     </span>
                     <input
                       type="text"
@@ -485,8 +511,8 @@ const WaitersView = ({ filePath }) => {
                         paddingLeft: '32px',
                         fontSize: '0.75rem',
                         borderRadius: '8px',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(207, 160, 82, 0.2)',
+                        background: 'var(--select-bg)',
+                        border: '1px solid var(--glass-border)',
                         paddingTop: '4px',
                         paddingBottom: '4px'
                       }}
@@ -500,12 +526,12 @@ const WaitersView = ({ filePath }) => {
                     <table className="pivot-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'center', width: '50px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Puesto</th>
-                          <th style={{ textAlign: 'left', padding: '8px 10px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Mozo</th>
-                          <th style={{ textAlign: 'left', padding: '8px 10px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Restaurante</th>
-                          <th style={{ textAlign: 'center', width: '100px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>ID Cliente</th>
-                          <th style={{ textAlign: 'center', width: '80px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Canjes</th>
-                          <th style={{ textAlign: 'center', width: '90px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Premio</th>
+                          <th style={{ textAlign: 'center', width: '50px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Puesto</th>
+                          <th style={{ textAlign: 'left', padding: '8px 10px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Mozo</th>
+                          <th style={{ textAlign: 'left', padding: '8px 10px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Restaurante</th>
+                          <th style={{ textAlign: 'center', width: '100px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>ID Cliente</th>
+                          <th style={{ textAlign: 'center', width: '80px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Canjes</th>
+                          <th style={{ textAlign: 'center', width: '90px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Premio</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -513,15 +539,15 @@ const WaitersView = ({ filePath }) => {
                           const rank = item.rank;
                           const isTop3 = rank <= 3;
                           const rowBg = isTop3 
-                            ? `rgba(207,160,82,${0.08 - (rank-1)*0.02})` 
-                            : (idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent');
+                            ? 'var(--warning-soft)' 
+                            : (idx % 2 === 0 ? 'var(--subtle-surface)' : 'transparent');
 
                           return (
                             <tr 
                               key={`${item.waiter}-${item.client_id}`}
                               style={{ 
                                 background: rowBg,
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                borderBottom: '1px solid var(--glass-border)',
                                 transition: 'background-color 0.15s'
                               }}
                               className="table-row-hover"
@@ -532,7 +558,7 @@ const WaitersView = ({ filePath }) => {
                                     display: 'inline-flex',
                                     width: '20px', height: '20px', borderRadius: '50%',
                                     background: MEDAL_COLORS[rank-1],
-                                    color: '#000',
+                                    color: 'var(--text-on-gold)',
                                     alignItems: 'center', justifyContent: 'center',
                                     fontSize: '0.65rem'
                                   }}>
@@ -542,7 +568,7 @@ const WaitersView = ({ filePath }) => {
                                   <span className="text-secondary">{rank}</span>
                                 )}
                               </td>
-                              <td style={{ padding: '8px 10px', fontWeight: '500', color: isTop3 ? '#fff' : '#e5e7eb' }}>
+                              <td style={{ padding: '8px 10px', fontWeight: '500', color: 'var(--text-primary)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                   <span>{item.waiter}</span>
                                   {(item.mesero_documento || item.mesero_telefono) && (
@@ -554,10 +580,10 @@ const WaitersView = ({ filePath }) => {
                                   )}
                                 </div>
                               </td>
-                              <td style={{ padding: '8px 10px', color: '#9ca3af' }}>
+                              <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
                                 {item.restaurant_name}
                               </td>
-                              <td style={{ textAlign: 'center', padding: '8px 6px', color: '#6b7280', fontFamily: 'monospace' }}>
+                              <td style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                                 {item.client_id}
                               </td>
                               <td style={{ textAlign: 'center', padding: '8px 6px', fontWeight: 'bold', color: 'var(--cusquena-gold)' }}>
@@ -566,10 +592,10 @@ const WaitersView = ({ filePath }) => {
                               <td style={{ textAlign: 'center', padding: '8px 6px' }}>
                                 <div style={{
                                   display: 'inline-flex', alignItems: 'center', gap: '2px',
-                                  background: 'rgba(207, 160, 82, 0.08)', border: '1px solid rgba(207, 160, 82, 0.2)',
+                                  background: 'var(--warning-soft)', border: '1px solid var(--glass-border)',
                                   padding: '2px 6px', borderRadius: '6px'
                                 }}>
-                                  <Coins size={8} color="#FFD700" />
+                                  <Coins size={8} color="var(--warning)" />
                                   <span className="text-gold font-bold" style={{ fontSize: '0.65rem' }}>{item.prize}</span>
                                 </div>
                               </td>
@@ -579,7 +605,7 @@ const WaitersView = ({ filePath }) => {
                       </tbody>
                     </table>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
                       <Info size={28} style={{ margin: '0 auto 8px' }} />
                       <p className="text-sm">No se encontraron meseros coincidentes</p>
                     </div>
@@ -592,9 +618,9 @@ const WaitersView = ({ filePath }) => {
 
           {/* Section 3: TOP Clients Table (Full Width) */}
           <div className="glass-panel p-6 flex flex-col" style={{ position: 'relative', zIndex: 4 }}>
-            <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid rgba(207,160,82,0.2)' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(207,160,82,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Award size={20} color="#CD7F32" />
+            <div style={{ position: 'relative', zIndex: 10, display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--glass-border)' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Award size={20} color="var(--cusquena-gold-dark)" />
               </div>
               <div style={{ flex: 1 }}>
                 <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center">
@@ -603,7 +629,7 @@ const WaitersView = ({ filePath }) => {
                     <div>
                       <p className="font-bold text-gold mb-1" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>CONCURSO 03: TOP CLIENT</p>
                       <p className="mb-2">El mejor mesero (con mayor cantidad de canjes) para cada uno de los locales aptos. Cada ganador recibe un premio de <strong className="text-white">S/ 50</strong>.</p>
-                      <div style={{ borderTop: '1px solid rgba(207, 160, 82, 0.2)', paddingTop: '6px', marginTop: '6px' }}>
+                      <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '6px', marginTop: '6px' }}>
                         <p className="text-2xs text-secondary"><strong className="text-white">Detalle:</strong> Con 113 clientes aptos, este concurso reparte 113 premios en total.</p>
                       </div>
                     </div>
@@ -619,11 +645,11 @@ const WaitersView = ({ filePath }) => {
                 <table className="pivot-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Mozo Ganador</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Cliente (Restaurante)</th>
-                      <th style={{ textAlign: 'center', width: '120px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>ID Cliente</th>
-                      <th style={{ textAlign: 'center', width: '100px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Canjes Mozo</th>
-                      <th style={{ textAlign: 'center', width: '100px', padding: '8px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Premio</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Mozo Ganador</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Cliente (Restaurante)</th>
+                      <th style={{ textAlign: 'center', width: '120px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>ID Cliente</th>
+                      <th style={{ textAlign: 'center', width: '100px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Canjes Mozo</th>
+                      <th style={{ textAlign: 'center', width: '100px', padding: '8px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Premio</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -631,13 +657,13 @@ const WaitersView = ({ filePath }) => {
                       <tr 
                         key={`${item.client_id}`}
                         style={{ 
-                          background: idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent',
-                          borderBottom: '1px solid rgba(255,255,255,0.03)',
+                          background: idx % 2 === 0 ? 'var(--subtle-surface)' : 'transparent',
+                          borderBottom: '1px solid var(--glass-border)',
                           transition: 'background-color 0.15s'
                         }}
                         className="table-row-hover"
                       >
-                        <td style={{ padding: '8px 10px', fontWeight: '500', color: '#e5e7eb' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: '500', color: 'var(--text-primary)' }}>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span>{item.waiter}</span>
                             {(item.mesero_documento || item.mesero_telefono) && (
@@ -649,10 +675,10 @@ const WaitersView = ({ filePath }) => {
                             )}
                           </div>
                         </td>
-                        <td style={{ padding: '8px 10px', color: '#9ca3af' }}>
+                        <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>
                           {item.restaurant_name}
                         </td>
-                        <td style={{ textAlign: 'center', padding: '8px 6px', color: '#6b7280', fontFamily: 'monospace' }}>
+                        <td style={{ textAlign: 'center', padding: '8px 6px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                           {item.client_id}
                         </td>
                         <td style={{ textAlign: 'center', padding: '8px 6px', fontWeight: 'bold', color: 'var(--cusquena-gold)' }}>
@@ -661,10 +687,10 @@ const WaitersView = ({ filePath }) => {
                         <td style={{ textAlign: 'center', padding: '8px 6px' }}>
                           <div style={{
                             display: 'inline-flex', alignItems: 'center', gap: '2px',
-                            background: 'rgba(207, 160, 82, 0.08)', border: '1px solid rgba(207, 160, 82, 0.2)',
+                            background: 'var(--warning-soft)', border: '1px solid var(--glass-border)',
                             padding: '2px 6px', borderRadius: '6px'
                           }}>
-                            <Coins size={8} color="#FFD700" />
+                            <Coins size={8} color="var(--warning)" />
                             <span className="text-gold font-bold" style={{ fontSize: '0.65rem' }}>{item.prize}</span>
                           </div>
                         </td>
@@ -673,7 +699,7 @@ const WaitersView = ({ filePath }) => {
                   </tbody>
                 </table>
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
                   <Info size={28} style={{ margin: '0 auto 8px' }} />
                   <p className="text-sm">No se encontraron ganadores coincidentes</p>
                 </div>
@@ -688,12 +714,12 @@ const WaitersView = ({ filePath }) => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-gold border-opacity-10">
             <div>
               <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
-                <FileText size={20} color="#CFA052" /> Premios de Mozos - Vista Consolidada de Ganadores (`winners_view`)
+                <FileText size={20} color="var(--cusquena-gold)" /> Premios de Mozos - Vista Consolidada de Ganadores (`winners_view`)
                 <InfoTooltip content={
                   <div>
                     <p className="font-bold text-gold mb-1" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>VISTA CONSOLIDADA DE GANADORES</p>
                     <p className="mb-2">Muestra todas las combinaciones ganadoras de meseros y locales de la campaña, unificando los premios <strong className="text-white">TOP 1</strong>, <strong className="text-white">TOP 100</strong>, y <strong className="text-white">TOP CLIENT</strong>.</p>
-                    <div style={{ borderTop: '1px solid rgba(207, 160, 82, 0.2)', paddingTop: '6px', marginTop: '6px' }}>
+                    <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '6px', marginTop: '6px' }}>
                       <p className="text-2xs text-secondary"><strong className="text-white">Normativa de Junio:</strong> Aplica el filtro riguroso de que cada local apto debe tener al menos 3 meseros con más de 20 canjes.</p>
                     </div>
                   </div>
@@ -705,7 +731,7 @@ const WaitersView = ({ filePath }) => {
             {/* Search Box */}
             <div style={{ position: 'relative', width: '100%', maxWidth: '280px' }}>
               <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
-                <Search size={14} color="#CFA052" />
+                <Search size={14} color="var(--cusquena-gold)" />
               </span>
               <input
                 type="text"
@@ -718,8 +744,8 @@ const WaitersView = ({ filePath }) => {
                   paddingLeft: '32px',
                   fontSize: '0.75rem',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(207, 160, 82, 0.2)',
+                  background: 'var(--select-bg)',
+                  border: '1px solid var(--glass-border)',
                   paddingTop: '4px',
                   paddingBottom: '4px'
                 }}
@@ -733,12 +759,12 @@ const WaitersView = ({ filePath }) => {
               <table className="pivot-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '10px 12px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Mesero Nombre</th>
-                    <th style={{ textAlign: 'center', width: '110px', padding: '10px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Mesero Documento</th>
-                    <th style={{ textAlign: 'center', width: '110px', padding: '10px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Mesero Teléfono</th>
-                    <th style={{ textAlign: 'center', width: '110px', padding: '10px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Cliente ID</th>
-                    <th style={{ textAlign: 'center', width: '100px', padding: '10px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Canjes</th>
-                    <th style={{ textAlign: 'center', width: '220px', padding: '10px 6px', background: 'rgba(20,15,10,0.95)', borderBottom: '2px solid rgba(207,160,82,0.4)', color: '#CFA052', fontWeight: 'bold' }}>Premios</th>
+                    <th style={{ textAlign: 'left', padding: '10px 12px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Mesero Nombre</th>
+                    <th style={{ textAlign: 'center', width: '110px', padding: '10px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Mesero Documento</th>
+                    <th style={{ textAlign: 'center', width: '110px', padding: '10px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Mesero Teléfono</th>
+                    <th style={{ textAlign: 'center', width: '110px', padding: '10px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Cliente ID</th>
+                    <th style={{ textAlign: 'center', width: '100px', padding: '10px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Canjes</th>
+                    <th style={{ textAlign: 'center', width: '220px', padding: '10px 6px', background: 'var(--table-header-bg)', borderBottom: '2px solid var(--glass-border)', color: 'var(--cusquena-gold)', fontWeight: 'bold' }}>Premios</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -746,28 +772,28 @@ const WaitersView = ({ filePath }) => {
                     <tr 
                       key={`${item.cliente_id}-${item.mesero_nombre}`}
                       style={{ 
-                        background: idx % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent',
-                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                        background: idx % 2 === 0 ? 'var(--subtle-surface)' : 'transparent',
+                        borderBottom: '1px solid var(--glass-border)',
                         transition: 'background-color 0.15s'
                       }}
                       className="table-row-hover"
                     >
-                      <td style={{ padding: '10px 12px', fontWeight: '600', color: '#ffffff' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: '600', color: 'var(--text-primary)' }}>
                         {item.mesero_nombre}
                       </td>
-                      <td style={{ textAlign: 'center', padding: '10px 6px', color: item.mesero_documento ? '#e5e7eb' : '#6b7280' }}>
+                      <td style={{ textAlign: 'center', padding: '10px 6px', color: item.mesero_documento ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                         {item.mesero_documento || '—'}
                       </td>
-                      <td style={{ textAlign: 'center', padding: '10px 6px', color: item.mesero_telefono ? '#e5e7eb' : '#6b7280' }}>
+                      <td style={{ textAlign: 'center', padding: '10px 6px', color: item.mesero_telefono ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                         {item.mesero_telefono || '—'}
                       </td>
                       <td 
-                        style={{ textAlign: 'center', padding: '10px 6px', color: '#CFA052', fontWeight: 'bold', cursor: 'help', fontFamily: 'monospace' }}
+                        style={{ textAlign: 'center', padding: '10px 6px', color: 'var(--cusquena-gold)', fontWeight: 'bold', cursor: 'help', fontFamily: 'monospace' }}
                         title={`Nombre Comercial: ${item.nombre_comercial}`}
                       >
                         {item.cliente_id}
                       </td>
-                      <td style={{ textAlign: 'center', padding: '10px 6px', fontWeight: 'bold', color: '#4ade80' }}>
+                      <td style={{ textAlign: 'center', padding: '10px 6px', fontWeight: 'bold', color: 'var(--success)' }}>
                         {item.cantidad_redenciones}
                       </td>
                       <td style={{ textAlign: 'center', padding: '10px 6px' }}>
@@ -778,17 +804,18 @@ const WaitersView = ({ filePath }) => {
                 </tbody>
               </table>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
                 <Info size={28} style={{ margin: '0 auto 8px' }} />
                 <p className="text-sm">No se encontraron ganadores consolidados coincidentes</p>
               </div>
             )}
           </div>
         </div>
-      )}
+      ))}
 
     </div>
   );
 };
 
 export default WaitersView;
+
