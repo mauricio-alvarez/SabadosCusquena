@@ -73,6 +73,7 @@ const Dashboard = () => {
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('dashboard_theme') || 'light');
   const isDarkTheme = theme === 'dark';
+  const isSaturdayUpdateView = activeView === 'saturday-update';
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -496,7 +497,14 @@ const Dashboard = () => {
       )}
 
       {/* Main Content Area */}
-      <div className="main-content" style={{ overflowY: (activeView === 'opportunity' && !isMobile) ? 'hidden' : 'auto' }}>
+      <div
+        className="main-content"
+        style={{
+          overflowY: (activeView === 'opportunity' && !isMobile) ? 'hidden' : 'auto',
+          padding: isSaturdayUpdateView && isMobile ? '0.5rem' : undefined,
+        }}
+      >
+        {!isSaturdayUpdateView && (
         <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
           <div className="flex items-center gap-4">
             {isMobile && (
@@ -549,6 +557,32 @@ const Dashboard = () => {
             </button>
           </div>
         </header>
+        )}
+
+        {isSaturdayUpdateView && isMobile && (
+          <div className="flex justify-between items-center mb-2">
+            <button
+              className="btn-secondary flex items-center justify-center"
+              onClick={() => setShowSideMenu(true)}
+              title="MenÃº"
+              style={{ padding: '8px 12px', height: 'fit-content' }}
+            >
+              <Menu size={20} />
+            </button>
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              title={isDarkTheme ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {isDarkTheme ? <Moon size={16} /> : <Sun size={16} />}
+              <span className="theme-toggle-label">{isDarkTheme ? 'Oscuro' : 'Claro'}</span>
+              <span className={`toggle-switch ${isDarkTheme ? 'on' : 'off'}`} aria-hidden="true">
+                <span className="toggle-knob" />
+              </span>
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="glass-panel p-6 mb-6 animate-fade-in flex items-center gap-4" style={{ borderColor: 'var(--cusquena-red)' }}>

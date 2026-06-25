@@ -194,6 +194,14 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
 
 const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshing = false }) => {
   const [selectedComparisonDate, setSelectedComparisonDate] = useState('');
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [mobileSection, setMobileSection] = useState('clients');
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const saturdayDates = useMemo(() => {
     if (!progressData?.available_dates) return [];
@@ -295,6 +303,27 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
       <div className="glass-panel p-6" style={{ color: 'var(--text-primary)' }}>
         No hay sábados disponibles para construir la actualización.
       </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <MobileSaturdayLayout
+        currentSaturday={currentSaturday}
+        comparisonSaturday={comparisonSaturday}
+        comparisonOptions={comparisonOptions}
+        selectedComparisonDate={selectedComparisonDate}
+        setSelectedComparisonDate={setSelectedComparisonDate}
+        totals={totals}
+        activeRows={activeRows}
+        bottleRows={bottleRows}
+        averageRows={averageRows}
+        insight={insight}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        mobileSection={mobileSection}
+        setMobileSection={setMobileSection}
+      />
     );
   }
 
@@ -554,6 +583,355 @@ const DeltaCell = ({ delta, pct }) => (
   <span style={{ color: deltaColor(delta), fontWeight: 800, whiteSpace: 'nowrap' }}>
     {formatDeltaPercent(pct)}
   </span>
+);
+
+const MobileSaturdayLayout = ({
+  currentSaturday,
+  comparisonSaturday,
+  comparisonOptions,
+  selectedComparisonDate,
+  setSelectedComparisonDate,
+  totals,
+  activeRows,
+  bottleRows,
+  averageRows,
+  insight,
+  onRefresh,
+  refreshing,
+  mobileSection,
+  setMobileSection,
+}) => {
+  const sectionMap = {
+    clients: {
+      label: 'Clientes',
+      title: 'Clientes por Dirección',
+      rows: activeRows,
+      total: totals,
+      type: 'clients',
+    },
+    bottles: {
+      label: 'Botellas',
+      title: 'Botellas por Dirección',
+      rows: bottleRows,
+      total: totals,
+      type: 'bottles',
+    },
+    average: {
+      label: 'Promedio',
+      title: 'Botellas por cliente activo',
+      rows: averageRows,
+      total: totals,
+      type: 'average',
+    },
+  };
+  const activeSection = sectionMap[mobileSection] || sectionMap.clients;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '18px' }}>
+      <section style={{
+        background: 'var(--surface-raised)',
+        border: '1px solid var(--glass-border)',
+        borderRadius: '10px',
+        padding: '16px',
+        boxShadow: '0 6px 18px var(--panel-shadow)',
+      }}>
+        <h2 style={{
+          color: 'var(--text-primary)',
+          fontSize: '1.45rem',
+          fontWeight: 700,
+          letterSpacing: '0',
+          marginBottom: '6px',
+        }}>
+          Sábados Cusqueña
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.4, marginBottom: '14px' }}>
+          {formatTitleDate(currentSaturday)} · Comparado vs {formatTitleDate(comparisonSaturday)}
+        </p>
+
+        <div style={{ display: 'grid', gap: '10px' }}>
+          <label style={{
+            display: 'grid',
+            gap: '6px',
+            color: 'var(--text-secondary)',
+            fontSize: '0.78rem',
+            fontWeight: 600,
+          }}>
+            Comparar contra
+            <select
+              value={selectedComparisonDate || comparisonOptions[0] || ''}
+              onChange={(event) => setSelectedComparisonDate(event.target.value)}
+              disabled={comparisonOptions.length === 0}
+              style={{
+                width: '100%',
+                background: 'var(--select-bg)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '8px',
+                color: 'var(--select-text)',
+                padding: '10px 12px',
+                fontWeight: 600,
+                outline: 'none',
+              }}
+            >
+              {comparisonOptions.map(dateStr => (
+                <option key={dateStr} value={dateStr}>{formatComparisonDate(dateStr)}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn-gold"
+            onClick={onRefresh}
+            disabled={refreshing}
+            style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '11px 14px', fontWeight: 650 }}
+          >
+            {refreshing ? <div className="loader"></div> : <RefreshCcw size={17} />}
+            Actualizar datos
+          </button>
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gap: '10px' }}>
+        <MobileKpiCard
+          icon={Users}
+          title="Clientes activos"
+          value={formatNumber(totals.active)}
+          helper={`${formatPercent(totals.activePct)} de la base`}
+          sameHourDelta={totals.vsSabActiveDeltaSameHour}
+          sameHourPct={totals.vsSabActivePctSameHour}
+          closeDelta={totals.vsSabActiveDelta}
+          closePct={totals.vsSabActivePct}
+        />
+        <MobileKpiCard
+          icon={Package}
+          title="Botellas regaladas"
+          value={formatNumber(totals.totalRedemptions)}
+          helper="Canjes del sábado actual"
+          sameHourDelta={totals.vsSabDeltaSameHour}
+          sameHourPct={totals.vsSabPctSameHour}
+          closeDelta={totals.vsSabDelta}
+          closePct={totals.vsSabPct}
+        />
+        <MobileKpiCard
+          icon={User}
+          title="Botellas por cliente activo"
+          value={totals.avgPerActive}
+          helper="Promedio sobre clientes activos"
+          sameHourDelta={totals.vsSabAvgDeltaSameHour}
+          sameHourPct={totals.vsSabAvgPctSameHour}
+          closeDelta={totals.vsSabAvgDelta}
+          closePct={totals.vsSabAvgPct}
+        />
+      </section>
+
+      <section style={{
+        background: 'var(--surface-raised)',
+        border: '1px solid var(--glass-border)',
+        borderRadius: '10px',
+        overflow: 'hidden',
+        boxShadow: '0 6px 18px var(--panel-shadow)',
+      }}>
+        <div style={{ padding: '14px 14px 10px' }}>
+          <h3 style={{ color: 'var(--text-primary)', fontWeight: 650, fontSize: '1rem', marginBottom: '10px' }}>
+            {activeSection.title}
+          </h3>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '6px',
+            background: 'var(--surface-muted)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '8px',
+            padding: '4px',
+          }}>
+            {Object.entries(sectionMap).map(([key, item]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMobileSection(key)}
+                style={{
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 4px',
+                  background: mobileSection === key ? 'var(--surface-raised)' : 'transparent',
+                  color: mobileSection === key ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontWeight: mobileSection === key ? 650 : 500,
+                  boxShadow: mobileSection === key ? '0 2px 8px var(--panel-shadow)' : 'none',
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <MobileDirectionList rows={activeSection.rows} total={activeSection.total} type={activeSection.type} />
+      </section>
+
+      <section style={{
+        background: 'var(--surface-raised)',
+        border: '1px solid var(--glass-border)',
+        borderRadius: '10px',
+        padding: '14px',
+        display: 'flex',
+        gap: '10px',
+        boxShadow: '0 6px 18px var(--panel-shadow)',
+      }}>
+        <Star size={19} color="var(--cusquena-gold)" style={{ flexShrink: 0, marginTop: '2px' }} />
+        <div>
+          <h3 style={{ color: 'var(--text-primary)', fontWeight: 650, fontSize: '0.88rem', marginBottom: '4px' }}>
+            Insight clave
+          </h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.45 }}>{insight}</p>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+const MobileKpiCard = ({ icon: Icon, title, value, helper, sameHourDelta, sameHourPct, closeDelta, closePct }) => (
+  <article style={{
+    background: 'var(--surface-raised)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: '10px',
+    padding: '14px',
+    boxShadow: '0 6px 18px var(--panel-shadow)',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{
+        width: '38px',
+        height: '38px',
+        borderRadius: '10px',
+        background: 'rgba(244, 205, 18, 0.14)',
+        color: 'var(--cusquena-gold)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <Icon size={21} />
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, marginBottom: '2px' }}>{title}</p>
+        <p style={{ color: 'var(--text-primary)', fontSize: '2rem', fontWeight: 700, lineHeight: 1 }}>{value}</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '4px' }}>{helper}</p>
+      </div>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '12px' }}>
+      <MobileDeltaPill label="Misma hora" delta={sameHourDelta} pct={sameHourPct} />
+      <MobileDeltaPill label="Cierre" delta={closeDelta} pct={closePct} />
+    </div>
+  </article>
+);
+
+const MobileDeltaPill = ({ label, delta, pct }) => (
+  <div style={{
+    border: '1px solid var(--glass-border)',
+    borderRadius: '8px',
+    padding: '8px',
+    background: 'var(--subtle-surface)',
+  }}>
+    <p style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 500, marginBottom: '3px' }}>{label}</p>
+    <p style={{ color: deltaColor(delta), fontSize: '0.92rem', fontWeight: 650 }}>
+      {trendSymbol(delta)} {formatDeltaPercent(pct)}
+    </p>
+  </div>
+);
+
+const MobileDirectionList = ({ rows, total, type }) => (
+  <div>
+    {rows.map(row => (
+      <MobileDirectionRow key={row.name} row={row} type={type} />
+    ))}
+    <MobileDirectionRow row={{ name: 'Total', ...total }} type={type} isTotal />
+  </div>
+);
+
+const getMobileDirectionMetrics = (row, type) => {
+  if (type === 'clients') {
+    return {
+      value: formatNumber(row.active),
+      helper: `${formatPercent(row.activePct)} activos`,
+      progress: row.activePct,
+      sameDelta: row.vsSabActiveDeltaSameHour,
+      samePct: row.vsSabActivePctSameHour,
+      closeDelta: row.vsSabActiveDelta,
+      closePct: row.vsSabActivePct,
+    };
+  }
+
+  if (type === 'bottles') {
+    return {
+      value: formatNumber(row.totalRedemptions),
+      helper: 'botellas',
+      sameDelta: row.vsSabDeltaSameHour,
+      samePct: row.vsSabPctSameHour,
+      closeDelta: row.vsSabDelta,
+      closePct: row.vsSabPct,
+    };
+  }
+
+  return {
+    value: row.avgPerActive,
+    helper: 'por cliente activo',
+    sameDelta: row.vsSabAvgDeltaSameHour,
+    samePct: row.vsSabAvgPctSameHour,
+    closeDelta: row.vsSabAvgDelta,
+    closePct: row.vsSabAvgPct,
+  };
+};
+
+const MobileDirectionRow = ({ row, type, isTotal = false }) => {
+  const metrics = getMobileDirectionMetrics(row, type);
+
+  return (
+    <div style={{
+      borderTop: '1px solid var(--glass-border)',
+      background: isTotal ? 'rgba(244, 205, 18, 0.10)' : 'transparent',
+      padding: '12px 14px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ color: 'var(--text-primary)', fontWeight: isTotal ? 700 : 600, fontSize: '0.92rem', lineHeight: 1.25 }}>
+            {row.name}
+          </p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.74rem', marginTop: '3px' }}>
+            {metrics.helper}
+          </p>
+        </div>
+        <p style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.2rem', lineHeight: 1, whiteSpace: 'nowrap' }}>
+          {metrics.value}
+        </p>
+      </div>
+
+      {metrics.progress !== undefined && (
+        <div style={{ marginTop: '9px' }}>
+          <MobileProgressBar value={metrics.progress} />
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
+        <MobileDeltaPill label="Misma hora" delta={metrics.sameDelta} pct={metrics.samePct} />
+        <MobileDeltaPill label="Cierre" delta={metrics.closeDelta} pct={metrics.closePct} />
+      </div>
+    </div>
+  );
+};
+
+const MobileProgressBar = ({ value }) => (
+  <div style={{
+    width: '100%',
+    height: '8px',
+    background: 'var(--surface-muted)',
+    borderRadius: '999px',
+    overflow: 'hidden',
+  }}>
+    <div style={{
+      width: `${Math.max(0, Math.min(100, toNumber(value)))}%`,
+      height: '100%',
+      background: '#f4cd12',
+      borderRadius: '999px',
+    }} />
+  </div>
 );
 
 const ClientsTable = ({ rows, total }) => (
