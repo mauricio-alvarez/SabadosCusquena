@@ -486,6 +486,10 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
     if os.path.exists(vm_path):
         df_vm = pd.read_excel(vm_path)
         df_vm['codigo'] = df_vm['codigo'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        if 'CAJAS' in df_vm.columns:
+            df_vm['CAJAS'] = pd.to_numeric(df_vm['CAJAS'], errors='coerce').fillna(0)
+        else:
+            df_vm['CAJAS'] = 0
         cajas_sum = df_vm.groupby('codigo')['CAJAS'].sum().to_dict()
     else:
         cajas_sum = {}
@@ -535,15 +539,39 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
 
     # 5. Client eligibility
     red_counts = {}
+    required_weekends = []
+    client_weekend_sets = {}
     if not df_month.empty:
         red_counts = df_month.groupby(ref_col).size().to_dict()
+        df_weekends = df_month[df_month['Fecha_dt'].dt.weekday.isin([5, 6])].copy()
+        if not df_weekends.empty:
+            df_weekends['Weekend_Start_dt'] = df_weekends['Fecha_dt'] - pd.to_timedelta(
+                df_weekends['Fecha_dt'].dt.weekday - 5,
+                unit='D'
+            )
+            df_weekends['Weekend_Key'] = df_weekends['Weekend_Start_dt'].dt.strftime('%d/%m/%Y')
+            required_weekends = sorted(
+                [w for w in df_weekends['Weekend_Key'].dropna().unique()],
+                key=lambda x: pd.to_datetime(x, format='%d/%m/%Y')
+            )
+            client_weekend_sets = (
+                df_weekends.dropna(subset=['Weekend_Key'])
+                .groupby(ref_col)['Weekend_Key']
+                .apply(lambda values: sorted(set(values), key=lambda x: pd.to_datetime(x, format='%d/%m/%Y')))
+                .to_dict()
+            )
 
     eligible_clients = []
+    eligible_clients_detail = []
+    ineligible_clients_detail = []
     excl_sales = 0
     excl_red = 0
+    excl_weekly = 0
     clients_satisfying_rule = 0
 
-    all_client_ids = set(list(red_counts.keys()) + list(cajas_sum.keys()))
+    fixed_client_ids = set(df_fixed['cliente_id'].astype(str).tolist())
+    fixed_lookup = df_fixed.set_index('cliente_id').to_dict(orient='index')
+    all_client_ids = set(list(fixed_client_ids) + list(red_counts.keys()) + list(cajas_sum.keys()))
     
     # Pre-calculate mozo counts for the 3-mozos rule:
     client_mozos_rule_status = {}
@@ -556,29 +584,89 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
 
     # Check chosen month
     is_mayo = (month_year == "05/2026")
+    uses_june_locks = (month_year == "06/2026")
+    min_redemptions = 50 if uses_june_locks else 51
+    min_boxes = 1 if uses_june_locks else 2
+
+    def _client_meta(cid, key):
+        value = fixed_lookup.get(cid, {}).get(key, '')
+        return '' if pd.isna(value) else value
+
+    def _format_cajas(value):
+        try:
+            return round(float(value), 2)
+        except Exception:
+            return 0
 
     for cid in all_client_ids:
         reds = red_counts.get(cid, 0)
         cajas = cajas_sum.get(cid, 0.0)
-        
-        # Base eligibility
-        base_eligible = (reds > 50) and (cajas >= 2)
-        
-        # Exclusions tracking
-        if reds > 50 and cajas < 2:
-            excl_sales += 1
-        if cajas >= 2 and reds <= 50:
-            excl_red += 1
+        client_weekends = client_weekend_sets.get(cid, [])
+        missing_weekends = [weekend for weekend in required_weekends if weekend not in set(client_weekends)]
 
-        if base_eligible:
-            satisfies_rule = client_mozos_rule_status.get(cid, False)
-            if satisfies_rule:
-                clients_satisfying_rule += 1
-            
-            # For Mayo: do not filter by the rule
-            # For other months: must satisfy the rule
-            if is_mayo or satisfies_rule:
-                eligible_clients.append(cid)
+        if uses_june_locks:
+            red_ok = reds >= min_redemptions
+            cajas_ok = cajas >= min_boxes
+            weekly_ok = bool(required_weekends) and len(missing_weekends) == 0
+            eligible = red_ok and cajas_ok and weekly_ok
+        else:
+            red_ok = reds >= min_redemptions
+            cajas_ok = cajas >= min_boxes
+            weekly_ok = True
+            eligible = red_ok and cajas_ok
+
+        if not cajas_ok:
+            excl_sales += 1
+        if not red_ok:
+            excl_red += 1
+        if uses_june_locks and not weekly_ok:
+            excl_weekly += 1
+
+        base_eligible = red_ok and cajas_ok
+        satisfies_rule = client_mozos_rule_status.get(cid, False)
+        if base_eligible and satisfies_rule:
+            clients_satisfying_rule += 1
+
+        missing = []
+        if not red_ok:
+            missing.append(f"Faltan {max(min_redemptions - reds, 0)} cervezas")
+        if uses_june_locks and not weekly_ok:
+            if required_weekends:
+                missing.append(f"Faltan fines de semana: {', '.join(missing_weekends)}")
+            else:
+                missing.append("Sin fines de semana evaluables")
+        if not cajas_ok:
+            missing.append(f"Falta compra de {min_boxes:g} caja{'s' if min_boxes != 1 else ''}")
+
+        detail = {
+            'cliente_id': cid,
+            'nombre_comercial': client_dict.get(cid, f"Cliente {cid}"),
+            'direccion': _client_meta(cid, 'direccion'),
+            'gerencia': _client_meta(cid, 'gerencia'),
+            'supervisor': _client_meta(cid, 'supervisor'),
+            'BDR': _client_meta(cid, 'BDR'),
+            'redenciones_mes': int(reds),
+            'cajas': _format_cajas(cajas),
+            'semanas_redimiendo': len(client_weekends),
+            'semanas_requeridas': len(required_weekends),
+            'semanas_con_redencion': ', '.join(client_weekends),
+            'semanas_faltantes': ', '.join(missing_weekends),
+            'fines_de_semana_redimiendo': len(client_weekends),
+            'fines_de_semana_requeridos': len(required_weekends),
+            'fines_de_semana_con_redencion': ', '.join(client_weekends),
+            'fines_de_semana_faltantes': ', '.join(missing_weekends),
+            'cumple_50_cervezas': red_ok,
+            'cumple_todas_las_semanas': weekly_ok,
+            'cumple_1_caja': cajas_ok,
+            'elegible': eligible,
+            'faltantes': ' | '.join(missing) if missing else 'Cumple todos los candados'
+        }
+
+        if eligible:
+            eligible_clients.append(cid)
+            eligible_clients_detail.append(detail)
+        else:
+            ineligible_clients_detail.append(detail)
 
     eligible_set = set(eligible_clients)
 
@@ -588,7 +676,9 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
     top_clients_list = []
 
     kpis = {
+        'total_clients_evaluated': len(all_client_ids),
         'eligible_clients': len(eligible_clients),
+        'ineligible_clients': len(ineligible_clients_detail),
         'top_1_winners': 0,
         'top_100_winners': 0,
         'top_client_winners': 0,
@@ -599,7 +689,18 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         'rows_missing_telefono': 0,
         'excl_sales': excl_sales,
         'excl_red': excl_red,
-        'clients_satisfying_rule': f"{clients_satisfying_rule} / {len(eligible_clients)}" if eligible_clients else "0 / 0"
+        'excl_weekly': excl_weekly,
+        'clients_satisfying_rule': f"{clients_satisfying_rule} / {len(eligible_clients)}" if eligible_clients else "0 / 0",
+        'lock_redemptions_ok': len(all_client_ids) - excl_red,
+        'lock_weeks_ok': len(all_client_ids) - excl_weekly if uses_june_locks else len(all_client_ids),
+        'lock_boxes_ok': len(all_client_ids) - excl_sales,
+        'min_redemptions_required': 50 if uses_june_locks else 51,
+        'min_boxes_required': min_boxes,
+        'weeks_required_count': len(required_weekends),
+        'weeks_required': required_weekends,
+        'weekends_required_count': len(required_weekends),
+        'weekends_required': required_weekends,
+        'uses_june_locks': uses_june_locks
     }
 
     if not df_month.empty and eligible_set:
@@ -743,6 +844,8 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         'available_months': available_months,
         'selected_month': month_year,
         'winners': winners_list,
+        'eligible_clients_detail': sorted(eligible_clients_detail, key=lambda x: (-x['redenciones_mes'], -x['cajas'], x['cliente_id'])),
+        'ineligible_clients_detail': sorted(ineligible_clients_detail, key=lambda x: (x['faltantes'], x['cliente_id'])),
         'kpis': kpis,
         'top1': top1_winner,
         'top100': top100_list,

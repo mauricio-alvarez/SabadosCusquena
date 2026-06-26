@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Trophy, Medal, Award, Crown, Search, Lock, Coins, AlertCircle, Info, HelpCircle, Users, Phone, FileText, Download } from 'lucide-react';
+import { Trophy, Medal, Award, Crown, Search, Lock, Coins, AlertCircle, Info, HelpCircle, Users, Phone, FileText, Download, CheckCircle, XCircle, Beer, Calendar, ShoppingCart } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 
@@ -49,6 +49,262 @@ const InfoTooltip = ({ content }) => {
         {content}
       </span>
     </span>
+  );
+};
+
+const formatPct = (value, total) => {
+  if (!total) return 0;
+  return Math.round((value / total) * 100);
+};
+
+const DownloadMiniButton = ({ onClick, disabled, children }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '7px',
+      border: '1px solid var(--glass-border)',
+      background: disabled ? 'var(--subtle-surface)' : 'var(--surface-raised)',
+      color: disabled ? 'var(--text-muted)' : 'var(--text-primary)',
+      borderRadius: '8px',
+      padding: '8px 11px',
+      fontSize: '0.76rem',
+      fontWeight: 650,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    <Download size={14} />
+    {children}
+  </button>
+);
+
+const ProgressLine = ({ value, tone = 'var(--success)' }) => (
+  <div style={{
+    height: '8px',
+    width: '100%',
+    background: 'var(--surface-muted)',
+    borderRadius: '999px',
+    overflow: 'hidden',
+    marginTop: '10px',
+  }}>
+    <div style={{
+      width: `${Math.max(0, Math.min(100, value))}%`,
+      height: '100%',
+      background: tone,
+      borderRadius: '999px',
+    }} />
+  </div>
+);
+
+const EligibilityHeroCard = ({ type, title, count, total, detail, icon: Icon, onDownload, disabled }) => {
+  const isPositive = type === 'positive';
+  const accent = isPositive ? 'var(--success)' : 'var(--danger)';
+  const soft = isPositive ? 'var(--success-soft)' : 'var(--danger-soft)';
+  const pct = formatPct(count, total);
+
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, ${soft}, var(--surface-raised) 58%)`,
+      border: '1px solid var(--glass-border)',
+      borderLeft: `4px solid ${accent}`,
+      borderRadius: '14px',
+      padding: '18px',
+      minHeight: '190px',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      boxShadow: '0 8px 24px var(--panel-shadow)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'flex-start' }}>
+        <div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700, marginBottom: '6px' }}>{title}</p>
+          <p style={{ color: 'var(--text-primary)', fontSize: '2.55rem', fontWeight: 780, lineHeight: 1 }}>{count.toLocaleString()}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '6px' }}>{pct}% de clientes evaluados</p>
+        </div>
+        <div style={{
+          width: '46px',
+          height: '46px',
+          borderRadius: '12px',
+          background: soft,
+          color: accent,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Icon size={25} />
+        </div>
+      </div>
+      <div>
+        <ProgressLine value={pct} tone={accent} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', marginTop: '14px', flexWrap: 'wrap' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: 1.35, margin: 0 }}>{detail}</p>
+          <DownloadMiniButton onClick={onDownload} disabled={disabled}>Descargar</DownloadMiniButton>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RequirementLockCard = ({ icon: Icon, title, subtitle, okCount, missingRows, total, onDownload }) => {
+  const okPct = formatPct(okCount, total);
+  const missingCount = missingRows?.length || 0;
+
+  return (
+    <div style={{
+      background: 'var(--surface-raised)',
+      border: '1px solid var(--glass-border)',
+      borderRadius: '12px',
+      padding: '16px',
+      boxShadow: '0 6px 18px var(--panel-shadow)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: 'var(--warning-soft)',
+            color: 'var(--warning)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Icon size={21} />
+          </div>
+          <div>
+            <p style={{ color: 'var(--text-primary)', fontWeight: 720, fontSize: '0.92rem' }}>{title}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.74rem', marginTop: '2px' }}>{subtitle}</p>
+          </div>
+        </div>
+        <Lock size={17} color="var(--text-muted)" />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '14px' }}>
+        <div>
+          <p style={{ color: 'var(--success)', fontSize: '1.3rem', fontWeight: 760 }}>{okCount.toLocaleString()}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>cumplen</p>
+        </div>
+        <div>
+          <p style={{ color: 'var(--danger)', fontSize: '1.3rem', fontWeight: 760 }}>{missingCount.toLocaleString()}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>faltan</p>
+        </div>
+      </div>
+      <ProgressLine value={okPct} tone="var(--success)" />
+      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+        <DownloadMiniButton onClick={onDownload} disabled={missingCount === 0}>Descargar faltantes</DownloadMiniButton>
+      </div>
+    </div>
+  );
+};
+
+const EligibilityRewardsPanel = ({
+  kpis,
+  eligibleClients,
+  ineligibleClients,
+  missingRedemptionClients,
+  missingWeeklyClients,
+  missingBoxClients,
+  onDownload,
+}) => {
+  const total = kpis.total_clients_evaluated || eligibleClients.length + ineligibleClients.length || 0;
+  const lockRows = [
+    {
+      icon: Beer,
+      title: '50 cervezas mínimo',
+      subtitle: 'Canjes acumulados del mes',
+      okCount: kpis.lock_redemptions_ok || 0,
+      missingRows: missingRedemptionClients,
+      filename: 'clientes_faltan_50_cervezas.xlsx',
+      sheet: 'Faltan_50_Cervezas',
+    },
+    {
+      icon: Calendar,
+      title: 'Redime todos los fines de semana',
+      subtitle: `${kpis.weekends_required_count || kpis.weeks_required_count || 0} fines de semana evaluados`,
+      okCount: kpis.lock_weeks_ok || 0,
+      missingRows: missingWeeklyClients,
+      filename: 'clientes_faltan_fines_de_semana.xlsx',
+      sheet: 'Faltan_Fines_Semana',
+    },
+    {
+      icon: ShoppingCart,
+      title: 'Compra de 1 caja',
+      subtitle: 'Compra mínima registrada',
+      okCount: kpis.lock_boxes_ok || 0,
+      missingRows: missingBoxClients,
+      filename: 'clientes_faltan_1_caja.xlsx',
+      sheet: 'Faltan_1_Caja',
+    },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{
+        background: 'var(--surface-raised)',
+        border: '1px solid var(--glass-border)',
+        borderRadius: '14px',
+        padding: '18px',
+        boxShadow: '0 8px 24px var(--panel-shadow)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <p style={{ color: 'var(--cusquena-gold)', fontWeight: 760, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Candados Junio</p>
+            <h3 style={{ color: 'var(--text-primary)', fontSize: '1.45rem', fontWeight: 760, marginTop: '4px' }}>Elegibilidad para incentivos de mozos</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '6px' }}>
+              Un cliente entra al ranking solo si cumple los tres candados: 50 cervezas, redención en todos los fines de semana de junio y 1 caja comprada.
+            </p>
+          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{total.toLocaleString()}</strong> clientes evaluados<br />
+            Fines de semana: {(kpis.weekends_required || kpis.weeks_required || []).join(', ') || 'Sin fines de semana'}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+        <EligibilityHeroCard
+          type="positive"
+          title="Clientes elegibles"
+          count={eligibleClients.length}
+          total={total}
+          detail="Cumplen los tres candados y ya pueden participar en el ranking."
+          icon={CheckCircle}
+          onDownload={() => onDownload(eligibleClients, 'clientes_elegibles_mozos_junio.xlsx', 'Elegibles')}
+          disabled={eligibleClients.length === 0}
+        />
+        <EligibilityHeroCard
+          type="negative"
+          title="Clientes no elegibles"
+          count={ineligibleClients.length}
+          total={total}
+          detail="Tienen al menos un candado pendiente; el Excel indica exactamente qué falta."
+          icon={XCircle}
+          onDownload={() => onDownload(ineligibleClients, 'clientes_no_elegibles_mozos_junio.xlsx', 'No_Elegibles')}
+          disabled={ineligibleClients.length === 0}
+        />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '12px' }}>
+        {lockRows.map(lock => (
+          <RequirementLockCard
+            key={lock.title}
+            icon={lock.icon}
+            title={lock.title}
+            subtitle={lock.subtitle}
+            okCount={lock.okCount}
+            missingRows={lock.missingRows}
+            total={total}
+            onDownload={() => onDownload(lock.missingRows, lock.filename, lock.sheet)}
+          />
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -114,6 +370,8 @@ const WaitersView = ({ filePath }) => {
 
   const { 
     winners = [], 
+    eligible_clients_detail = [],
+    ineligible_clients_detail = [],
     top1 = null, 
     top100 = [], 
     top_clients = [], 
@@ -145,8 +403,49 @@ const WaitersView = ({ filePath }) => {
     XLSX.writeFile(wb, 'ganadores_mozos_premios.xlsx');
   };
 
+  const buildEligibilityExportRows = (rows) => rows.map(row => ({
+    'Cliente ID': row.cliente_id,
+    'Nombre Comercial': row.nombre_comercial,
+    'Dirección': row.direccion,
+    'Gerencia': row.gerencia,
+    'Supervisor': row.supervisor,
+    'BDR': row.BDR,
+    'Redenciones Mes': row.redenciones_mes,
+    'Cajas': row.cajas,
+    'Fines de Semana Redimiendo': row.fines_de_semana_redimiendo ?? row.semanas_redimiendo,
+    'Fines de Semana Requeridos': row.fines_de_semana_requeridos ?? row.semanas_requeridas,
+    'Fines de Semana con Redención': row.fines_de_semana_con_redencion ?? row.semanas_con_redencion,
+    'Fines de Semana Faltantes': row.fines_de_semana_faltantes ?? row.semanas_faltantes,
+    'Cumple 50 Cervezas': row.cumple_50_cervezas ? 'Sí' : 'No',
+    'Cumple Todos los Fines de Semana': row.cumple_todas_las_semanas ? 'Sí' : 'No',
+    'Cumple 1 Caja': row.cumple_1_caja ? 'Sí' : 'No',
+    'Elegible': row.elegible ? 'Sí' : 'No',
+    'Faltantes': row.faltantes,
+  }));
+
+  const downloadEligibilityExcel = (rows, filename, sheetName = 'Clientes') => {
+    if (!rows || rows.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(buildEligibilityExportRows(rows));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, filename);
+  };
+
 
   const isMayo = selectedMonth === '05/2026';
+  const usesJuneLocks = !!kpis.uses_june_locks;
+  const missingRedemptionClients = useMemo(
+    () => ineligible_clients_detail.filter(client => !client.cumple_50_cervezas),
+    [ineligible_clients_detail]
+  );
+  const missingWeeklyClients = useMemo(
+    () => ineligible_clients_detail.filter(client => !client.cumple_todas_las_semanas),
+    [ineligible_clients_detail]
+  );
+  const missingBoxClients = useMemo(
+    () => ineligible_clients_detail.filter(client => !client.cumple_1_caja),
+    [ineligible_clients_detail]
+  );
 
   // Filter top 100 table based on search query (for Mayo)
   const filteredContest2 = useMemo(() => {
@@ -320,7 +619,7 @@ const WaitersView = ({ filePath }) => {
       )}
 
       {/* KPI Validation Metrics Grid */}
-      {!loading && kpis && (
+      {!loading && kpis && !usesJuneLocks && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -382,8 +681,20 @@ const WaitersView = ({ filePath }) => {
         </div>
       )}
 
+      {!loading && kpis && usesJuneLocks && (
+        <EligibilityRewardsPanel
+          kpis={kpis}
+          eligibleClients={eligible_clients_detail}
+          ineligibleClients={ineligible_clients_detail}
+          missingRedemptionClients={missingRedemptionClients}
+          missingWeeklyClients={missingWeeklyClients}
+          missingBoxClients={missingBoxClients}
+          onDownload={downloadEligibilityExcel}
+        />
+      )}
+
       {/* CONDITIONAL RENDER: MAY vs JUNIO */}
-      {!loading && (isMayo ? (
+      {!loading && isMayo && (
         /* ================= MAYO 2026 LAYOUT (3 Sections) ================= */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
           
@@ -708,7 +1019,9 @@ const WaitersView = ({ filePath }) => {
           </div>
 
         </div>
-      ) : (
+      )}
+
+      {!loading && !isMayo && (
         /* ================= JUNIO 2026 LAYOUT (Consolidated Winners Table) ================= */
         <div className="glass-panel p-6 flex flex-col" style={{ width: '100%', minHeight: '450px' }}>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 pb-3 border-b border-gold border-opacity-10">
@@ -720,7 +1033,7 @@ const WaitersView = ({ filePath }) => {
                     <p className="font-bold text-gold mb-1" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>VISTA CONSOLIDADA DE GANADORES</p>
                     <p className="mb-2">Muestra todas las combinaciones ganadoras de meseros y locales de la campaña, unificando los premios <strong className="text-white">TOP 1</strong>, <strong className="text-white">TOP 100</strong>, y <strong className="text-white">TOP CLIENT</strong>.</p>
                     <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '6px', marginTop: '6px' }}>
-                      <p className="text-2xs text-secondary"><strong className="text-white">Normativa de Junio:</strong> Aplica el filtro riguroso de que cada local apto debe tener al menos 3 meseros con más de 20 canjes.</p>
+                      <p className="text-2xs text-secondary"><strong className="text-white">Normativa de Junio:</strong> El cliente debe cumplir 50 cervezas mínimo, redimir todos los fines de semana de junio evaluados y registrar compra de 1 caja.</p>
                     </div>
                   </div>
                 } />
@@ -811,7 +1124,7 @@ const WaitersView = ({ filePath }) => {
             )}
           </div>
         </div>
-      ))}
+      )}
 
     </div>
   );
