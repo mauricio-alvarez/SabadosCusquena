@@ -52,6 +52,26 @@ const formatNumber = (value) => Number(value || 0).toLocaleString('en-US');
 
 const formatPercent = (value) => `${Math.round(toNumber(value))}%`;
 
+const sortByTotalClientsDesc = (a, b) => (
+  (toNumber(b.total) - toNumber(a.total)) || a.name.localeCompare(b.name)
+);
+
+const getGroupName = (client, key) => client?.[key] || 'N/A';
+
+const buildGroupedMetrics = (clients, groupKey, currentSaturday, comparisonSaturday, latestHourLimit) => {
+  const groups = {};
+  clients.forEach(client => {
+    const name = getGroupName(client, groupKey);
+    if (!groups[name]) groups[name] = [];
+    groups[name].push(client);
+  });
+
+  return Object.keys(groups).sort().map(name => ({
+    name,
+    ...computeMetrics(groups[name], currentSaturday, comparisonSaturday, latestHourLimit),
+  }));
+};
+
 const formatDeltaPercent = (pct) => {
   if (isInfinitePct(pct)) return 'nuevo';
   const value = Math.round(toNumber(pct));
@@ -196,12 +216,19 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
   const [selectedComparisonDate, setSelectedComparisonDate] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [mobileSection, setMobileSection] = useState('clients');
+  const [selectedDirection, setSelectedDirection] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    if (!selectedDirection) return;
+    const directionExists = allClients.some(client => getGroupName(client, 'direccion') === selectedDirection);
+    if (!directionExists) setSelectedDirection(null);
+  }, [allClients, selectedDirection]);
 
   const saturdayDates = useMemo(() => {
     if (!progressData?.available_dates) return [];
@@ -253,50 +280,51 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
     return maxTime;
   }, [allClients, currentSaturday]);
 
+  const scopedClients = useMemo(() => {
+    if (!selectedDirection) return allClients;
+    return allClients.filter(client => getGroupName(client, 'direccion') === selectedDirection);
+  }, [allClients, selectedDirection]);
+
   const totals = useMemo(
-    () => computeMetrics(allClients, currentSaturday, comparisonSaturday, latestHourLimit),
-    [allClients, currentSaturday, comparisonSaturday, latestHourLimit]
+    () => computeMetrics(scopedClients, currentSaturday, comparisonSaturday, latestHourLimit),
+    [scopedClients, currentSaturday, comparisonSaturday, latestHourLimit]
   );
 
-  const directions = useMemo(() => {
-    const groups = {};
-    allClients.forEach(client => {
-      const name = client.direccion || 'N/A';
-      if (!groups[name]) groups[name] = [];
-      groups[name].push(client);
-    });
+  const detailGroupKey = selectedDirection ? 'gerencia' : 'direccion';
+  const detailGroupLabel = selectedDirection ? 'GERENCIA' : 'DIRECCIÓN';
+  const detailTitleSuffix = selectedDirection ? 'por Gerencia' : 'por Dirección';
 
-    return Object.keys(groups).sort().map(name => ({
-      name,
-      ...computeMetrics(groups[name], currentSaturday, comparisonSaturday, latestHourLimit),
-    }));
-  }, [allClients, currentSaturday, comparisonSaturday, latestHourLimit]);
+  const detailRows = useMemo(
+    () => buildGroupedMetrics(scopedClients, detailGroupKey, currentSaturday, comparisonSaturday, latestHourLimit),
+    [scopedClients, detailGroupKey, currentSaturday, comparisonSaturday, latestHourLimit]
+  );
 
   const activeRows = useMemo(
-    () => [...directions].sort((a, b) => toNumber(b.activePct) - toNumber(a.activePct)),
-    [directions]
+    () => [...detailRows].sort(sortByTotalClientsDesc),
+    [detailRows]
   );
 
   const bottleRows = useMemo(
-    () => [...directions].sort((a, b) => b.totalRedemptions - a.totalRedemptions),
-    [directions]
+    () => [...detailRows].sort(sortByTotalClientsDesc),
+    [detailRows]
   );
 
   const averageRows = useMemo(
-    () => [...directions].sort((a, b) => parseFloat(b.avgPerActive) - parseFloat(a.avgPerActive)),
-    [directions]
+    () => [...detailRows].sort(sortByTotalClientsDesc),
+    [detailRows]
   );
 
   const insight = useMemo(() => {
-    if (directions.length === 0) return 'Sin datos suficientes para generar insight.';
-    const topActivation = [...directions].sort((a, b) => toNumber(b.activePct) - toNumber(a.activePct))[0];
-    const topBottles = [...directions].sort((a, b) => b.totalRedemptions - a.totalRedemptions)[0];
+    if (detailRows.length === 0) return 'Sin datos suficientes para generar insight.';
+    const topActivation = [...detailRows].sort((a, b) => toNumber(b.activePct) - toNumber(a.activePct))[0];
+    const topBottles = [...detailRows].sort((a, b) => b.totalRedemptions - a.totalRedemptions)[0];
     const bottleShare = totals.totalRedemptions > 0
       ? Math.round((topBottles.totalRedemptions / totals.totalRedemptions) * 100)
       : 0;
+    const scopePrefix = selectedDirection ? `${selectedDirection}: ` : '';
 
-    return `${topActivation.name} lidera activación con ${formatPercent(topActivation.activePct)} de clientes activos. ${topBottles.name} concentra el ${bottleShare}% de las botellas regaladas del día.`;
-  }, [directions, totals.totalRedemptions]);
+    return `${scopePrefix}${topActivation.name} lidera activación con ${formatPercent(topActivation.activePct)} de clientes activos. ${topBottles.name} concentra el ${bottleShare}% de las botellas regaladas del día.`;
+  }, [detailRows, selectedDirection, totals.totalRedemptions]);
 
   if (!currentSaturday) {
     return (
@@ -318,6 +346,11 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
         activeRows={activeRows}
         bottleRows={bottleRows}
         averageRows={averageRows}
+        detailGroupLabel={detailGroupLabel}
+        detailTitleSuffix={detailTitleSuffix}
+        selectedDirection={selectedDirection}
+        onDirectionSelect={selectedDirection ? null : setSelectedDirection}
+        onClearDirection={() => setSelectedDirection(null)}
         insight={insight}
         onRefresh={onRefresh}
         refreshing={refreshing}
@@ -340,7 +373,7 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
           <h2 style={{
             color: 'var(--text-primary)',
             fontSize: 'clamp(1.6rem, 4vw, 2.6rem)',
-            fontWeight: 900,
+            fontWeight: 650,
             letterSpacing: '0',
             marginBottom: '8px',
           }}>
@@ -364,7 +397,7 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
             padding: '10px 14px',
             boxShadow: '0 8px 24px var(--panel-shadow)',
           }}>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
               Comparar contra:
             </span>
             <select
@@ -375,7 +408,7 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
                 background: 'transparent',
                 border: 'none',
                 color: 'var(--text-primary)',
-                fontWeight: 800,
+                fontWeight: 500,
                 outline: 'none',
                 minWidth: '170px',
               }}
@@ -402,7 +435,7 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
         <SummaryCard
           icon={Users}
           title="CLIENTES ACTIVOS"
-          value={formatNumber(totals.active)}
+          value={`${formatNumber(totals.active)}/${formatNumber(totals.total)}`}
           sameHourDelta={totals.vsSabActiveDeltaSameHour}
           sameHourPct={totals.vsSabActivePctSameHour}
           closeDelta={totals.vsSabActiveDelta}
@@ -428,10 +461,30 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
         />
       </section>
 
+      <DrilldownBar
+        selectedDirection={selectedDirection}
+        onClear={() => setSelectedDirection(null)}
+      />
+
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '16px' }}>
-        <ClientsTable rows={activeRows} total={totals} />
-        <BottlesTable rows={bottleRows} total={totals} />
-        <AverageTable rows={averageRows} total={totals} />
+        <ClientsTable
+          rows={activeRows}
+          total={totals}
+          groupLabel={detailGroupLabel}
+          onRowClick={selectedDirection ? null : setSelectedDirection}
+        />
+        <BottlesTable
+          rows={bottleRows}
+          total={totals}
+          groupLabel={detailGroupLabel}
+          onRowClick={selectedDirection ? null : setSelectedDirection}
+        />
+        <AverageTable
+          rows={averageRows}
+          total={totals}
+          groupLabel={detailGroupLabel}
+          onRowClick={selectedDirection ? null : setSelectedDirection}
+        />
       </section>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
@@ -456,7 +509,7 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
       }}>
         <Star size={24} color="var(--cusquena-gold)" />
         <div>
-          <h3 style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '0.95rem', marginBottom: '8px' }}>
+          <h3 style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem', marginBottom: '8px' }}>
             INSIGHT CLAVE
           </h3>
           <p style={{ color: 'var(--text-primary)', lineHeight: 1.5 }}>{insight}</p>
@@ -489,8 +542,8 @@ const SummaryCard = ({ icon: Icon, title, value, sameHourDelta, sameHourPct, clo
         <Icon size={28} />
       </div>
       <div>
-        <p style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '0.9rem', marginBottom: '6px' }}>{title}</p>
-        <p style={{ color: 'var(--text-primary)', fontWeight: 900, fontSize: '2.6rem', lineHeight: 1 }}>{value}</p>
+        <p style={{ color: 'var(--text-primary)', fontWeight: 550, fontSize: '0.9rem', marginBottom: '6px' }}>{title}</p>
+        <p style={{ color: 'var(--text-primary)', fontWeight: 650, fontSize: '2.6rem', lineHeight: 1 }}>{value}</p>
       </div>
     </div>
 
@@ -514,11 +567,44 @@ const DeltaBlock = ({ icon: Icon, label, delta, pct, divider = false }) => (
   }}>
     <Icon size={20} color="var(--text-secondary)" />
     <div>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 900, marginBottom: '4px' }}>{label}</p>
-      <p style={{ color: deltaColor(delta), fontWeight: 900, fontSize: '1.1rem' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.68rem', fontWeight: 500, marginBottom: '4px' }}>{label}</p>
+      <p style={{ color: deltaColor(delta), fontWeight: 600, fontSize: '1.1rem' }}>
         {trendSymbol(delta)} {formatDeltaPercent(pct)}
       </p>
     </div>
+  </div>
+);
+
+const DrilldownBar = ({ selectedDirection, onClear }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    flexWrap: 'wrap',
+    background: 'var(--surface-raised)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: '8px',
+    padding: '12px 14px',
+    boxShadow: '0 6px 18px var(--panel-shadow)',
+  }}>
+    <div>
+      <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
+        {selectedDirection ? `Detalle por Gerencia: ${selectedDirection}` : 'Detalle por Dirección'}
+      </p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '3px' }}>        
+      </p>
+    </div>
+    {selectedDirection && (
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={onClear}
+        style={{ borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem' }}
+      >
+        Volver a Direcciones
+      </button>
+    )}
   </div>
 );
 
@@ -532,7 +618,7 @@ const TableCard = ({ icon: Icon, title, children }) => (
   }}>
     <div style={{ padding: '18px 18px 8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
       <Icon size={24} color="#f4cd12" />
-      <h3 style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 900 }}>{title}</h3>
+      <h3 style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 600 }}>{title}</h3>
     </div>
     <div style={{ overflowX: 'auto' }}>{children}</div>
   </article>
@@ -540,25 +626,44 @@ const TableCard = ({ icon: Icon, title, children }) => (
 
 const thStyle = {
   color: 'var(--text-primary)',
-  fontWeight: 900,
+  fontWeight: 600,
   fontSize: '0.72rem',
   textAlign: 'left',
   padding: '14px',
   borderBottom: '1px solid var(--glass-border)',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'normal',
+  lineHeight: 1.15,
 };
 
 const tdStyle = {
   color: 'var(--text-primary)',
-  fontSize: '0.9rem',
+  fontSize: '0.86rem',
   padding: '14px',
   borderBottom: '1px solid var(--glass-border)',
   verticalAlign: 'middle',
 };
 
+const directionHeaderStyle = {
+  ...thStyle,
+  width: '124px',
+  minWidth: '124px',
+  maxWidth: '124px',
+};
+
+const directionCellStyle = {
+  ...tdStyle,
+  width: '124px',
+  minWidth: '124px',
+  maxWidth: '124px',
+  fontWeight: 500,
+  lineHeight: 1.25,
+  whiteSpace: 'normal',
+  overflowWrap: 'break-word',
+};
+
 const totalRowStyle = {
   background: 'rgba(244, 205, 18, 0.10)',
-  fontWeight: 900,
+  fontWeight: 600,
 };
 
 const ProgressBar = ({ value }) => (
@@ -580,10 +685,36 @@ const ProgressBar = ({ value }) => (
 );
 
 const DeltaCell = ({ delta, pct }) => (
-  <span style={{ color: deltaColor(delta), fontWeight: 800, whiteSpace: 'nowrap' }}>
+  <span style={{ color: deltaColor(delta), fontWeight: 550, whiteSpace: 'nowrap' }}>
     {formatDeltaPercent(pct)}
   </span>
 );
+
+const TwoLineHeader = ({ top, bottom }) => (
+  <span style={{ display: 'inline-block', lineHeight: 1.15 }}>
+    {top}
+    <br />
+    {bottom}
+  </span>
+);
+
+const getRowInteractionProps = (row, onRowClick) => {
+  if (!onRowClick) return {};
+
+  return {
+    role: 'button',
+    tabIndex: 0,
+    title: `Ver gerencias de ${row.name}`,
+    style: { cursor: 'pointer' },
+    onClick: () => onRowClick(row.name),
+    onKeyDown: (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onRowClick(row.name);
+      }
+    },
+  };
+};
 
 const MobileSaturdayLayout = ({
   currentSaturday,
@@ -595,6 +726,10 @@ const MobileSaturdayLayout = ({
   activeRows,
   bottleRows,
   averageRows,
+  detailTitleSuffix,
+  selectedDirection,
+  onDirectionSelect,
+  onClearDirection,
   insight,
   onRefresh,
   refreshing,
@@ -604,21 +739,21 @@ const MobileSaturdayLayout = ({
   const sectionMap = {
     clients: {
       label: 'Clientes',
-      title: 'Clientes por Dirección',
+      title: `Clientes ${detailTitleSuffix}`,
       rows: activeRows,
       total: totals,
       type: 'clients',
     },
     bottles: {
       label: 'Botellas',
-      title: 'Botellas por Dirección',
+      title: `Botellas ${detailTitleSuffix}`,
       rows: bottleRows,
       total: totals,
       type: 'bottles',
     },
     average: {
       label: 'Promedio',
-      title: 'Botellas por cliente activo',
+      title: `Promedio ${detailTitleSuffix}`,
       rows: averageRows,
       total: totals,
       type: 'average',
@@ -694,7 +829,7 @@ const MobileSaturdayLayout = ({
         <MobileKpiCard
           icon={Users}
           title="Clientes activos"
-          value={formatNumber(totals.active)}
+          value={`${formatNumber(totals.active)}/${formatNumber(totals.total)}`}
           helper={`${formatPercent(totals.activePct)} de la base`}
           sameHourDelta={totals.vsSabActiveDeltaSameHour}
           sameHourPct={totals.vsSabActivePctSameHour}
@@ -735,6 +870,29 @@ const MobileSaturdayLayout = ({
             {activeSection.title}
           </h3>
           <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '10px',
+            color: 'var(--text-secondary)',
+            fontSize: '0.78rem',
+          }}>
+            <span>
+              {selectedDirection ? `Detalle: ${selectedDirection}` : 'Toca una Dirección para ver gerencias'}
+            </span>
+            {selectedDirection && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onClearDirection}
+                style={{ borderRadius: '8px', padding: '6px 9px', fontSize: '0.74rem' }}
+              >
+                Volver
+              </button>
+            )}
+          </div>
+          <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '6px',
@@ -764,7 +922,12 @@ const MobileSaturdayLayout = ({
           </div>
         </div>
 
-        <MobileDirectionList rows={activeSection.rows} total={activeSection.total} type={activeSection.type} />
+        <MobileDirectionList
+          rows={activeSection.rows}
+          total={activeSection.total}
+          type={activeSection.type}
+          onRowClick={onDirectionSelect}
+        />
       </section>
 
       <section style={{
@@ -837,10 +1000,10 @@ const MobileDeltaPill = ({ label, delta, pct }) => (
   </div>
 );
 
-const MobileDirectionList = ({ rows, total, type }) => (
+const MobileDirectionList = ({ rows, total, type, onRowClick }) => (
   <div>
     {rows.map(row => (
-      <MobileDirectionRow key={row.name} row={row} type={type} />
+      <MobileDirectionRow key={row.name} row={row} type={type} onRowClick={onRowClick} />
     ))}
     <MobileDirectionRow row={{ name: 'Total', ...total }} type={type} isTotal />
   </div>
@@ -849,7 +1012,7 @@ const MobileDirectionList = ({ rows, total, type }) => (
 const getMobileDirectionMetrics = (row, type) => {
   if (type === 'clients') {
     return {
-      value: formatNumber(row.active),
+      value: `${formatNumber(row.active)}/${formatNumber(row.total)}`,
       helper: `${formatPercent(row.activePct)} activos`,
       progress: row.activePct,
       sameDelta: row.vsSabActiveDeltaSameHour,
@@ -880,11 +1043,13 @@ const getMobileDirectionMetrics = (row, type) => {
   };
 };
 
-const MobileDirectionRow = ({ row, type, isTotal = false }) => {
+const MobileDirectionRow = ({ row, type, isTotal = false, onRowClick }) => {
   const metrics = getMobileDirectionMetrics(row, type);
+  const interactionProps = isTotal ? {} : getRowInteractionProps(row, onRowClick);
 
   return (
-    <div style={{
+    <div {...interactionProps} style={{
+      ...interactionProps.style,
       borderTop: '1px solid var(--glass-border)',
       background: isTotal ? 'rgba(244, 205, 18, 0.10)' : 'transparent',
       padding: '12px 14px',
@@ -934,26 +1099,26 @@ const MobileProgressBar = ({ value }) => (
   </div>
 );
 
-const ClientsTable = ({ rows, total }) => (
-  <TableCard icon={Users} title="CLIENTES">
-    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+const ClientsTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'CLIENTES', onRowClick }) => (
+  <TableCard icon={Users} title={title}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px', tableLayout: 'fixed' }}>
       <thead>
         <tr>
-          <th style={thStyle}>DIRECCIÓN</th>
-          <th style={{ ...thStyle, textAlign: 'right' }}>ACTIVOS</th>
+          <th style={directionHeaderStyle}>{groupLabel}</th>
+          <th style={{ ...thStyle, textAlign: 'right' }}>ACTIVOS / TOTAL</th>
           <th style={{ ...thStyle, textAlign: 'center' }}>% ACTIVOS</th>
-          <th style={{ ...thStyle, textAlign: 'center' }}>VS MISMA HORA</th>
-          <th style={{ ...thStyle, textAlign: 'center' }}>VS CIERRE SÁB. ANTERIOR</th>
+          <th style={{ ...thStyle, textAlign: 'center' }}><TwoLineHeader top="VS MISMA" bottom="HORA" /></th>
+          <th style={{ ...thStyle, textAlign: 'center' }}><TwoLineHeader top="VS CIERRE SÁB." bottom="ANTERIOR" /></th>
         </tr>
       </thead>
       <tbody>
         {rows.map(row => (
-          <tr key={row.name}>
-            <td style={{ ...tdStyle, fontWeight: 700 }}>{row.name}</td>
-            <td style={{ ...tdStyle, textAlign: 'right' }}>{formatNumber(row.active)}</td>
+          <tr key={row.name} {...getRowInteractionProps(row, onRowClick)}>
+            <td style={directionCellStyle}>{row.name}</td>
+            <td style={{ ...tdStyle, textAlign: 'right' }}>{formatNumber(row.active)}/{formatNumber(row.total)}</td>
             <td style={{ ...tdStyle }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <span style={{ fontWeight: 800 }}>{formatPercent(row.activePct)}</span>
+                <span style={{ fontWeight: 500 }}>{formatPercent(row.activePct)}</span>
                 <ProgressBar value={row.activePct} />
               </div>
             </td>
@@ -962,9 +1127,9 @@ const ClientsTable = ({ rows, total }) => (
           </tr>
         ))}
         <tr style={totalRowStyle}>
-          <td style={{ ...tdStyle, fontWeight: 900 }}>TOTAL</td>
-          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 900 }}>{formatNumber(total.active)}</td>
-          <td style={{ ...tdStyle, fontWeight: 900 }}>
+          <td style={{ ...directionCellStyle, fontWeight: 600 }}>TOTAL</td>
+          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{formatNumber(total.active)}/{formatNumber(total.total)}</td>
+          <td style={{ ...tdStyle, fontWeight: 600 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               <span>{formatPercent(total.activePct)}</span>
               <ProgressBar value={total.activePct} />
@@ -978,29 +1143,29 @@ const ClientsTable = ({ rows, total }) => (
   </TableCard>
 );
 
-const BottlesTable = ({ rows, total }) => (
-  <TableCard icon={Package} title="BOTELLAS REGALADAS">
-    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px' }}>
+const BottlesTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'BOTELLAS REGALADAS', onRowClick }) => (
+  <TableCard icon={Package} title={title}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px', tableLayout: 'fixed' }}>
       <thead>
         <tr>
-          <th style={thStyle}>DIRECCIÓN</th>
+          <th style={directionHeaderStyle}>{groupLabel}</th>
           <th style={{ ...thStyle, textAlign: 'right' }}>BOTELLAS</th>
-          <th style={{ ...thStyle, textAlign: 'center' }}>VS MISMA HORA</th>
-          <th style={{ ...thStyle, textAlign: 'center' }}>VS CIERRE SÁB. ANTERIOR</th>
+          <th style={{ ...thStyle, textAlign: 'center' }}><TwoLineHeader top="VS MISMA" bottom="HORA" /></th>
+          <th style={{ ...thStyle, textAlign: 'center' }}><TwoLineHeader top="VS CIERRE SÁB." bottom="ANTERIOR" /></th>
         </tr>
       </thead>
       <tbody>
         {rows.map(row => (
-          <tr key={row.name}>
-            <td style={{ ...tdStyle, fontWeight: 700 }}>{row.name}</td>
+          <tr key={row.name} {...getRowInteractionProps(row, onRowClick)}>
+            <td style={directionCellStyle}>{row.name}</td>
             <td style={{ ...tdStyle, textAlign: 'right' }}>{formatNumber(row.totalRedemptions)}</td>
             <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={row.vsSabDeltaSameHour} pct={row.vsSabPctSameHour} /></td>
             <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={row.vsSabDelta} pct={row.vsSabPct} /></td>
           </tr>
         ))}
         <tr style={totalRowStyle}>
-          <td style={{ ...tdStyle, fontWeight: 900 }}>TOTAL</td>
-          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 900 }}>{formatNumber(total.totalRedemptions)}</td>
+          <td style={{ ...directionCellStyle, fontWeight: 600 }}>TOTAL</td>
+          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{formatNumber(total.totalRedemptions)}</td>
           <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={total.vsSabDeltaSameHour} pct={total.vsSabPctSameHour} /></td>
           <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={total.vsSabDelta} pct={total.vsSabPct} /></td>
         </tr>
@@ -1009,29 +1174,29 @@ const BottlesTable = ({ rows, total }) => (
   </TableCard>
 );
 
-const AverageTable = ({ rows, total }) => (
-  <TableCard icon={User} title="BOTELLAS POR CLIENTE ACTIVO">
-    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px' }}>
+const AverageTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'BOTELLAS POR CLIENTE ACTIVO', onRowClick }) => (
+  <TableCard icon={User} title={title}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '450px', tableLayout: 'fixed' }}>
       <thead>
         <tr>
-          <th style={thStyle}>DIRECCIÓN</th>
+          <th style={directionHeaderStyle}>{groupLabel}</th>
           <th style={{ ...thStyle, textAlign: 'right' }}>PROMEDIO</th>
-          <th style={{ ...thStyle, textAlign: 'center' }}>VS MISMA HORA</th>
-          <th style={{ ...thStyle, textAlign: 'center' }}>VS CIERRE SÁB. ANTERIOR</th>
+          <th style={{ ...thStyle, textAlign: 'center' }}><TwoLineHeader top="VS MISMA" bottom="HORA" /></th>
+          <th style={{ ...thStyle, textAlign: 'center' }}><TwoLineHeader top="VS CIERRE SÁB." bottom="ANTERIOR" /></th>
         </tr>
       </thead>
       <tbody>
         {rows.map(row => (
-          <tr key={row.name}>
-            <td style={{ ...tdStyle, fontWeight: 700 }}>{row.name}</td>
+          <tr key={row.name} {...getRowInteractionProps(row, onRowClick)}>
+            <td style={directionCellStyle}>{row.name}</td>
             <td style={{ ...tdStyle, textAlign: 'right' }}>{row.avgPerActive}</td>
             <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={row.vsSabAvgDeltaSameHour} pct={row.vsSabAvgPctSameHour} /></td>
             <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={row.vsSabAvgDelta} pct={row.vsSabAvgPct} /></td>
           </tr>
         ))}
         <tr style={totalRowStyle}>
-          <td style={{ ...tdStyle, fontWeight: 900 }}>TOTAL</td>
-          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 900 }}>{total.avgPerActive}</td>
+          <td style={{ ...directionCellStyle, fontWeight: 600 }}>TOTAL</td>
+          <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{total.avgPerActive}</td>
           <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={total.vsSabAvgDeltaSameHour} pct={total.vsSabAvgPctSameHour} /></td>
           <td style={{ ...tdStyle, textAlign: 'center' }}><DeltaCell delta={total.vsSabAvgDelta} pct={total.vsSabAvgPct} /></td>
         </tr>

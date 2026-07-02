@@ -481,16 +481,24 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         df_month['Mesero'] = df_month['Mesero'].fillna('').astype(str).str.strip()
         df_month = df_month[df_month['Mesero'] != '']
     
-    # 3. Load Venta_Mayo
-    vm_path = get_path_for_file("Venta_Mayo.xlsx")
-    if os.path.exists(vm_path):
-        df_vm = pd.read_excel(vm_path)
-        df_vm['codigo'] = df_vm['codigo'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        if 'CAJAS' in df_vm.columns:
-            df_vm['CAJAS'] = pd.to_numeric(df_vm['CAJAS'], errors='coerce').fillna(0)
-        else:
-            df_vm['CAJAS'] = 0
-        cajas_sum = df_vm.groupby('codigo')['CAJAS'].sum().to_dict()
+    # 3. Load sales boxes. June incentives use Venta_Junio; previous rules keep Venta_Mayo.
+    sales_file_name = "Venta_Junio.xlsx" if month_year == "06/2026" else "Venta_Mayo.xlsx"
+    sales_path = get_path_for_file(sales_file_name)
+    if os.path.exists(sales_path):
+        df_sales = pd.read_excel(
+            sales_path,
+            usecols=lambda col: str(col).strip() in {'codigo', 'CAJAS'}
+        )
+        df_sales.columns = [str(col).strip() for col in df_sales.columns]
+        if 'codigo' not in df_sales.columns:
+            df_sales['codigo'] = ''
+        if 'CAJAS' not in df_sales.columns:
+            df_sales['CAJAS'] = 0
+        df_sales = df_sales[['codigo', 'CAJAS']].copy()
+        df_sales['codigo'] = df_sales['codigo'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        df_sales['CAJAS'] = pd.to_numeric(df_sales['CAJAS'], errors='coerce').fillna(0)
+        df_sales = df_sales[~df_sales['codigo'].str.lower().isin(['', 'nan', 'none'])]
+        cajas_sum = df_sales.groupby('codigo')['CAJAS'].sum().to_dict()
     else:
         cajas_sum = {}
 
