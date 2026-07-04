@@ -25,6 +25,9 @@ FIXED_FILE_PATH = get_path_for_file("Reposiciones Sabados Cusqueña 2026_act.xls
 def _load_fixed_clients():
     df_fixed = pd.read_excel(FIXED_FILE_PATH, sheet_name='Base_Final', engine='pyxlsb')
     df_fixed['cliente_id'] = df_fixed['cliente_id'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    if 'Activo' not in df_fixed.columns:
+        df_fixed['Activo'] = 1
+    df_fixed['Activo'] = pd.to_numeric(df_fixed['Activo'], errors='coerce').fillna(1).astype(int)
     return df_fixed.drop_duplicates(subset='cliente_id', keep='first').copy()
 
 
@@ -233,7 +236,7 @@ def process_dashboard_data(dynamic_file_path: str):
     # We return the raw merged data so the frontend can do arbitrary cross-filtering and aggregate
     client_data = df_merged[[
         'cliente_id', 'nombre_comercial', 'direccion', 'gerencia', 'supervisor', 'BDR', 'redemptions', 'redemption_dates', 'redemption_hours',
-        'BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD', 'Tipo', 'Ola'
+        'BEER LM', 'BEER MTD', 'CSQ LM', 'CSQ MTD', 'NOLO LM', 'NOLO MTD', 'MIX NOLO LM', 'MIX NOLO MTD', 'Tipo', 'Ola', 'Activo'
     ]].to_dict(orient='records')
 
     # --- Progress Over Time Calculation ---

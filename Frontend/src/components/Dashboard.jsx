@@ -17,6 +17,38 @@ import DateRangePicker from './DateRangePicker';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '';
 const apiUrl = (path) => `${API_BASE_URL}${path}`;
 
+const isClientProgramActive = (client) => {
+  const value = client?.Activo ?? client?.activo ?? 1;
+  if (typeof value === 'number') return value === 1;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'activo' || normalized === 'si' || normalized === 'sí';
+};
+
+const normalizeDateKey = (dateStr) => {
+  const parts = String(dateStr || '').split('/');
+  if (parts.length !== 3) return String(dateStr || '');
+  const [day, month, year] = parts;
+  return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+};
+
+const sortDateKeys = (dates) => [...dates].sort((a, b) => {
+  const [da, ma, ya] = normalizeDateKey(a).split('/').map(Number);
+  const [db, mb, yb] = normalizeDateKey(b).split('/').map(Number);
+  return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db);
+});
+
+const getAvailableDatesFromClients = (clients) => {
+  const dates = new Set();
+  clients.forEach(client => {
+    if (!Array.isArray(client.redemption_dates)) return;
+    client.redemption_dates.forEach(dateStr => {
+      const normalized = normalizeDateKey(dateStr);
+      if (normalized) dates.add(normalized);
+    });
+  });
+  return sortDateKeys(dates);
+};
+
 const filterLabels = {
   direccion: 'Dirección',
   gerencia: 'Gerencia',
@@ -229,6 +261,19 @@ const Dashboard = () => {
     });
     return Array.from(new Set(validClients.map(c => c[filterKey]).filter(v => v !== null && v !== 'N/A'))).sort();
   };
+
+  const operationalClients = useMemo(() => {
+    if (!dashboardData?.clients) return [];
+    return dashboardData.clients.filter(isClientProgramActive);
+  }, [dashboardData]);
+
+  const operationalProgressData = useMemo(() => {
+    if (!dashboardData?.progress_data) return null;
+    return {
+      ...dashboardData.progress_data,
+      available_dates: getAvailableDatesFromClients(operationalClients),
+    };
+  }, [dashboardData, operationalClients]);
 
   const filteredClients = useMemo(() => {
     if (!dashboardData) return [];
@@ -689,18 +734,18 @@ const Dashboard = () => {
               <OpportunityView allClients={dashboardData.clients} />
             )}
             {activeView === 'pivot' && (
-              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} targetDay={6} dayLabel="Sábado" />
+              <PivotView allClients={operationalClients} progressData={operationalProgressData} isDatesView={false} targetDay={6} dayLabel="Sábado" />
             )}
             {activeView === 'saturday-update' && (
               <SaturdayUpdateView
-                allClients={dashboardData.clients}
-                progressData={dashboardData.progress_data}
+                allClients={operationalClients}
+                progressData={operationalProgressData}
                 onRefresh={handleRefresh}
                 refreshing={refreshing || loadingData}
               />
             )}
             {activeView === 'pivot-sunday' && (
-              <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={false} targetDay={0} dayLabel="Domingo" />
+              <PivotView allClients={operationalClients} progressData={operationalProgressData} isDatesView={false} targetDay={0} dayLabel="Domingo" />
             )}
             {activeView === 'pivot-dates' && (
               <PivotView allClients={dashboardData.clients} progressData={dashboardData.progress_data} isDatesView={true} />
