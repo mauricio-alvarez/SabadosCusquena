@@ -205,6 +205,7 @@ const RequirementLockCard = ({ icon: Icon, title, subtitle, okCount, missingRows
 
 const EligibilityRewardsPanel = ({
   kpis,
+  monthLabel,
   eligibleClients,
   ineligibleClients,
   missingRedemptionClients,
@@ -213,6 +214,7 @@ const EligibilityRewardsPanel = ({
   onDownload,
 }) => {
   const total = kpis.total_clients_evaluated || eligibleClients.length + ineligibleClients.length || 0;
+  const monthSlug = monthLabel.toLowerCase().replace(/\s+/g, '_');
   const lockRows = [
     {
       icon: Beer,
@@ -254,10 +256,10 @@ const EligibilityRewardsPanel = ({
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
-            <p style={{ color: 'var(--cusquena-gold)', fontWeight: 760, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Candados Junio</p>
+            <p style={{ color: 'var(--cusquena-gold)', fontWeight: 760, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Candados {monthLabel}</p>
             <h3 style={{ color: 'var(--text-primary)', fontSize: '1.45rem', fontWeight: 760, marginTop: '4px' }}>Elegibilidad para incentivos de mozos</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '6px' }}>
-              Un cliente entra al ranking solo si cumple los tres candados: 50 cervezas, redención en todos los fines de semana de junio y 1 caja comprada.
+              Un cliente entra al ranking solo si cumple los tres candados: 50 cervezas, redención en todos los fines de semana de {monthLabel.toLowerCase()} y 1 caja comprada.
             </p>
           </div>
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', lineHeight: 1.5 }}>
@@ -275,7 +277,7 @@ const EligibilityRewardsPanel = ({
           total={total}
           detail="Cumplen los tres candados y ya pueden participar en el ranking."
           icon={CheckCircle}
-          onDownload={() => onDownload(eligibleClients, 'clientes_elegibles_mozos_junio.xlsx', 'Elegibles')}
+          onDownload={() => onDownload(eligibleClients, `clientes_elegibles_mozos_${monthSlug}.xlsx`, 'Elegibles')}
           disabled={eligibleClients.length === 0}
         />
         <EligibilityHeroCard
@@ -285,7 +287,7 @@ const EligibilityRewardsPanel = ({
           total={total}
           detail="Tienen al menos un candado pendiente; el Excel indica exactamente qué falta."
           icon={XCircle}
-          onDownload={() => onDownload(ineligibleClients, 'clientes_no_elegibles_mozos_junio.xlsx', 'No_Elegibles')}
+          onDownload={() => onDownload(ineligibleClients, `clientes_no_elegibles_mozos_${monthSlug}.xlsx`, 'No_Elegibles')}
           disabled={ineligibleClients.length === 0}
         />
       </div>
@@ -434,6 +436,7 @@ const WaitersView = ({ filePath }) => {
 
   const isMayo = selectedMonth === '05/2026';
   const usesJuneLocks = !!kpis.uses_june_locks;
+  const selectedMonthLabel = formatMonthDisplay(selectedMonth);
   const missingRedemptionClients = useMemo(
     () => ineligible_clients_detail.filter(client => !client.cumple_50_cervezas),
     [ineligible_clients_detail]
@@ -684,6 +687,7 @@ const WaitersView = ({ filePath }) => {
       {!loading && kpis && usesJuneLocks && (
         <EligibilityRewardsPanel
           kpis={kpis}
+          monthLabel={selectedMonthLabel}
           eligibleClients={eligible_clients_detail}
           ineligibleClients={ineligible_clients_detail}
           missingRedemptionClients={missingRedemptionClients}
@@ -1033,7 +1037,7 @@ const WaitersView = ({ filePath }) => {
                     <p className="font-bold text-gold mb-1" style={{ fontSize: '0.75rem', textTransform: 'uppercase' }}>VISTA CONSOLIDADA DE GANADORES</p>
                     <p className="mb-2">Muestra todas las combinaciones ganadoras de meseros y locales de la campaña, unificando los premios <strong className="text-white">TOP 1</strong>, <strong className="text-white">TOP 100</strong>, y <strong className="text-white">TOP CLIENT</strong>.</p>
                     <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '6px', marginTop: '6px' }}>
-                      <p className="text-2xs text-secondary"><strong className="text-white">Normativa de Junio:</strong> El cliente debe cumplir 50 cervezas mínimo, redimir todos los fines de semana de junio evaluados y registrar compra de 1 caja.</p>
+                      <p className="text-2xs text-secondary"><strong className="text-white">Normativa de {selectedMonthLabel}:</strong> El cliente debe cumplir 50 cervezas mínimo, redimir todos los fines de semana evaluados del mes y registrar compra de 1 caja.</p>
                     </div>
                   </div>
                 } />

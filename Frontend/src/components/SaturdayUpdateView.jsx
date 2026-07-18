@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Clock, Flag, Package, RefreshCcw, Star, User, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Flag, Package, RefreshCcw, SlidersHorizontal, Star, User, Users } from 'lucide-react';
+
+const DETAIL_FILTER_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
+
+const DETAIL_FILTER_LABELS = {
+  direccion: 'Dirección',
+  gerencia: 'Gerencia',
+  supervisor: 'Supervisor',
+  BDR: 'BDR',
+};
+
+const EMPTY_DETAIL_FILTERS = {
+  direccion: 'All',
+  gerencia: 'All',
+  supervisor: 'All',
+  BDR: 'All',
+};
 
 const normalizeDateKey = (dateStr) => {
   const parts = String(dateStr || '').split('/');
@@ -216,19 +232,14 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
   const [selectedComparisonDate, setSelectedComparisonDate] = useState('');
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
   const [mobileSection, setMobileSection] = useState('clients');
-  const [selectedDirection, setSelectedDirection] = useState(null);
+  const [detailFilters, setDetailFilters] = useState(EMPTY_DETAIL_FILTERS);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    if (!selectedDirection) return;
-    const directionExists = allClients.some(client => getGroupName(client, 'direccion') === selectedDirection);
-    if (!directionExists) setSelectedDirection(null);
-  }, [allClients, selectedDirection]);
 
   const saturdayDates = useMemo(() => {
     if (!progressData?.available_dates) return [];
@@ -281,18 +292,61 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
   }, [allClients, currentSaturday]);
 
   const scopedClients = useMemo(() => {
-    if (!selectedDirection) return allClients;
-    return allClients.filter(client => getGroupName(client, 'direccion') === selectedDirection);
-  }, [allClients, selectedDirection]);
+    return allClients.filter(client => DETAIL_FILTER_KEYS.every(key => (
+      detailFilters[key] === 'All' || getGroupName(client, key) === detailFilters[key]
+    )));
+  }, [allClients, detailFilters]);
+
+  const getDetailFilterOptions = (filterKey) => {
+    const options = allClients
+      .filter(client => DETAIL_FILTER_KEYS.every(key => (
+        key === filterKey || detailFilters[key] === 'All' || getGroupName(client, key) === detailFilters[key]
+      )))
+      .map(client => getGroupName(client, filterKey))
+      .filter(value => value && value !== 'N/A');
+
+    return [...new Set(options)].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  };
+
+  const handleDetailFilterChange = (filterKey, value) => {
+    const changedIndex = DETAIL_FILTER_KEYS.indexOf(filterKey);
+    setDetailFilters(previous => {
+      const next = { ...previous, [filterKey]: value };
+      DETAIL_FILTER_KEYS.slice(changedIndex + 1).forEach(key => {
+        next[key] = 'All';
+      });
+      return next;
+    });
+  };
+
+  const clearDetailFilters = () => setDetailFilters(EMPTY_DETAIL_FILTERS);
 
   const totals = useMemo(
     () => computeMetrics(scopedClients, currentSaturday, comparisonSaturday, latestHourLimit),
     [scopedClients, currentSaturday, comparisonSaturday, latestHourLimit]
   );
 
-  const detailGroupKey = selectedDirection ? 'gerencia' : 'direccion';
-  const detailGroupLabel = selectedDirection ? 'GERENCIA' : 'DIRECCIÓN';
-  const detailTitleSuffix = selectedDirection ? 'por Gerencia' : 'por Dirección';
+  const detailGroupKey = detailFilters.BDR !== 'All'
+    ? 'BDR'
+    : detailFilters.supervisor !== 'All'
+      ? 'BDR'
+      : detailFilters.gerencia !== 'All'
+        ? 'supervisor'
+        : detailFilters.direccion !== 'All'
+          ? 'gerencia'
+          : 'direccion';
+  const detailGroupLabel = DETAIL_FILTER_LABELS[detailGroupKey].toUpperCase();
+  const detailTitleSuffix = `por ${DETAIL_FILTER_LABELS[detailGroupKey]}`;
+  const selectedFilterPath = DETAIL_FILTER_KEYS
+    .map(key => detailFilters[key])
+    .filter(value => value !== 'All');
+  const activeDetailFilterCount = selectedFilterPath.length;
+  const canSelectDetailRow = detailFilters[detailGroupKey] === 'All';
+
+  const handleDetailRowSelect = (name) => {
+    if (!canSelectDetailRow) return;
+    handleDetailFilterChange(detailGroupKey, name);
+  };
 
   const detailRows = useMemo(
     () => buildGroupedMetrics(scopedClients, detailGroupKey, currentSaturday, comparisonSaturday, latestHourLimit),
@@ -321,10 +375,10 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
     const bottleShare = totals.totalRedemptions > 0
       ? Math.round((topBottles.totalRedemptions / totals.totalRedemptions) * 100)
       : 0;
-    const scopePrefix = selectedDirection ? `${selectedDirection}: ` : '';
+    const scopePrefix = selectedFilterPath.length ? `${selectedFilterPath.join(' → ')}: ` : '';
 
     return `${scopePrefix}${topActivation.name} lidera activación con ${formatPercent(topActivation.activePct)} de clientes activos. ${topBottles.name} concentra el ${bottleShare}% de las botellas regaladas del día.`;
-  }, [detailRows, selectedDirection, totals.totalRedemptions]);
+  }, [detailRows, selectedFilterPath, totals.totalRedemptions]);
 
   if (!currentSaturday) {
     return (
@@ -346,11 +400,16 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
         activeRows={activeRows}
         bottleRows={bottleRows}
         averageRows={averageRows}
-        detailGroupLabel={detailGroupLabel}
         detailTitleSuffix={detailTitleSuffix}
-        selectedDirection={selectedDirection}
-        onDirectionSelect={selectedDirection ? null : setSelectedDirection}
-        onClearDirection={() => setSelectedDirection(null)}
+        detailFilters={detailFilters}
+        getFilterOptions={getDetailFilterOptions}
+        onFilterChange={handleDetailFilterChange}
+        onClearFilters={clearDetailFilters}
+        selectedFilterPath={selectedFilterPath}
+        activeFilterCount={activeDetailFilterCount}
+        showFilters={showMobileFilters}
+        onToggleFilters={() => setShowMobileFilters(previous => !previous)}
+        onRowSelect={canSelectDetailRow ? handleDetailRowSelect : null}
         insight={insight}
         onRefresh={onRefresh}
         refreshing={refreshing}
@@ -462,8 +521,11 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
       </section>
 
       <DrilldownBar
-        selectedDirection={selectedDirection}
-        onClear={() => setSelectedDirection(null)}
+        filters={detailFilters}
+        getFilterOptions={getDetailFilterOptions}
+        onFilterChange={handleDetailFilterChange}
+        onClear={clearDetailFilters}
+        activeFilterCount={activeDetailFilterCount}
       />
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: '16px' }}>
@@ -471,19 +533,19 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
           rows={activeRows}
           total={totals}
           groupLabel={detailGroupLabel}
-          onRowClick={selectedDirection ? null : setSelectedDirection}
+          onRowClick={canSelectDetailRow ? handleDetailRowSelect : null}
         />
         <BottlesTable
           rows={bottleRows}
           total={totals}
           groupLabel={detailGroupLabel}
-          onRowClick={selectedDirection ? null : setSelectedDirection}
+          onRowClick={canSelectDetailRow ? handleDetailRowSelect : null}
         />
         <AverageTable
           rows={averageRows}
           total={totals}
           groupLabel={detailGroupLabel}
-          onRowClick={selectedDirection ? null : setSelectedDirection}
+          onRowClick={canSelectDetailRow ? handleDetailRowSelect : null}
         />
       </section>
 
@@ -575,37 +637,81 @@ const DeltaBlock = ({ icon: Icon, label, delta, pct, divider = false }) => (
   </div>
 );
 
-const DrilldownBar = ({ selectedDirection, onClear }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '12px',
-    flexWrap: 'wrap',
-    background: 'var(--surface-raised)',
-    border: '1px solid var(--glass-border)',
-    borderRadius: '8px',
-    padding: '12px 14px',
-    boxShadow: '0 6px 18px var(--panel-shadow)',
-  }}>
-    <div>
-      <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
-        {selectedDirection ? `Detalle por Gerencia: ${selectedDirection}` : 'Detalle por Dirección'}
-      </p>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '3px' }}>        
-      </p>
+const DetailFilterControls = ({ filters, getFilterOptions, onFilterChange, onClear, activeFilterCount, mobile = false }) => (
+  <div>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: mobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
+      gap: mobile ? '10px' : '12px',
+    }}>
+      {DETAIL_FILTER_KEYS.map(filterKey => (
+        <label key={filterKey} style={{ display: 'grid', gap: '6px', minWidth: 0 }}>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: 600 }}>
+            {DETAIL_FILTER_LABELS[filterKey]}
+          </span>
+          <select
+            className="filter-select"
+            value={filters[filterKey]}
+            onChange={(event) => onFilterChange(filterKey, event.target.value)}
+            style={{ minHeight: mobile ? '44px' : '40px', paddingTop: '8px', paddingBottom: '8px', fontSize: '0.82rem' }}
+          >
+            <option value="All">Todos</option>
+            {getFilterOptions(filterKey).map(option => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+      ))}
     </div>
-    {selectedDirection && (
+    {activeFilterCount > 0 && (
       <button
         type="button"
         className="btn-secondary"
         onClick={onClear}
-        style={{ borderRadius: '8px', padding: '8px 12px', fontSize: '0.82rem' }}
+        style={{
+          minHeight: mobile ? '44px' : '36px',
+          width: mobile ? '100%' : 'auto',
+          marginTop: '10px',
+          padding: '8px 12px',
+          borderRadius: '7px',
+          fontSize: '0.78rem',
+          justifyContent: 'center',
+          touchAction: 'manipulation',
+        }}
       >
-        Volver a Direcciones
+        Borrar filtros
       </button>
     )}
   </div>
+);
+
+const DrilldownBar = ({ filters, getFilterOptions, onFilterChange, onClear, activeFilterCount }) => (
+  <section style={{
+    background: 'var(--surface-raised)',
+    border: '1px solid var(--glass-border)',
+    borderRadius: '8px',
+    padding: '14px',
+    boxShadow: '0 6px 18px var(--panel-shadow)',
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+      <SlidersHorizontal size={17} color="var(--cusquena-gold)" />
+      <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
+        Detalle por Dirección
+      </p>
+      {activeFilterCount > 0 && (
+        <span style={{ color: 'var(--cusquena-gold)', fontSize: '0.74rem', fontWeight: 600 }}>
+          {activeFilterCount} activo{activeFilterCount === 1 ? '' : 's'}
+        </span>
+      )}
+    </div>
+    <DetailFilterControls
+      filters={filters}
+      getFilterOptions={getFilterOptions}
+      onFilterChange={onFilterChange}
+      onClear={onClear}
+      activeFilterCount={activeFilterCount}
+    />
+  </section>
 );
 
 const TableCard = ({ icon: Icon, title, children }) => (
@@ -705,7 +811,7 @@ const getRowInteractionProps = (row, onRowClick) => {
     role: 'button',
     tabIndex: 0,
     title: `Ver gerencias de ${row.name}`,
-    style: { cursor: 'pointer' },
+    style: { cursor: 'pointer', touchAction: 'manipulation' },
     onClick: () => onRowClick(row.name),
     onKeyDown: (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -727,9 +833,15 @@ const MobileSaturdayLayout = ({
   bottleRows,
   averageRows,
   detailTitleSuffix,
-  selectedDirection,
-  onDirectionSelect,
-  onClearDirection,
+  detailFilters,
+  getFilterOptions,
+  onFilterChange,
+  onClearFilters,
+  selectedFilterPath,
+  activeFilterCount,
+  showFilters,
+  onToggleFilters,
+  onRowSelect,
   insight,
   onRefresh,
   refreshing,
@@ -866,9 +978,46 @@ const MobileSaturdayLayout = ({
         boxShadow: '0 6px 18px var(--panel-shadow)',
       }}>
         <div style={{ padding: '14px 14px 10px' }}>
-          <h3 style={{ color: 'var(--text-primary)', fontWeight: 650, fontSize: '1rem', marginBottom: '10px' }}>
-            {activeSection.title}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
+            <h3 style={{ color: 'var(--text-primary)', fontWeight: 650, fontSize: '1rem' }}>
+              {activeSection.title}
+            </h3>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onToggleFilters}
+              aria-expanded={showFilters}
+              style={{
+                minHeight: '44px',
+                padding: '8px 11px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                touchAction: 'manipulation',
+              }}
+            >
+              <SlidersHorizontal size={16} />
+              Filtros{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              {showFilters ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+          </div>
+          {showFilters && (
+            <div style={{
+              marginBottom: '12px',
+              padding: '12px',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '8px',
+              background: 'var(--subtle-surface)',
+            }}>
+              <DetailFilterControls
+                filters={detailFilters}
+                getFilterOptions={getFilterOptions}
+                onFilterChange={onFilterChange}
+                onClear={onClearFilters}
+                activeFilterCount={activeFilterCount}
+                mobile
+              />
+            </div>
+          )}
           <div style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -879,18 +1028,10 @@ const MobileSaturdayLayout = ({
             fontSize: '0.78rem',
           }}>
             <span>
-              {selectedDirection ? `Detalle: ${selectedDirection}` : 'Toca una Dirección para ver gerencias'}
+              {selectedFilterPath.length
+                ? `Detalle: ${selectedFilterPath.join(' → ')}`
+                : 'Toca una Dirección para ver gerencias'}
             </span>
-            {selectedDirection && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={onClearDirection}
-                style={{ borderRadius: '8px', padding: '6px 9px', fontSize: '0.74rem' }}
-              >
-                Volver
-              </button>
-            )}
           </div>
           <div style={{
             display: 'grid',
@@ -909,6 +1050,7 @@ const MobileSaturdayLayout = ({
                 style={{
                   border: 'none',
                   borderRadius: '6px',
+                  minHeight: '44px',
                   padding: '8px 4px',
                   background: mobileSection === key ? 'var(--surface-raised)' : 'transparent',
                   color: mobileSection === key ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -926,7 +1068,7 @@ const MobileSaturdayLayout = ({
           rows={activeSection.rows}
           total={activeSection.total}
           type={activeSection.type}
-          onRowClick={onDirectionSelect}
+          onRowClick={onRowSelect}
         />
       </section>
 

@@ -5,6 +5,11 @@ import re
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOWNLOADS_DIR = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(BASE_DIR, "downloads"))
+INCENTIVE_LOCK_MONTHS = {"06/2026", "07/2026"}
+SALES_FILE_BY_MONTH = {
+    "06/2026": "Venta_Junio.xlsx",
+    "07/2026": "Venta_Julio.xlsx",
+}
 
 def get_path_for_file(filename: str) -> str:
     # 1. Check in DATA_DIR (runtime downloads/updates)
@@ -484,9 +489,12 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         df_month['Mesero'] = df_month['Mesero'].fillna('').astype(str).str.strip()
         df_month = df_month[df_month['Mesero'] != '']
     
-    # 3. Load sales boxes. June incentives use Venta_Junio; previous rules keep Venta_Mayo.
-    sales_file_name = "Venta_Junio.xlsx" if month_year == "06/2026" else "Venta_Mayo.xlsx"
+    # 3. Load sales boxes. June/July incentives use the 1-caja rule; previous rules keep Venta_Mayo.
+    sales_file_name = SALES_FILE_BY_MONTH.get(month_year, "Venta_Mayo.xlsx")
     sales_path = get_path_for_file(sales_file_name)
+    if month_year == "07/2026" and not os.path.exists(sales_path):
+        sales_file_name = "Venta_Junio.xlsx"
+        sales_path = get_path_for_file(sales_file_name)
     if os.path.exists(sales_path):
         df_sales = pd.read_excel(
             sales_path,
@@ -595,7 +603,7 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
 
     # Check chosen month
     is_mayo = (month_year == "05/2026")
-    uses_june_locks = (month_year == "06/2026")
+    uses_june_locks = month_year in INCENTIVE_LOCK_MONTHS
     min_redemptions = 50 if uses_june_locks else 51
     min_boxes = 1 if uses_june_locks else 2
 

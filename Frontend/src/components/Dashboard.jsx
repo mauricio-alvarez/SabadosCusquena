@@ -6,6 +6,7 @@ import ProgressView from './ProgressView';
 import RankingsView from './RankingsView';
 import OpportunityView from './OpportunityView';
 import PivotView from './PivotView';
+import InactiveClientsView from './InactiveClientsView';
 import SaturdayUpdateView from './SaturdayUpdateView';
 import CampaignView from './CampaignView';
 import VolumeView from './VolumeView';
@@ -93,6 +94,9 @@ const Dashboard = () => {
     if (path === '/actualizacion-sabado' || path === '/actualizacion-sabado/') {
       return 'saturday-update';
     }
+    if (path === '/inactivos' || path === '/inactivos/') {
+      return 'pivot';
+    }
     if (path === '/mozos' || path === '/mozos/') {
       return 'waiters';
     }
@@ -133,6 +137,10 @@ const Dashboard = () => {
       if (window.location.pathname !== '/actualizacion-sabado') {
         window.history.pushState(null, '', '/actualizacion-sabado');
       }
+    } else if (activeView === 'pivot') {
+      if (window.location.pathname !== '/inactivos') {
+        window.history.pushState(null, '', '/inactivos');
+      }
     } else if (activeView === 'waiters') {
       if (window.location.pathname !== '/mozos') {
         window.history.pushState(null, '', '/mozos');
@@ -156,6 +164,8 @@ const Dashboard = () => {
         setActiveView('pivot-sunday');
       } else if (path === '/actualizacion-sabado' || path === '/actualizacion-sabado/') {
         setActiveView('saturday-update');
+      } else if (path === '/inactivos' || path === '/inactivos/') {
+        setActiveView('pivot');
       } else if (path === '/mozos' || path === '/mozos/') {
         setActiveView('waiters');
       } else {
@@ -451,18 +461,13 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><BarChart2 size={20} /></div>
               <span className="sidebar-btn-text">Análisis General</span>
             </button>            
-            
-            <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
-              <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
-            </button>
             <button onClick={() => setActiveView('saturday-update')} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
-              <span className="sidebar-btn-text">Actualización Sábado</span>
+              <span className="sidebar-btn-text">Performance Sábado</span>
             </button>
-            <button onClick={() => setActiveView('pivot-sunday')} className={`sidebar-btn ${activeView === 'pivot-sunday' ? 'active' : ''}`}>
+            <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Domingo y Fecha Actual</span>
+              <span className="sidebar-btn-text">Detalle Inactivos</span>
             </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
@@ -502,17 +507,13 @@ const Dashboard = () => {
                 <span className="sidebar-btn-text">Análisis General</span>
               </button>             
               
+              <button onClick={() => setActiveView('saturday-update')} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
+                <span className="sidebar-btn-text">Performance Sábado</span>
+              </button>
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Sábado y Fecha Actual</span>
-              </button>
-              <button onClick={() => { setActiveView('saturday-update'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
-                <span className="sidebar-btn-text">Actualización Sábado</span>
-              </button>
-              <button onClick={() => { setActiveView('pivot-sunday'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot-sunday' ? 'active' : ''}`}>
-                <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Domingo y Fecha Actual</span>
+                <span className="sidebar-btn-text">Detalle Inactivos</span>
               </button>
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
@@ -643,7 +644,7 @@ const Dashboard = () => {
           </div>
         )}
 
-        {dashboardData && kpis && (
+        {dashboardData && (activeView !== 'general' || kpis) && (
           <div className="animate-fade-in flex flex-col flex-1 min-h-0 w-full">
             {activeView === 'general' && (
               <div className="glass-panel p-4 mb-4 flex-shrink-0" style={{ position: 'relative', zIndex: 100 }}>
@@ -734,7 +735,10 @@ const Dashboard = () => {
               <OpportunityView allClients={dashboardData.clients} />
             )}
             {activeView === 'pivot' && (
-              <PivotView allClients={operationalClients} progressData={operationalProgressData} isDatesView={false} targetDay={6} dayLabel="Sábado" />
+              <InactiveClientsView
+                allClients={operationalClients}
+                availableDates={operationalProgressData?.available_dates}
+              />
             )}
             {activeView === 'saturday-update' && (
               <SaturdayUpdateView
