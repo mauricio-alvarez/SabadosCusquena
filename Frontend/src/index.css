@@ -693,6 +693,63 @@ body {
   flex-direction: column;
 }
 
+.client-status-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--subtle-surface);
+}
+
+.client-status-switcher > button {
+  display: inline-grid;
+  grid-template-columns: auto auto auto auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.client-status-switcher > button strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.client-status-switcher > button small {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.client-status-switcher > button:first-child.active {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.client-status-switcher > button:nth-child(2).active {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.client-status-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
 .inactive-results-bar {
   display: flex;
   align-items: center;
@@ -707,6 +764,14 @@ body {
   align-items: center;
   gap: 9px;
   color: var(--cusquena-red);
+}
+
+.inactive-result-count.status-active {
+  color: var(--success);
+}
+
+.inactive-result-count.status-inactive {
+  color: var(--danger);
 }
 
 .inactive-result-count strong {
@@ -742,6 +807,22 @@ body {
 .inactive-download-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.client-download-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.client-download-actions .download-active:not(:disabled) {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.client-download-actions .download-inactive:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .inactive-table-wrap {
@@ -870,6 +951,34 @@ body {
     flex-direction: column;
   }
 
+  .client-status-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 11px 13px;
+  }
+
+  .client-status-switcher > button {
+    grid-template-columns: auto 1fr auto;
+    gap: 6px;
+    width: 100%;
+    padding: 8px;
+  }
+
+  .client-status-switcher > button span {
+    text-align: left;
+  }
+
+  .client-status-switcher > button small {
+    display: none;
+  }
+
+  .client-status-total {
+    grid-column: 1 / -1;
+    justify-content: center;
+    margin-left: 0;
+    padding-top: 3px;
+  }
+
   .inactive-saturday-status {
     justify-content: space-between;
     margin-left: 0;
@@ -880,6 +989,18 @@ body {
   .inactive-mobile-sort {
     width: 100%;
     justify-content: center;
+  }
+
+  .client-download-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .client-download-actions .inactive-download-button {
+    min-width: 0;
+    padding: 8px 5px;
+    font-size: 0.72rem;
   }
 
   .inactive-mobile-sort {

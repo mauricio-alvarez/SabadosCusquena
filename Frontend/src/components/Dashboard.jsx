@@ -533,7 +533,7 @@ const Dashboard = () => {
             </button>
             <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-              <span className="sidebar-btn-text">Detalle Inactivos</span>
+              <span className="sidebar-btn-text">Detalle Clientes</span>
             </button>
             <button onClick={() => setActiveView('campaign')} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
@@ -579,7 +579,7 @@ const Dashboard = () => {
               </button>
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
-                <span className="sidebar-btn-text">Detalle Inactivos</span>
+                <span className="sidebar-btn-text">Detalle Clientes</span>
               </button>
               <button onClick={() => { setActiveView('campaign'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'campaign' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><ShieldCheck size={20} /></div>
