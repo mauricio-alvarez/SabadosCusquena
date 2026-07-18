@@ -108,6 +108,18 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
     return sorted[base];
   }, []);
 
+  const wholeRedemptionsQ1 = useMemo(() => {
+    if (!allClients || allClients.length === 0) return 0;
+    const totals = allClients
+      .map(client => {
+        const reportedTotal = Number(client.redemptions);
+        if (Number.isFinite(reportedTotal)) return reportedTotal;
+        return Array.isArray(client.redemption_dates) ? client.redemption_dates.length : 0;
+      })
+      .filter(total => total > 0);
+    return getQ1(totals);
+  }, [allClients, getQ1]);
+
   // Precalculate Q1 threshold for each Saturday
   const saturdayQ1s = useMemo(() => {
     const q1Map = {};
@@ -285,6 +297,35 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
       noAdheridoPct: total > 0 ? ((no_adherido / total) * 100).toFixed(1) : '0.0',
     };
   }, [selectedClients, clientClassifications]);
+
+  const gaugeSummary = useMemo(() => {
+    let adherido = 0;
+    let intermitente = 0;
+
+    selectedClients.forEach(client => {
+      const reportedTotal = Number(client.redemptions);
+      const totalRedemptions = Number.isFinite(reportedTotal)
+        ? reportedTotal
+        : (Array.isArray(client.redemption_dates) ? client.redemption_dates.length : 0);
+      if (totalRedemptions <= wholeRedemptionsQ1) return;
+
+      const category = clientClassifications[client.cliente_id]?.category;
+      if (category === 'adherido') adherido++;
+      if (category === 'intermitente') intermitente++;
+    });
+
+    const total = selectedClients.length;
+    const adheridoPct = total > 0 ? (adherido / total) * 100 : 0;
+    const intermitentePct = total > 0 ? (intermitente / total) * 100 : 0;
+    const qualifiedPct = adheridoPct + intermitentePct;
+
+    return {
+      adheridoPct,
+      intermitentePct,
+      qualifiedPct,
+      remainderPct: Math.max(0, 100 - qualifiedPct),
+    };
+  }, [selectedClients, clientClassifications, wholeRedemptionsQ1]);
 
   // selectedClients is now defined earlier (after clientClassifications) for cross-filtering
 
@@ -509,7 +550,7 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
     const radius = 65;
     const strokeWidth = 12;
     const circumference = Math.PI * radius; // Half circle
-    const pct = parseFloat(summary.adheridoPct) + parseFloat(summary.intermitentePct);
+    const pct = gaugeSummary.qualifiedPct;
     const percentage = pct;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
     const gaugeColor = getAdherenceColor(percentage);
@@ -544,11 +585,16 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
             </linearGradient>
           </defs>
           <text x="80" y="68" textAnchor="middle" fill={gaugeColor} fontSize="18" fontWeight="bold">
-            {pct}%
+            {pct.toFixed(1)}%
           </text>
         </svg>
         <div className="text-center mt-1">
-          <span className="text-gold font-bold uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>Clientes Redimiendo <p/>más de 11 unidades</span>
+          <span className="text-gold font-bold uppercase" style={{ display: 'block', fontSize: '0.65rem', letterSpacing: '0.05em', lineHeight: 1.2 }}>
+            Adh. + Int. sobre Q1
+          </span>
+          <span className="text-secondary" style={{ display: 'block', fontSize: '0.58rem', marginTop: '3px', lineHeight: 1.2 }}>
+            Q1 global: &gt;{wholeRedemptionsQ1.toLocaleString('es-PE', { maximumFractionDigits: 1 })} canjes
+          </span>
         </div>
         <div style={{
           display: 'flex',
@@ -562,19 +608,19 @@ const CampaignView = ({ allClients, progressData, marchaBlanca = false }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
             <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 'bold' }}>
-              Adh: {Math.round(summary.adheridoPct)}%
+              Adh: {gaugeSummary.adheridoPct.toFixed(1)}%
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
             <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 'bold' }}>
-              Int: {Math.round(summary.intermitentePct)}%
+              Int: {gaugeSummary.intermitentePct.toFixed(1)}%
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
             <span style={{ fontSize: '0.55rem', color: '#9ca3af', fontWeight: 'bold' }}>
-              No Adh: {Math.round(summary.noAdheridoPct)}%
+              Resto: {gaugeSummary.remainderPct.toFixed(1)}%
             </span>
           </div>
         </div>

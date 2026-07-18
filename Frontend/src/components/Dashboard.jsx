@@ -321,43 +321,109 @@ const Dashboard = () => {
   const kpis = useMemo(() => {
     if (filteredClients.length === 0) return null;
 
+    const saturdayDates = sortDateKeys(dashboardData?.progress_data?.available_dates || [])
+      .filter(dateStr => {
+        const [day, month, year] = normalizeDateKey(dateStr).split('/').map(Number);
+        return new Date(year, month - 1, day).getDay() === 6;
+      });
+    const evaluationDates = saturdayDates.slice(-4);
+    const previousDates = evaluationDates.slice(0, Math.max(0, evaluationDates.length - 2));
+    const recentDates = evaluationDates.slice(-2);
+    const recentDateSet = new Set(recentDates.map(normalizeDateKey));
+    const previousDateSet = new Set(previousDates.map(normalizeDateKey));
+
+    const countDates = (client, dateSet) => {
+      if (!Array.isArray(client.redemption_dates) || dateSet.size === 0) return 0;
+      return client.redemption_dates.reduce(
+        (totalCount, dateStr) => totalCount + (dateSet.has(normalizeDateKey(dateStr)) ? 1 : 0),
+        0
+      );
+    };
+
+    const countPerDate = (client, dates) => dates.map(dateStr => {
+      const targetDate = normalizeDateKey(dateStr);
+      if (!Array.isArray(client.redemption_dates)) return 0;
+      return client.redemption_dates.filter(dateStrValue => normalizeDateKey(dateStrValue) === targetDate).length;
+    });
+
+    const percentageChange = (current, previous) => {
+      if (previous > 0) return ((current - previous) / previous) * 100;
+      return current > 0 ? 100 : 0;
+    };
+
+    const percentile = (values, percentileValue) => {
+      if (values.length === 0) return 0;
+      const sorted = [...values].sort((a, b) => a - b);
+      const position = (sorted.length - 1) * percentileValue;
+      const lower = Math.floor(position);
+      const upper = Math.ceil(position);
+      if (lower === upper) return sorted[lower];
+      return sorted[lower] + ((sorted[upper] - sorted[lower]) * (position - lower));
+    };
+
     const total = filteredClients.length;
-    const active = filteredClients.filter(c => c.redemptions > 0);
-    const clientTotalRedemptions = filteredClients.reduce((acc, c) => acc + c.redemptions, 0);
-    const hasHierarchyFilters = Object.values(filters).some(value => value !== 'All');
-    const hasDateFilter = !useAllTimeData && dateRange?.from && dateRange?.to;
-    const useRawReportTotal = !hasHierarchyFilters && !hasDateFilter;
-    const totalRedemptions = useRawReportTotal
-      ? dashboardData?.kpis?.total_redemptions ?? clientTotalRedemptions
-      : clientTotalRedemptions;
-    const avg = active.length > 0 ? (clientTotalRedemptions / active.length).toFixed(2) : 0;
+    const active = recentDates.length === 2
+      ? filteredClients.filter(client => countPerDate(client, recentDates).every(count => count >= 1))
+      : [];
+    const previousActive = previousDates.length === 2
+      ? filteredClients.filter(client => countPerDate(client, previousDates).every(count => count >= 1))
+      : [];
 
-    const sortedReds = active.map(c => c.redemptions).sort((a, b) => a - b);
-    let median = 0;
-    let q1 = 0;
-    let lowPerformers = 0;
+    const totalRedemptions = filteredClients.reduce((sum, client) => sum + Number(client.redemptions || 0), 0);
+    const activeRedemptions = active.reduce((sum, client) => sum + countDates(client, recentDateSet), 0);
+    const activePreviousRedemptions = active.reduce((sum, client) => sum + countDates(client, previousDateSet), 0);
+    const avg = active.length > 0 ? activeRedemptions / active.length : 0;
+    const previousAvg = active.length > 0 ? activePreviousRedemptions / active.length : 0;
 
-    if (sortedReds.length > 0) {
-      const mid = Math.floor(sortedReds.length / 2);
-      median = sortedReds.length % 2 !== 0 ? sortedReds[mid] : (sortedReds[mid - 1] + sortedReds[mid]) / 2;
+    const clientChanges = active.map(client => {
+      const recentTotal = countDates(client, recentDateSet);
+      const previousTotal = countDates(client, previousDateSet);
+      return {
+        client,
+        changePct: percentageChange(recentTotal, previousTotal),
+      };
+    });
+    const q1Change = percentile(clientChanges.map(item => item.changePct), 0.25);
+    const lowPerformers = clientChanges.filter(item => item.changePct <= q1Change).length;
 
-      const q1Idx = Math.floor(sortedReds.length * 0.25);
-      q1 = sortedReds[q1Idx];
-      lowPerformers = active.filter(c => c.redemptions <= q1).length;
-    }
+    const directionTotals = {};
+    filteredClients.forEach(client => {
+      const direction = client.direccion || 'Sin Dirección';
+      directionTotals[direction] = (directionTotals[direction] || 0) + Number(client.redemptions || 0);
+    });
+    const directionShares = Object.entries(directionTotals)
+      .map(([direction, redemptions]) => ({
+        direction,
+        redemptions,
+        percentage: totalRedemptions > 0 ? (redemptions / totalRedemptions) * 100 : 0,
+      }))
+      .sort((a, b) => b.redemptions - a.redemptions);
+
+    const activeDelta = active.length - previousActive.length;
+    const avgDelta = avg - previousAvg;
 
     return {
       total,
       active: active.length,
       inactive: total - active.length,
       totalRedemptions,
-      avg,
-      median,
-      q1,
+      directionShares,
+      avg: avg.toFixed(2),
+      previousAvg: previousAvg.toFixed(2),
+      avgDelta,
+      avgDeltaPct: percentageChange(avg, previousAvg),
+      q1Change,
       activeRate: total > 0 ? ((active.length / total) * 100).toFixed(1) : '0.0',
+      inactiveRate: total > 0 ? (((total - active.length) / total) * 100).toFixed(1) : '0.0',
+      previousActive: previousActive.length,
+      activeDelta,
+      activeDeltaPct: percentageChange(active.length, previousActive.length),
       lowPerformers,
+      lowPerformerRate: active.length > 0 ? ((lowPerformers / active.length) * 100).toFixed(1) : '0.0',
+      recentDates,
+      previousDates,
     };
-  }, [filteredClients, dashboardData, filters, useAllTimeData, dateRange]);
+  }, [filteredClients, dashboardData]);
   const chartConfig = useMemo(() => {
     let barKey = 'direccion';
     let donutKey = 'gerencia';

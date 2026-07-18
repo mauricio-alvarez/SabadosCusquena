@@ -237,7 +237,9 @@ const EligibilityRewardsPanel = ({
     {
       icon: ShoppingCart,
       title: 'Compra de 1 caja',
-      subtitle: 'Compra mínima registrada',
+      subtitle: kpis.sales_file_found
+        ? `Fuente: ${kpis.sales_source_file}`
+        : `${kpis.sales_source_file || 'Archivo de ventas'} no encontrado · ningún cliente cumple`,
       okCount: kpis.lock_boxes_ok || 0,
       missingRows: missingBoxClients,
       filename: 'clientes_faltan_1_caja.xlsx',

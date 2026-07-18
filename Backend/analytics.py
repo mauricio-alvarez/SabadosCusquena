@@ -492,10 +492,8 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
     # 3. Load sales boxes. June/July incentives use the 1-caja rule; previous rules keep Venta_Mayo.
     sales_file_name = SALES_FILE_BY_MONTH.get(month_year, "Venta_Mayo.xlsx")
     sales_path = get_path_for_file(sales_file_name)
-    if month_year == "07/2026" and not os.path.exists(sales_path):
-        sales_file_name = "Venta_Junio.xlsx"
-        sales_path = get_path_for_file(sales_file_name)
-    if os.path.exists(sales_path):
+    sales_file_found = os.path.exists(sales_path)
+    if sales_file_found:
         df_sales = pd.read_excel(
             sales_path,
             usecols=lambda col: str(col).strip() in {'codigo', 'CAJAS'}
@@ -625,12 +623,12 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
 
         if uses_june_locks:
             red_ok = reds >= min_redemptions
-            cajas_ok = cajas >= min_boxes
+            cajas_ok = sales_file_found and cajas >= min_boxes
             weekly_ok = bool(required_weekends) and len(missing_weekends) == 0
             eligible = red_ok and cajas_ok and weekly_ok
         else:
             red_ok = reds >= min_redemptions
-            cajas_ok = cajas >= min_boxes
+            cajas_ok = sales_file_found and cajas >= min_boxes
             weekly_ok = True
             eligible = red_ok and cajas_ok
 
@@ -719,7 +717,9 @@ def get_waiter_rankings(dynamic_file_path: str, month_year: str = None):
         'weeks_required': required_weekends,
         'weekends_required_count': len(required_weekends),
         'weekends_required': required_weekends,
-        'uses_june_locks': uses_june_locks
+        'uses_june_locks': uses_june_locks,
+        'sales_source_file': sales_file_name,
+        'sales_file_found': sales_file_found,
     }
 
     if not df_month.empty and eligible_set:

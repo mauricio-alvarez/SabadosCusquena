@@ -400,6 +400,71 @@ body {
   margin-top: 0.75rem;
 }
 
+.general-kpi-card {
+  min-width: 0;
+}
+
+.direction-share-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--glass-border);
+}
+
+.direction-share-row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, 1fr) minmax(3rem, 0.85fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.7rem;
+}
+
+.direction-share-row > span {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.direction-share-row strong {
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.direction-share-track {
+  height: 0.35rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.direction-share-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cusquena-gold);
+}
+
+.metric-comparison {
+  margin-top: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.clients-summary-card .metric-note {
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.clients-summary-card .client-label {
+  line-height: 1.25;
+  white-space: normal;
+}
+
 .clients-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;

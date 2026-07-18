@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Clock, Flag, Package, RefreshCcw, SlidersHorizontal, Star, User, Users } from 'lucide-react';
 
 const DETAIL_FILTER_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
+const ACTIVE_REDEMPTION_THRESHOLD = 5;
 
 const DETAIL_FILTER_LABELS = {
   direccion: 'Dirección',
@@ -160,9 +161,9 @@ function computeMetrics(clients, latestSaturday, prevSaturday, latestHourLimit) 
       }
     });
 
-    if (clientCurrentCount > 0) activeOnLatest++;
-    if (clientPrevCount > 0) activeOnPrev++;
-    if (clientPrevCountSameHour > 0) activeOnPrevSameHour++;
+    if (clientCurrentCount > ACTIVE_REDEMPTION_THRESHOLD) activeOnLatest++;
+    if (clientPrevCount > ACTIVE_REDEMPTION_THRESHOLD) activeOnPrev++;
+    if (clientPrevCountSameHour > ACTIVE_REDEMPTION_THRESHOLD) activeOnPrevSameHour++;
   });
 
   const active = activeOnLatest;
@@ -493,7 +494,7 @@ const SaturdayUpdateView = ({ allClients = [], progressData, onRefresh, refreshi
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
         <SummaryCard
           icon={Users}
-          title="CLIENTES ACTIVOS"
+          title="CLIENTES ACTIVOS (>5 CANJES)"
           value={`${formatNumber(totals.active)}/${formatNumber(totals.total)}`}
           sameHourDelta={totals.vsSabActiveDeltaSameHour}
           sameHourPct={totals.vsSabActivePctSameHour}
@@ -942,7 +943,7 @@ const MobileSaturdayLayout = ({
           icon={Users}
           title="Clientes activos"
           value={`${formatNumber(totals.active)}/${formatNumber(totals.total)}`}
-          helper={`${formatPercent(totals.activePct)} de la base`}
+          helper={`${formatPercent(totals.activePct)} de la base · más de 5 canjes`}
           sameHourDelta={totals.vsSabActiveDeltaSameHour}
           sameHourPct={totals.vsSabActivePctSameHour}
           closeDelta={totals.vsSabActiveDelta}
@@ -1241,7 +1242,7 @@ const MobileProgressBar = ({ value }) => (
   </div>
 );
 
-const ClientsTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'CLIENTES', onRowClick }) => (
+const ClientsTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'CLIENTES (>5 CANJES = ACTIVO)', onRowClick }) => (
   <TableCard icon={Users} title={title}>
     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px', tableLayout: 'fixed' }}>
       <thead>
