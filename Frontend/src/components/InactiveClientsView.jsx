@@ -153,8 +153,9 @@ const InactiveClientsView = ({ allClients = [], availableDates = [] }) => {
   }, [allClients, filters, latestSaturday, searchTerm]);
 
   const hasFilters = searchTerm.trim() || FILTER_KEYS.some(key => filters[key] !== 'All');
-  const inactivePercentage = filteredActiveCount > 0
-    ? ((filteredClients.length / filteredActiveCount) * 100).toFixed(1)
+  const filteredTotalCount = filteredClients.length + filteredActiveCount;
+  const inactivePercentage = filteredTotalCount > 0
+    ? ((filteredClients.length / filteredTotalCount) * 100).toFixed(1)
     : '0.0';
 
   const toggleHistoricalSort = () => {
@@ -259,7 +260,7 @@ const InactiveClientsView = ({ allClients = [], availableDates = [] }) => {
             <UserX size={19} aria-hidden="true" />
             <div>
               <strong>
-                {filteredClients.length.toLocaleString('es-PE')}/{filteredActiveCount.toLocaleString('es-PE')}
+                {filteredClients.length.toLocaleString('es-PE')}/{filteredTotalCount.toLocaleString('es-PE')}
               </strong>
               <span> clientes sin redimir ({inactivePercentage}%)</span>
             </div>

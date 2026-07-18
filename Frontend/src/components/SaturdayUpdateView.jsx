@@ -1242,7 +1242,7 @@ const MobileProgressBar = ({ value }) => (
   </div>
 );
 
-const ClientsTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'CLIENTES (>5 CANJES = ACTIVO)', onRowClick }) => (
+const ClientsTable = ({ rows, total, groupLabel = 'DIRECCIÓN', title = 'CLIENTES ACTIVOS MÁS DE 5 CANJES', onRowClick }) => (
   <TableCard icon={Users} title={title}>
     <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px', tableLayout: 'fixed' }}>
       <thead>
