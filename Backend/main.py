@@ -198,6 +198,16 @@ def compare_dates(request: ComparisonRequest):
 def get_latest_report():
     return _latest_report()
 
+@app.get("/api/latest-report/download", response_class=FileResponse)
+def download_latest_report(username: str = Depends(authenticate_user)):
+    report = _latest_report()
+    return FileResponse(
+        path=report["file_path"],
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=report["file_name"],
+        headers={"Cache-Control": "no-store"},
+    )
+
 @app.post("/api/refresh-report")
 def refresh_report():
     """try:
