@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon, CalendarDays } from 'lucide-react';
+import { RefreshCcw, Filter, Menu, BarChart2, AlertCircle, TableProperties, ShieldCheck, Award, TrendingUp, Sun, Moon, CalendarDays, Flag } from 'lucide-react';
 import { parse, isWithinInterval } from 'date-fns';
 import GeneralView from './GeneralView';
 import ProgressView from './ProgressView';
@@ -12,6 +12,7 @@ import CampaignView from './CampaignView';
 import VolumeView from './VolumeView';
 import WaitersView from './WaitersView';
 import VentasView from './VentasView';
+import FiestasPatriasView from './FiestasPatriasView';
 import DateRangePicker from './DateRangePicker';
 
 
@@ -94,6 +95,9 @@ const Dashboard = () => {
     if (path === '/actualizacion-sabado' || path === '/actualizacion-sabado/') {
       return 'saturday-update';
     }
+    if (path === '/fiestas-patrias' || path === '/fiestas-patrias/') {
+      return 'fiestas-patrias';
+    }
     if (path === '/inactivos' || path === '/inactivos/') {
       return 'pivot';
     }
@@ -110,6 +114,8 @@ const Dashboard = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem('dashboard_theme') || 'light');
   const isDarkTheme = theme === 'dark';
   const isSaturdayUpdateView = activeView === 'saturday-update';
+  const isFiestasPatriasView = activeView === 'fiestas-patrias';
+  const isImmersiveView = isSaturdayUpdateView || isFiestasPatriasView;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -136,6 +142,10 @@ const Dashboard = () => {
     } else if (activeView === 'saturday-update') {
       if (window.location.pathname !== '/actualizacion-sabado') {
         window.history.pushState(null, '', '/actualizacion-sabado');
+      }
+    } else if (activeView === 'fiestas-patrias') {
+      if (window.location.pathname !== '/fiestas-patrias') {
+        window.history.pushState(null, '', '/fiestas-patrias');
       }
     } else if (activeView === 'pivot') {
       if (window.location.pathname !== '/inactivos') {
@@ -164,6 +174,8 @@ const Dashboard = () => {
         setActiveView('pivot-sunday');
       } else if (path === '/actualizacion-sabado' || path === '/actualizacion-sabado/') {
         setActiveView('saturday-update');
+      } else if (path === '/fiestas-patrias' || path === '/fiestas-patrias/') {
+        setActiveView('fiestas-patrias');
       } else if (path === '/inactivos' || path === '/inactivos/') {
         setActiveView('pivot');
       } else if (path === '/mozos' || path === '/mozos/') {
@@ -531,6 +543,10 @@ const Dashboard = () => {
               <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
               <span className="sidebar-btn-text">Performance Sábado</span>
             </button>
+            <button onClick={() => setActiveView('fiestas-patrias')} className={`sidebar-btn ${activeView === 'fiestas-patrias' ? 'active' : ''}`}>
+              <div className="sidebar-btn-icon"><Flag size={20} /></div>
+              <span className="sidebar-btn-text">Fiestas Patrias</span>
+            </button>
             <button onClick={() => setActiveView('pivot')} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
               <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
               <span className="sidebar-btn-text">Detalle Clientes</span>
@@ -573,9 +589,13 @@ const Dashboard = () => {
                 <span className="sidebar-btn-text">Análisis General</span>
               </button>             
               
-              <button onClick={() => setActiveView('saturday-update')} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
+              <button onClick={() => { setActiveView('saturday-update'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'saturday-update' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><CalendarDays size={20} /></div>
                 <span className="sidebar-btn-text">Performance Sábado</span>
+              </button>
+              <button onClick={() => { setActiveView('fiestas-patrias'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'fiestas-patrias' ? 'active' : ''}`}>
+                <div className="sidebar-btn-icon"><Flag size={20} /></div>
+                <span className="sidebar-btn-text">Fiestas Patrias</span>
               </button>
               <button onClick={() => { setActiveView('pivot'); setShowSideMenu(false); }} className={`sidebar-btn ${activeView === 'pivot' ? 'active' : ''}`}>
                 <div className="sidebar-btn-icon"><TableProperties size={20} /></div>
@@ -613,10 +633,10 @@ const Dashboard = () => {
         className="main-content"
         style={{
           overflowY: (activeView === 'opportunity' && !isMobile) ? 'hidden' : 'auto',
-          padding: isSaturdayUpdateView && isMobile ? '0.5rem' : undefined,
+          padding: isImmersiveView && isMobile ? '0.5rem' : undefined,
         }}
       >
-        {!isSaturdayUpdateView && (
+        {!isImmersiveView && (
         <header className="dashboard-header flex justify-between items-center flex-wrap gap-4 mb-2 pb-2 border-b border-opacity-20 border-gold flex-shrink-0" style={{ borderBottom: '1px solid rgba(207, 160, 82, 0.2)' }}>
           <div className="flex items-center gap-4">
             {isMobile && (
@@ -671,7 +691,7 @@ const Dashboard = () => {
         </header>
         )}
 
-        {isSaturdayUpdateView && isMobile && (
+        {isImmersiveView && isMobile && (
           <div className="flex justify-between items-center mb-2">
             <button
               className="btn-secondary flex items-center justify-center"
@@ -810,6 +830,13 @@ const Dashboard = () => {
               <SaturdayUpdateView
                 allClients={operationalClients}
                 progressData={operationalProgressData}
+                onRefresh={handleRefresh}
+                refreshing={refreshing || loadingData}
+              />
+            )}
+            {activeView === 'fiestas-patrias' && (
+              <FiestasPatriasView
+                allClients={operationalClients}
                 onRefresh={handleRefresh}
                 refreshing={refreshing || loadingData}
               />

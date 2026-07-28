@@ -2146,3 +2146,649 @@ body {
     gap: 2px;
   }
 }
+
+/* Fiestas Patrias — focused performance view for July 28 and 29 */
+.fiestas-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  padding-bottom: 24px;
+}
+
+.fiestas-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 24px;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, var(--danger-soft), transparent 38%),
+    linear-gradient(300deg, var(--warning-soft), transparent 42%),
+    var(--surface-raised);
+  box-shadow: 0 10px 30px var(--panel-shadow);
+}
+
+.fiestas-hero-title,
+.fiestas-hero-actions,
+.fiestas-day-switcher,
+.fiestas-filter-heading,
+.fiestas-performance-header {
+  display: flex;
+  align-items: center;
+}
+
+.fiestas-hero-title {
+  gap: 14px;
+  min-width: 0;
+}
+
+.fiestas-flag-icon,
+.fiestas-kpi-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--cusquena-red);
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--cusquena-red) 22%, transparent);
+}
+
+.fiestas-flag-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+
+.fiestas-hero-title span,
+.fiestas-filter-heading span,
+.fiestas-performance-header span {
+  color: var(--cusquena-gold-dark);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.fiestas-hero-title h2 {
+  margin: 3px 0 2px;
+  color: var(--text-primary);
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  line-height: 1.1;
+}
+
+.fiestas-hero-title p {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.fiestas-hero-actions {
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.fiestas-day-switcher {
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--glass-border);
+  border-radius: 13px;
+  background: var(--subtle-surface);
+}
+
+.fiestas-day-switcher button {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0 7px;
+  min-width: 112px;
+  padding: 8px 11px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+.fiestas-day-switcher button:hover {
+  background: var(--subtle-surface-hover);
+}
+
+.fiestas-day-switcher button.active {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  border-color: var(--glass-border);
+  box-shadow: 0 3px 12px var(--panel-shadow);
+}
+
+.fiestas-day-switcher button.active svg {
+  color: var(--cusquena-red);
+}
+
+.fiestas-day-switcher button span {
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.fiestas-day-switcher button small {
+  grid-column: 1 / -1;
+  padding-left: 22px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  text-align: left;
+}
+
+.fiestas-refresh {
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+.fiestas-spin {
+  animation: fiestas-spin 0.9s linear infinite;
+}
+
+@keyframes fiestas-spin {
+  to { transform: rotate(360deg); }
+}
+
+.fiestas-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 24%, transparent);
+  border-radius: 11px;
+}
+
+.fiestas-status svg {
+  flex: 0 0 auto;
+  color: var(--warning);
+}
+
+.fiestas-status.comparison {
+  background: var(--info-soft);
+  border-color: color-mix(in srgb, var(--info) 24%, transparent);
+}
+
+.fiestas-status.comparison svg {
+  color: var(--info);
+}
+
+.fiestas-filters {
+  padding: 16px;
+}
+
+.fiestas-filter-heading {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.fiestas-filter-heading > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fiestas-filter-heading strong {
+  color: var(--text-primary);
+  font-size: 0.86rem;
+}
+
+.fiestas-filter-heading .btn-secondary {
+  padding: 7px 12px;
+  font-size: 0.76rem;
+}
+
+.fiestas-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fiestas-filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fiestas-filter-grid label > span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.fiestas-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fiestas-kpi-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 112px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.fiestas-kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+.fiestas-kpi-card:nth-child(2) .fiestas-kpi-icon {
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-color: color-mix(in srgb, var(--warning) 22%, transparent);
+}
+
+.fiestas-kpi-card:nth-child(3) .fiestas-kpi-icon {
+  color: var(--info);
+  background: var(--info-soft);
+  border-color: color-mix(in srgb, var(--info) 22%, transparent);
+}
+
+.fiestas-kpi-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.fiestas-kpi-copy > span {
+  color: var(--text-secondary);
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+.fiestas-kpi-copy > strong {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 1.65rem;
+  line-height: 1.1;
+}
+
+.fiestas-kpi-copy p {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.fiestas-kpi-card > .fiestas-delta {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+}
+
+.fiestas-delta {
+  display: block;
+  width: max-content;
+  margin: 4px auto 0;
+  padding: 2px 6px;
+  font-size: 0.62rem;
+  font-weight: 850;
+  line-height: 1.25;
+  border-radius: 999px;
+}
+
+.fiestas-delta.positive {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.fiestas-delta.negative {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.fiestas-delta.neutral {
+  color: var(--text-muted);
+  background: var(--subtle-surface);
+}
+
+.fiestas-empty-state {
+  display: flex;
+  min-height: 145px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 20px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.fiestas-empty-state svg {
+  color: var(--text-muted);
+}
+
+.fiestas-empty-state strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.fiestas-empty-state p {
+  font-size: 0.75rem;
+}
+
+.fiestas-desktop-performance {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+  gap: 14px;
+}
+
+.fiestas-mobile-performance {
+  display: none;
+}
+
+.fiestas-drilldown-heading {
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--glass-border);
+  border-radius: 11px;
+  box-shadow: 0 6px 18px var(--panel-shadow);
+}
+
+.fiestas-drilldown-heading .fiestas-performance-header {
+  border-bottom: none;
+}
+
+.fiestas-drilldown-heading .fiestas-performance-header small {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fiestas-performance-panel {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.fiestas-performance-header {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.fiestas-performance-header h3 {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+}
+
+.fiestas-performance-header small {
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.fiestas-table-wrap {
+  max-height: 330px;
+  overflow: auto;
+}
+
+.fiestas-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.fiestas-table th,
+.fiestas-table td {
+  padding: 10px 9px;
+  border-bottom: 1px solid var(--subtle-surface-hover);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.fiestas-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--text-secondary);
+  background: var(--table-header-bg);
+  font-size: 0.65rem;
+  font-weight: 850;
+}
+
+.fiestas-table th:first-child,
+.fiestas-table td:first-child {
+  width: 46%;
+  text-align: left;
+}
+
+.fiestas-table td {
+  color: var(--text-primary);
+  font-size: 0.72rem;
+}
+
+.fiestas-table td:first-child {
+  overflow: hidden;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fiestas-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.fiestas-table tbody tr:hover {
+  background: var(--table-row-hover);
+}
+
+.fiestas-table tbody tr.selected {
+  background: var(--warning-soft);
+}
+
+.fiestas-table tbody tr.fiestas-total-row {
+  cursor: default;
+  background: var(--total-row-bg);
+}
+
+.fiestas-table tbody tr.fiestas-total-row td {
+  font-weight: 800;
+}
+
+.fiestas-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.fiestas-empty-cell {
+  height: 88px;
+  color: var(--text-muted) !important;
+  text-align: center !important;
+}
+
+.fiestas-metric-switcher {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin: 12px 13px;
+  padding: 4px;
+  background: var(--surface-muted);
+  border: 1px solid var(--glass-border);
+  border-radius: 9px;
+}
+
+.fiestas-metric-switcher button {
+  min-height: 42px;
+  padding: 7px 4px;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.fiestas-metric-switcher button.active {
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  box-shadow: 0 2px 8px var(--panel-shadow);
+}
+
+.fiestas-mobile-list {
+  border-top: 1px solid var(--glass-border);
+}
+
+.fiestas-mobile-row {
+  display: flex;
+  width: 100%;
+  min-height: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  color: var(--text-primary);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--subtle-surface-hover);
+}
+
+button.fiestas-mobile-row {
+  cursor: pointer;
+}
+
+button.fiestas-mobile-row:hover {
+  background: var(--table-row-hover);
+}
+
+.fiestas-mobile-row.selected {
+  background: var(--warning-soft);
+}
+
+.fiestas-mobile-row.total {
+  background: var(--total-row-bg);
+}
+
+.fiestas-mobile-row > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fiestas-mobile-row > div:first-child strong {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fiestas-mobile-row > div:first-child span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.fiestas-mobile-result {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.fiestas-mobile-result > strong {
+  font-size: 1.15rem;
+}
+
+.fiestas-mobile-result .fiestas-delta {
+  margin-right: 0;
+}
+
+.fiestas-mobile-empty {
+  padding: 26px 14px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .fiestas-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fiestas-hero-actions {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 900px) {
+  .fiestas-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fiestas-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .fiestas-desktop-performance {
+    display: none;
+  }
+
+  .fiestas-mobile-performance {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .fiestas-drilldown-heading .fiestas-performance-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fiestas-drilldown-heading .fiestas-performance-header small {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .fiestas-view {
+    gap: 12px;
+  }
+
+  .fiestas-hero {
+    padding: 17px 15px;
+  }
+
+  .fiestas-hero-actions,
+  .fiestas-filter-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fiestas-day-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fiestas-day-switcher button {
+    min-width: 0;
+  }
+
+  .fiestas-refresh {
+    width: 100%;
+  }
+
+  .fiestas-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
