@@ -1,7 +1,7 @@
 import os
 import re
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -16,6 +16,7 @@ DOWNLOAD_DIR = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER"
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 REPORT_MAX_AGE_MINUTES = 20
+REPORT_REFRESH_TIMEOUT_SECONDS = 240
 REPORT_NAME_RE = re.compile(r"canjes-institucion_(\d{2}-\d{2}-\d{4})_(\d{2}-\d{2}-\d{2})\.xlsx$", re.IGNORECASE)
 
 cors_origins = [
@@ -209,22 +210,18 @@ def download_latest_report(username: str = Depends(authenticate_user)):
     )
 
 @app.post("/api/refresh-report")
-def refresh_report():
-    """try:
-        latest_report = _latest_report()
-        if latest_report["is_recent"]:
-            return {
-                "status": "success",
-                "source": "recent",
-                "message": "Loaded the most recent report.",
-                **latest_report,
-            }
-    except HTTPException as error:
-        if error.status_code != 404:
-            raise"""
-
+def refresh_report(
+    timeout_seconds: int = Query(
+        REPORT_REFRESH_TIMEOUT_SECONDS,
+        ge=30,
+        le=900,
+        description="Maximum time to wait for the Excel download.",
+    ),
+):
     try:
-        file_path = login.run_report_extraction()
+        file_path = login.run_report_extraction(
+            download_timeout_seconds=timeout_seconds
+        )
         if file_path and os.path.exists(file_path):
             return {
                 "status": "success",
@@ -232,7 +229,15 @@ def refresh_report():
                 "message": "Downloaded a fresh report.",
                 **_report_payload(file_path),
             }
-        raise HTTPException(status_code=500, detail="Failed to download report or timeout occurred.")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=(
+                "The report download did not finish within "
+                f"{timeout_seconds} seconds."
+            ),
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

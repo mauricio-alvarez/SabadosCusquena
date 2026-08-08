@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, Flag, RefreshCcw, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, CalendarDays, Flag, RefreshCcw, TrendingUp, Users } from 'lucide-react';
 
 const FILTER_KEYS = ['direccion', 'gerencia', 'supervisor', 'BDR'];
 const FILTER_LABELS = {
@@ -108,6 +108,18 @@ const buildGroupRows = (clients, groupKey, currentDate, comparisonDate) => {
 
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-PE');
 const formatAverage = (value) => Number(value || 0).toFixed(1);
+const formatSignedNumber = (value) => {
+  const numeric = Number(value || 0);
+  return `${numeric > 0 ? '+' : ''}${formatNumber(numeric)}`;
+};
+const formatSignedPercent = (value) => {
+  if (value === null || value === undefined) return '—';
+  const numeric = Number(value || 0);
+  return `${numeric > 0 ? '+' : ''}${(numeric * 100).toFixed(1)}%`;
+};
+const getDeltaClass = (value) => (
+  value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral'
+);
 
 const Delta = ({ current, previous, decimals = 0 }) => {
   const delta = Number(current || 0) - Number(previous || 0);
@@ -222,6 +234,114 @@ const MetricTable = ({
   );
 };
 
+const DirectionSummary = ({ rows, day28Total, day29Total }) => {
+  const total28 = day28Total.totalRedemptions;
+  const total29 = day29Total.totalRedemptions;
+  const totalBothDays = total28 + total29;
+  const totalDelta = total29 - total28;
+  const totalDeltaPct = total28 > 0 ? totalDelta / total28 : null;
+  const leadingDirection = rows[0] || null;
+  const topGrowth = rows.filter((row) => row.delta > 0).reduce((best, row) => (
+    !best || row.delta > best.delta ? row : best
+  ), null);
+  const largestDecline = rows.filter((row) => row.delta < 0).reduce((worst, row) => (
+    !worst || row.delta < worst.delta ? row : worst
+  ), null);
+  const leadingShare = leadingDirection && totalBothDays > 0
+    ? leadingDirection.total / totalBothDays
+    : 0;
+
+  return (
+    <section className="glass-panel fiestas-summary-panel">
+      <div className="fiestas-summary-heading">
+        <div>
+          <span>Resumen ejecutivo</span>
+          <h3>28 y 29 de julio por Dirección</h3>
+        </div>
+        <div className="fiestas-summary-total">
+          <span>Total dos días</span>
+          <strong>{formatNumber(totalBothDays)}</strong>
+          <small>canjes</small>
+        </div>
+      </div>
+
+      <div className="fiestas-summary-table-wrap">
+        <table className="fiestas-summary-table">
+          <thead>
+            <tr>
+              <th>Dirección</th>
+              <th>28 Jul</th>
+              <th>29 Jul</th>
+              <th>Δ Canjes</th>
+              <th>Δ %</th>
+              <th>Total por Dirección</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="fiestas-summary-empty">Sin canjes para los filtros seleccionados.</td>
+              </tr>
+            ) : rows.map((row) => (
+              <tr key={row.name}>
+                <td title={row.name}>{row.name}</td>
+                <td>
+                  <strong>{formatNumber(row.day28.totalRedemptions)}</strong>
+                  <small>{formatNumber(row.day28.activeClients)} activos</small>
+                </td>
+                <td>
+                  <strong>{formatNumber(row.day29.totalRedemptions)}</strong>
+                  <small>{formatNumber(row.day29.activeClients)} activos</small>
+                </td>
+                <td><span className={`fiestas-summary-change ${getDeltaClass(row.delta)}`}>{formatSignedNumber(row.delta)}</span></td>
+                <td><span className={`fiestas-summary-change ${getDeltaClass(row.deltaPct)}`}>{formatSignedPercent(row.deltaPct)}</span></td>
+                <td><strong>{formatNumber(row.total)}</strong></td>
+              </tr>
+            ))}
+            <tr className="fiestas-summary-grand-total">
+              <td>TOTAL</td>
+              <td>
+                <strong>{formatNumber(total28)}</strong>
+                <small>{formatNumber(day28Total.activeClients)} activos</small>
+              </td>
+              <td>
+                <strong>{formatNumber(total29)}</strong>
+                <small>{formatNumber(day29Total.activeClients)} activos</small>
+              </td>
+              <td><strong>{formatSignedNumber(totalDelta)}</strong></td>
+              <td><strong>{formatSignedPercent(totalDeltaPct)}</strong></td>
+              <td><strong>{formatNumber(totalBothDays)}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {rows.length > 0 && (
+        <div className="fiestas-summary-insights">
+          <article className={getDeltaClass(totalDelta)}>
+            <span>Resultado general</span>
+            <strong>{formatSignedPercent(totalDeltaPct)} el 29 vs. el 28</strong>
+            <p>{formatSignedNumber(totalDelta)} canjes y {formatSignedNumber(day29Total.activeClients - day28Total.activeClients)} clientes activos.</p>
+          </article>
+          <article className={getDeltaClass(topGrowth?.delta || 0)}>
+            <span>Mayor crecimiento</span>
+            <strong>{topGrowth?.name || 'Sin variación positiva'}</strong>
+            <p>{topGrowth ? `${formatSignedNumber(topGrowth.delta)} canjes (${formatSignedPercent(topGrowth.deltaPct)}).` : 'Ninguna dirección aumentó sus canjes.'}</p>
+          </article>
+          <article className="neutral">
+            <span>Mayor concentración</span>
+            <strong>{leadingDirection?.name}</strong>
+            <p>
+              {formatSignedPercent(leadingShare).replace('+', '')} del volumen de ambos días.
+              {largestDecline ? ` Mayor caída: ${largestDecline.name} (${formatSignedPercent(largestDecline.deltaPct)}).` : ' No hubo direcciones con caída.'}
+            </p>
+          </article>
+        </div>
+      )}
+    </section>
+  );
+};
+
 const MobilePerformance = ({
   metricKey,
   setMetricKey,
@@ -305,22 +425,6 @@ const MobilePerformance = ({
   );
 };
 
-const PerformanceHeading = ({ selectedFilterPath, groupKey }) => (
-  <div className="fiestas-drilldown-heading">
-    <div className="fiestas-performance-header">
-      <div>
-        <span>Detalle dinámico</span>
-        <h3>Performance por {FILTER_LABELS[groupKey]}</h3>
-      </div>
-      <small>
-        {selectedFilterPath.length > 0
-          ? selectedFilterPath.join(' → ')
-          : 'Selecciona una Dirección para avanzar'}
-      </small>
-    </div>
-  </div>
-);
-
 const FiestasPatriasView = ({
   allClients = [],
   onRefresh,
@@ -331,9 +435,7 @@ const FiestasPatriasView = ({
     28: `28/07/${eventYear}`,
     29: `29/07/${eventYear}`,
   }), [eventYear]);
-  const [selectedDay, setSelectedDay] = useState(() => (
-    new Date().getMonth() === 6 && new Date().getDate() >= 29 ? '29' : '28'
-  ));
+  const [selectedTab, setSelectedTab] = useState('summary');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [mobileMetric, setMobileMetric] = useState('activeClients');
 
@@ -362,15 +464,33 @@ const FiestasPatriasView = ({
     ))
   ), [allClients, filters]);
 
+  const isSummaryView = selectedTab === 'summary';
+  const selectedDay = isSummaryView ? '28' : selectedTab;
   const currentDate = dateKeys[selectedDay];
   const showComparison = selectedDay === '29' && eventCounts[29].totalRedemptions > 0;
   const comparisonDate = showComparison ? dateKeys[28] : null;
-  const currentMetrics = useMemo(
-    () => calculateMetrics(filteredClients, currentDate),
-    [filteredClients, currentDate],
-  );
-  const comparisonMetrics = useMemo(
-    () => calculateMetrics(filteredClients, dateKeys[28]),
+  const filteredDayMetrics = useMemo(() => ({
+    28: calculateMetrics(filteredClients, dateKeys[28]),
+    29: calculateMetrics(filteredClients, dateKeys[29]),
+  }), [filteredClients, dateKeys]);
+  const currentMetrics = filteredDayMetrics[selectedDay];
+  const comparisonMetrics = filteredDayMetrics[28];
+  const directionSummaryRows = useMemo(
+    () => buildGroupRows(filteredClients, 'direccion', dateKeys[28], dateKeys[29])
+      .map((row) => {
+        const day28 = row.current;
+        const day29 = row.comparison || calculateMetrics([], dateKeys[29]);
+        const delta = day29.totalRedemptions - day28.totalRedemptions;
+        return {
+          name: row.name,
+          day28,
+          day29,
+          delta,
+          deltaPct: day28.totalRedemptions > 0 ? delta / day28.totalRedemptions : null,
+          total: day28.totalRedemptions + day29.totalRedemptions,
+        };
+      })
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
     [filteredClients, dateKeys],
   );
   const activeGroupKey = filters.BDR !== 'All'
@@ -382,9 +502,6 @@ const FiestasPatriasView = ({
       : filters.direccion !== 'All'
         ? 'gerencia'
         : 'direccion';
-  const selectedFilterPath = FILTER_KEYS
-    .map((key) => filters[key])
-    .filter((value) => value !== 'All');
   const detailRows = useMemo(
     () => buildGroupRows(filteredClients, activeGroupKey, currentDate, comparisonDate),
     [filteredClients, activeGroupKey, currentDate, comparisonDate],
@@ -427,13 +544,24 @@ const FiestasPatriasView = ({
         </div>
 
         <div className="fiestas-hero-actions">
-          <div className="fiestas-day-switcher" aria-label="Seleccionar fecha">
+          <div className="fiestas-day-switcher" aria-label="Seleccionar vista">
+            <button
+              type="button"
+              className={isSummaryView ? 'active' : ''}
+              onClick={() => setSelectedTab('summary')}
+            >
+              <BarChart3 size={15} />
+              <span>Resumen</span>
+              <small>
+                {formatNumber(eventCounts[28].totalRedemptions + eventCounts[29].totalRedemptions)} canjes
+              </small>
+            </button>
             {['28', '29'].map((day) => (
               <button
                 type="button"
                 key={day}
-                className={selectedDay === day ? 'active' : ''}
-                onClick={() => setSelectedDay(day)}
+                className={!isSummaryView && selectedDay === day ? 'active' : ''}
+                onClick={() => setSelectedTab(day)}
               >
                 <CalendarDays size={15} />
                 <span>{day} Jul</span>
@@ -453,10 +581,12 @@ const FiestasPatriasView = ({
         </div>
       </section>
 
-      <div className={`fiestas-status ${showComparison ? 'comparison' : ''}`}>
+      <div className={`fiestas-status ${showComparison || isSummaryView ? 'comparison' : ''}`}>
         <Flag size={16} />
         <span>
-          {showComparison
+          {isSummaryView
+            ? `Resumen consolidado del 28 y 29 de julio de ${eventYear} por Dirección.`
+            : showComparison
             ? `Comparando 29 de julio contra 28 de julio de ${eventYear}.`
             : selectedDay === '28'
               ? 'Vista operativa del 28 de julio. La comparación se habilita en la vista del día 29.'
@@ -493,53 +623,75 @@ const FiestasPatriasView = ({
         </div>
       </section>
 
-      <section className="fiestas-kpi-grid">
-        <KpiCard
-          icon={<Users size={21} />}
-          label="Clientes activos"
-          value={formatNumber(currentMetrics.activeClients)}
-          note="Clientes con al menos un canje"
-          comparison={showComparison ? {
-            current: currentMetrics.activeClients,
-            previous: comparisonMetrics.activeClients,
-          } : null}
+      {isSummaryView ? (
+        <DirectionSummary
+          rows={directionSummaryRows}
+          day28Total={filteredDayMetrics[28]}
+          day29Total={filteredDayMetrics[29]}
         />
-        <KpiCard
-          icon={<Flag size={21} />}
-          label="Canjes totales"
-          value={formatNumber(currentMetrics.totalRedemptions)}
-          note={`Redenciones del ${selectedDay} de julio`}
-          comparison={showComparison ? {
-            current: currentMetrics.totalRedemptions,
-            previous: comparisonMetrics.totalRedemptions,
-          } : null}
-        />
-        <KpiCard
-          icon={<TrendingUp size={21} />}
-          label="Promedio por activo"
-          value={formatAverage(currentMetrics.average)}
-          note="Canjes / clientes activos"
-          comparison={showComparison ? {
-            current: currentMetrics.average,
-            previous: comparisonMetrics.average,
-          } : null}
-          decimals={1}
-        />
-      </section>
+      ) : (
+        <>
+          <section className="fiestas-kpi-grid">
+            <KpiCard
+              icon={<Users size={21} />}
+              label="Clientes activos"
+              value={formatNumber(currentMetrics.activeClients)}
+              note="Clientes con al menos un canje"
+              comparison={showComparison ? {
+                current: currentMetrics.activeClients,
+                previous: comparisonMetrics.activeClients,
+              } : null}
+            />
+            <KpiCard
+              icon={<Flag size={21} />}
+              label="Canjes totales"
+              value={formatNumber(currentMetrics.totalRedemptions)}
+              note={`Redenciones del ${selectedDay} de julio`}
+              comparison={showComparison ? {
+                current: currentMetrics.totalRedemptions,
+                previous: comparisonMetrics.totalRedemptions,
+              } : null}
+            />
+            <KpiCard
+              icon={<TrendingUp size={21} />}
+              label="Promedio por activo"
+              value={formatAverage(currentMetrics.average)}
+              note="Canjes / clientes activos"
+              comparison={showComparison ? {
+                current: currentMetrics.average,
+                previous: comparisonMetrics.average,
+              } : null}
+              decimals={1}
+            />
+          </section>
 
-      {!hasCurrentData && (
-        <div className="glass-panel fiestas-empty-state">
-          <CalendarDays size={32} />
-          <strong>Sin canjes registrados para el {selectedDay} de julio</strong>
-          <p>Actualiza el reporte cuando existan redenciones para esta fecha.</p>
-        </div>
-      )}
+          {!hasCurrentData && (
+            <div className="glass-panel fiestas-empty-state">
+              <CalendarDays size={32} />
+              <strong>Sin canjes registrados para el {selectedDay} de julio</strong>
+              <p>Actualiza el reporte cuando existan redenciones para esta fecha.</p>
+            </div>
+          )}
 
-      <section className="fiestas-desktop-performance">
-        {Object.keys(METRIC_CONFIG).map((metricKey) => (
-          <MetricTable
-            key={metricKey}
-            metricKey={metricKey}
+          <section className="fiestas-desktop-performance">
+            {Object.keys(METRIC_CONFIG).map((metricKey) => (
+              <MetricTable
+                key={metricKey}
+                metricKey={metricKey}
+                groupKey={activeGroupKey}
+                rows={detailRows}
+                currentTotal={currentMetrics}
+                comparisonTotal={comparisonMetrics}
+                showComparison={showComparison}
+                onSelect={handleRowSelect}
+                selectedValue={filters[activeGroupKey]}
+              />
+            ))}
+          </section>
+
+          <MobilePerformance
+            metricKey={mobileMetric}
+            setMetricKey={setMobileMetric}
             groupKey={activeGroupKey}
             rows={detailRows}
             currentTotal={currentMetrics}
@@ -548,20 +700,8 @@ const FiestasPatriasView = ({
             onSelect={handleRowSelect}
             selectedValue={filters[activeGroupKey]}
           />
-        ))}
-      </section>
-
-      <MobilePerformance
-        metricKey={mobileMetric}
-        setMetricKey={setMobileMetric}
-        groupKey={activeGroupKey}
-        rows={detailRows}
-        currentTotal={currentMetrics}
-        comparisonTotal={comparisonMetrics}
-        showComparison={showComparison}
-        onSelect={handleRowSelect}
-        selectedValue={filters[activeGroupKey]}
-      />
+        </>
+      )}
     </div>
   );
 };

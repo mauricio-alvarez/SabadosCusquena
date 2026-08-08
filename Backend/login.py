@@ -16,6 +16,7 @@ dotenv_values_map = dotenv_values(dotenv_path)
 load_dotenv(dotenv_path)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 240
 
 def _clean(value):
     if isinstance(value, str):
@@ -29,6 +30,27 @@ def _get_config_value(*names):
             return value
     return None
 
+
+def _get_download_timeout_seconds(override=None):
+    raw_value = override
+    if raw_value is None:
+        raw_value = _get_config_value("REPORT_DOWNLOAD_TIMEOUT_SECONDS")
+    if not raw_value:
+        return DEFAULT_DOWNLOAD_TIMEOUT_SECONDS
+
+    try:
+        timeout_seconds = int(raw_value)
+    except ValueError as error:
+        raise ValueError(
+            "REPORT_DOWNLOAD_TIMEOUT_SECONDS must be a positive integer."
+        ) from error
+
+    if timeout_seconds <= 0:
+        raise ValueError(
+            "REPORT_DOWNLOAD_TIMEOUT_SECONDS must be a positive integer."
+        )
+    return timeout_seconds
+
 def get_config_status():
     return {
         "URL": bool(_get_config_value("URL")),
@@ -36,7 +58,7 @@ def get_config_status():
         "PASSWORD": bool(_get_config_value("PASSWORD")),
     }
 
-def run_report_extraction():
+def run_report_extraction(download_timeout_seconds=None):
     url = _get_config_value("URL")
     report_user = _get_config_value("REPORT_USER", "PORTAL_USER", "USER")
     password = _get_config_value("PASSWORD")
@@ -220,15 +242,23 @@ def run_report_extraction():
             ))
             
             export_button.click()
-            print("Export button clicked! Waiting for download to complete...")
-            
-            timeout = 60
+
+            timeout = _get_download_timeout_seconds(download_timeout_seconds)
+            print(
+                "Export button clicked! Waiting up to "
+                f"{timeout} seconds for the download to complete..."
+            )
+
             start_time = time.time()
             downloaded_file = None
             
             while time.time() - start_time < timeout:
                 files = os.listdir(download_dir)
-                crdownloads = [f for f in files if f.endswith('.crdownload') or f.endswith('.tmp')]
+                crdownloads = [
+                    f for f in files
+                    if (f.endswith('.crdownload') or f.endswith('.tmp'))
+                    and os.path.getmtime(os.path.join(download_dir, f)) > start_time - 5
+                ]
                 if not crdownloads:
                     xlsx_files = [f for f in files if f.endswith('.xlsx')]
                     if xlsx_files:
@@ -243,7 +273,7 @@ def run_report_extraction():
                 print(f"Download completed: {downloaded_file}")
                 return downloaded_file
             else:
-                print("Download timed out.")
+                print(f"Download timed out after {timeout} seconds.")
                 return None
             
         except Exception as export_error:

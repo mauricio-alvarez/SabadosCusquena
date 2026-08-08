@@ -30,6 +30,24 @@ corepack pnpm run dev
 
 The Vite dev server proxies `/api` requests to `http://127.0.0.1:8000`.
 
+## Norte hourly email
+
+The scheduled Norte automation emails the newly generated workbook after every
+successful hourly update. It uses a configured SMTP server when
+`NORTE_SMTP_HOST` is present; otherwise it falls back to Gmail SMTP.
+
+For Gmail, add these values to the root `.env` file:
+
+```env
+NORTE_EMAIL_TO=alvarez.mauri.alex@gmail.com
+GMAIL_SMTP_USER=your-sender@gmail.com
+GMAIL_APP_PASSWORD=your-16-character-app-password
+```
+
+Use a Gmail App Password, not the regular account password. The scheduled run
+is marked as failed when workbook generation succeeds but email delivery fails,
+so the error is visible in `Cortes/Norte/automation.log`.
+
 ## Deploy on Render
 
 This repo includes a `Dockerfile` and `render.yaml` for a single Render web service. The Docker image builds the Vite frontend, installs Chromium and Chromedriver for Selenium, runs FastAPI, and serves the frontend from the same public URL as the API.

@@ -2455,6 +2455,195 @@ body {
   background: var(--subtle-surface);
 }
 
+.fiestas-summary-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.fiestas-summary-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.fiestas-summary-heading > div:first-child span,
+.fiestas-summary-insights article > span {
+  color: var(--cusquena-gold-dark);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.fiestas-summary-heading h3 {
+  margin-top: 3px;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.fiestas-summary-total {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent);
+  border-radius: 10px;
+}
+
+.fiestas-summary-total span,
+.fiestas-summary-total small {
+  font-size: 0.67rem;
+  font-weight: 750;
+}
+
+.fiestas-summary-total strong {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.fiestas-summary-table-wrap {
+  overflow-x: auto;
+}
+
+.fiestas-summary-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.fiestas-summary-table th,
+.fiestas-summary-table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--subtle-surface-hover);
+  text-align: right;
+  vertical-align: middle;
+}
+
+.fiestas-summary-table th {
+  color: var(--text-secondary);
+  background: var(--table-header-bg);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.fiestas-summary-table th:first-child,
+.fiestas-summary-table td:first-child {
+  width: 27%;
+  text-align: left;
+}
+
+.fiestas-summary-table td {
+  color: var(--text-primary);
+  font-size: 0.74rem;
+}
+
+.fiestas-summary-table tbody tr:not(.fiestas-summary-grand-total):hover {
+  background: var(--table-row-hover);
+}
+
+.fiestas-summary-table td:first-child {
+  max-width: 220px;
+  overflow: hidden;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fiestas-summary-table td > small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
+.fiestas-summary-change {
+  font-weight: 850;
+}
+
+.fiestas-summary-change.positive {
+  color: var(--success);
+}
+
+.fiestas-summary-change.negative {
+  color: var(--danger);
+}
+
+.fiestas-summary-change.neutral {
+  color: var(--text-muted);
+}
+
+.fiestas-summary-grand-total {
+  background: var(--total-row-bg);
+}
+
+.fiestas-summary-grand-total td {
+  font-weight: 850;
+  border-bottom: none;
+}
+
+.fiestas-summary-empty {
+  height: 80px;
+  color: var(--text-muted) !important;
+  text-align: center !important;
+}
+
+.fiestas-summary-insights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.fiestas-summary-insights article {
+  min-width: 0;
+  padding: 12px 13px;
+  background: var(--subtle-surface);
+  border-left: 3px solid var(--text-muted);
+  border-radius: 9px;
+}
+
+.fiestas-summary-insights article.positive {
+  background: var(--success-soft);
+  border-left-color: var(--success);
+}
+
+.fiestas-summary-insights article.negative {
+  background: var(--danger-soft);
+  border-left-color: var(--danger);
+}
+
+.fiestas-summary-insights article.neutral {
+  background: var(--info-soft);
+  border-left-color: var(--info);
+}
+
+.fiestas-summary-insights article > strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fiestas-summary-insights article > p {
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
 .fiestas-empty-state {
   display: flex;
   min-height: 145px;
@@ -2737,6 +2926,10 @@ button.fiestas-mobile-row:hover {
   .fiestas-kpi-grid {
     grid-template-columns: 1fr;
   }
+
+  .fiestas-summary-insights {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -2777,11 +2970,24 @@ button.fiestas-mobile-row:hover {
 
   .fiestas-day-switcher {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .fiestas-day-switcher button {
     min-width: 0;
+    gap: 0 4px;
+    padding-inline: 6px;
+  }
+
+  .fiestas-day-switcher button span {
+    font-size: 0.76rem;
+  }
+
+  .fiestas-day-switcher button small {
+    padding-left: 0;
+    font-size: 0.58rem;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .fiestas-refresh {
@@ -2790,5 +2996,14 @@ button.fiestas-mobile-row:hover {
 
   .fiestas-filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .fiestas-summary-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fiestas-summary-total {
+    justify-content: center;
   }
 }
