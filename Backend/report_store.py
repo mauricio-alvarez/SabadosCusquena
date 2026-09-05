@@ -37,7 +37,7 @@ def existing_report(directory, project_dir):
     canonical = Path(directory) / REPORT_FILENAME
     if canonical.exists():
         return canonical
-    candidates = legacy_reports(directory, project_dir)
+    candidates = legacy_reports(directory, project_dir, Path(project_dir) / "Backend" / "downloads")
     return max(candidates, key=lambda p: datetime.strptime(
         " ".join(REPORT_NAME_RE.fullmatch(p.name).groups()), "%d-%m-%Y %H-%M-%S"
     ), default=None)

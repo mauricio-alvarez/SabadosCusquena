@@ -38,6 +38,9 @@ class IncrementalReportsTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        base_dir = patch.object(login, "BASE_DIR", str(self.root / "Backend"))
+        base_dir.start()
+        self.addCleanup(base_dir.stop)
         self.data = self.root / "data"
         self.data.mkdir()
         self.delta = self.root / "delta.xlsx"
@@ -97,6 +100,13 @@ class IncrementalReportsTest(unittest.TestCase):
         write_report(newer, [self.old])
         self.assertEqual(store.existing_report(self.data, self.root), newer)
         self.assertEqual(store.checkpoint_day(newer), date(2026, 9, 3))
+
+    def test_separate_persistent_directory_can_bootstrap_from_bundled_snapshot(self):
+        bundled = self.root / "Backend" / "downloads"
+        bundled.mkdir(parents=True)
+        newer = write_report(bundled / "canjes-institucion_05-09-2026_12-45-50.xlsx", [self.new])
+        self.assertEqual(store.existing_report(self.data, self.root), newer)
+        self.assertEqual(store.checkpoint_day(newer), date(2026, 9, 5))
 
     def test_invalid_delta_preserves_baseline(self):
         original = self.legacy.read_bytes()

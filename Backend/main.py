@@ -125,7 +125,7 @@ def _report_files():
     canonical = os.path.join(DOWNLOAD_DIR, report_store.REPORT_FILENAME)
     if os.path.isfile(canonical):
         return [canonical]
-    search_dirs = [DOWNLOAD_DIR, PROJECT_DIR]
+    search_dirs = [DOWNLOAD_DIR, PROJECT_DIR, os.path.join(BASE_DIR, "downloads")]
     files = []
 
     for directory in search_dirs:

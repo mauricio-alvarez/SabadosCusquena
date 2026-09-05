@@ -41,8 +41,8 @@ occurrence count seen in either export, so legitimate repeated canjes are kept.
 This is an append-only feed: edits/deletions to historical records, or records
 backdated before the checkpoint day, require a separate historical reconciliation.
 
-On the first refresh, the newest timestamped canjes snapshot in `DATA_DIR` or the
-project root supplies the existing history; its latest `Fecha` supplies the first
+On the first refresh, the newest timestamped canjes snapshot in `DATA_DIR`, bundled
+`Backend/downloads`, or the project root supplies the existing history; its latest `Fecha` supplies the first
 checkpoint. Without an existing report (or with a header-only snapshot), the
 initial download starts on May 7, 2026. The seed must be a complete historical
 export, as produced by the old downloader.
