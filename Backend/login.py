@@ -1,7 +1,11 @@
 import os
 import shutil
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from tempfile import TemporaryDirectory
+
+from filelock import FileLock
+import report_store
 from dotenv import dotenv_values, load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -59,6 +63,29 @@ def get_config_status():
     }
 
 def run_report_extraction(download_timeout_seconds=None):
+    directory = report_store.data_directory()
+    directory.mkdir(parents=True, exist_ok=True)
+    # Serialize the whole refresh, including reading the checkpoint. This also
+    # protects multiple API workers and command-line invocations on this disk.
+    with FileLock(str(directory / ".canjes-refresh.lock"), timeout=0):
+        baseline = report_store.existing_report(directory, os.path.dirname(BASE_DIR))
+        start_day = report_store.checkpoint_day(baseline)
+        end_day = datetime.now(report_store.LIMA_TZ).date()
+        if start_day > end_day:
+            raise ValueError("The canjes checkpoint is in the future.")
+        print(f"Downloading canjes from {start_day} through {end_day} (Lima).")
+        with TemporaryDirectory(prefix=".canjes-download-", dir=directory) as download_dir:
+            downloaded = _download_report(
+                start_day, end_day, download_dir, download_timeout_seconds
+            )
+            if not downloaded:
+                return None
+            return report_store.append_report(
+                baseline, downloaded, directory, start_day, end_day
+            )
+
+
+def _download_report(start_day, end_day, download_dir, download_timeout_seconds=None):
     url = _get_config_value("URL")
     report_user = _get_config_value("REPORT_USER", "PORTAL_USER", "USER")
     password = _get_config_value("PASSWORD")
@@ -91,9 +118,6 @@ def run_report_extraction(download_timeout_seconds=None):
     options.add_argument("--disable-gpu")
 
     # Configure download directory
-    download_dir = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(BASE_DIR, "downloads"))
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
         
     prefs = {
         "download.default_directory": download_dir,
@@ -174,65 +198,14 @@ def run_report_extraction(download_timeout_seconds=None):
             # Wait for calendar to be fully visible
             time.sleep(2)
             
-            def is_month_visible(month_text):
-                try:
-                    driver.find_element(By.XPATH, f"//*[translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{month_text}']")
-                    return True
-                except:
-                    return False
+            select_calendar_range(driver, start_day, end_day)
 
-            def click_data_day(day, month, year):
-                xpath = f"//button[@data-day='{day}/{month}/{year}']"
-                try:
-                    btn = driver.find_element(By.XPATH, xpath)
-                    btn.click()
-                    return True
-                except Exception as e:
-                    print(f"Could not click data-day {day}/{month}/{year}: {e}")
-                    return False
-                
-            print("Navigating calendar to target start date (mayo 2026)...")
-            target_text = "mayo 2026"
-            
-            for _ in range(24):
-                if is_month_visible(target_text):
-                    break
-                try:
-                    prev_button = driver.find_element(By.XPATH, "//button[@aria-label='Go to the Previous Month' or @name='previous-month' or contains(@class, 'previous') or .//svg[contains(@class, 'chevron-left')]]")
-                    prev_button.click()
-                    time.sleep(0.2)
-                except:
-                    break
-                
-            print("Clicking start date May 7, 2026...")
-            click_data_day(7, 5, 2026)
-            time.sleep(0.5)
-            
-            print("Navigating calendar to current month...")
-            current_date = datetime.now(timezone(timedelta(hours=-5)))
-            month_names = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
-            current_text = f"{month_names[current_date.month-1]} {current_date.year}"
-            
-            for _ in range(24):
-                if is_month_visible(current_text):
-                    break
-                try:
-                    next_button = driver.find_element(By.XPATH, "//button[@aria-label='Go to the Next Month' or @name='next-month' or contains(@class, 'next') or .//svg[contains(@class, 'chevron-right')]]")
-                    next_button.click()
-                    time.sleep(0.2)
-                except:
-                    break
-                
-            print(f"Clicking end date {current_date.day}/{current_date.month}/{current_date.year}...")
-            click_data_day(current_date.day, current_date.month, current_date.year)
-            time.sleep(0.5)
-            
             # Press escape to close the popover just in case it blocks the export button
             webdriver.ActionChains(driver).send_keys(u'\ue00c').perform() # Escape key
             print("Date range selected.")
                 
         except Exception as e:
-            print(f"Error filling dates via calendar: {e}")
+            raise RuntimeError("Could not select the requested canjes date range; export cancelled.") from e
         
         # 3. Look for the 'Exportar Excel' button and click it
         try:
@@ -241,6 +214,7 @@ def run_report_extraction(download_timeout_seconds=None):
                 (By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exportar excel')] | //a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exportar excel')] | //button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'exportar excel')]")
             ))
             
+            start_time = time.monotonic()
             export_button.click()
 
             timeout = _get_download_timeout_seconds(download_timeout_seconds)
@@ -249,24 +223,21 @@ def run_report_extraction(download_timeout_seconds=None):
                 f"{timeout} seconds for the download to complete..."
             )
 
-            start_time = time.time()
             downloaded_file = None
             
-            while time.time() - start_time < timeout:
+            while time.monotonic() - start_time < timeout:
                 files = os.listdir(download_dir)
                 crdownloads = [
                     f for f in files
                     if (f.endswith('.crdownload') or f.endswith('.tmp'))
-                    and os.path.getmtime(os.path.join(download_dir, f)) > start_time - 5
                 ]
                 if not crdownloads:
                     xlsx_files = [f for f in files if f.endswith('.xlsx')]
                     if xlsx_files:
                         xlsx_files_paths = [os.path.join(download_dir, f) for f in xlsx_files]
                         newest_file = max(xlsx_files_paths, key=os.path.getctime)
-                        if os.path.getctime(newest_file) > start_time - 5:
-                            downloaded_file = newest_file
-                            break
+                        downloaded_file = newest_file
+                        break
                 time.sleep(1)
             
             if downloaded_file:
@@ -288,6 +259,37 @@ def run_report_extraction(download_timeout_seconds=None):
         print("Closing browser...")
         if 'driver' in locals():
             driver.quit()
+
+def select_calendar_range(driver, start_day, end_day):
+    """Select an inclusive range; never export after a failed calendar click."""
+    month_names = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+                   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+    def select_day(day, backwards):
+        target_text = f"{month_names[day.month - 1]} {day.year}"
+        direction = ("Previous", "previous", "left") if backwards else ("Next", "next", "right")
+        # Start from the portal's current month, then move forward to the end.
+        max_steps = abs((end_day.year - start_day.year) * 12 + end_day.month - start_day.month) + 2
+        for _ in range(max_steps):
+            captions = driver.find_elements(By.XPATH,
+                f"//*[translate(normalize-space(text()), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')='{target_text}']")
+            if any(caption.is_displayed() for caption in captions):
+                button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((
+                    By.XPATH, f"//button[@data-day='{day.day}/{day.month}/{day.year}']"
+                )))
+                button.click()
+                time.sleep(0.5)
+                return
+            nav = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH,
+                f"//button[@aria-label='Go to the {direction[0]} Month' or @name='{direction[1]}-month' or contains(@class, '{direction[1]}') or .//svg[contains(@class, 'chevron-{direction[2]}')]]"
+            )))
+            nav.click()
+            time.sleep(0.2)
+        raise RuntimeError(f"Calendar month not found: {target_text}")
+
+    select_day(start_day, backwards=True)
+    select_day(end_day, backwards=False)
+
 
 if __name__ == "__main__":
     result = run_report_extraction()

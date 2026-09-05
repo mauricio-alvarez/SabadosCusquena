@@ -312,7 +312,7 @@ const EligibilityRewardsPanel = ({
   );
 };
 
-const WaitersView = ({ filePath }) => {
+const WaitersView = ({ filePath, reportVersion }) => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [rankingsData, setRankingsData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -363,7 +363,7 @@ const WaitersView = ({ filePath }) => {
 
   useEffect(() => {
     fetchRankings(selectedMonth);
-  }, [filePath, selectedMonth, fetchRankings]);
+  }, [filePath, reportVersion, selectedMonth, fetchRankings]);
 
   // Handle month selection change
   const handleMonthChange = (e) => {
@@ -1137,4 +1137,3 @@ const WaitersView = ({ filePath }) => {
 };
 
 export default WaitersView;
-

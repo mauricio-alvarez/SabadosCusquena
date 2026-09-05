@@ -30,6 +30,47 @@ corepack pnpm run dev
 
 The Vite dev server proxies `/api` requests to `http://127.0.0.1:8000`.
 
+## Incremental canjes refresh
+
+Both extraction endpoints and `python Backend/login.py` update one cumulative
+`canjes-institucion.xlsx` in `DATA_DIR` (locally, `Backend/downloads`). Each refresh
+downloads only the last successful checkpoint day through today in Lima time.
+The checkpoint day is included again to catch records added later that day.
+Exact overlapping rows are not appended again; identical rows retain the largest
+occurrence count seen in either export, so legitimate repeated canjes are kept.
+This is an append-only feed: edits/deletions to historical records, or records
+backdated before the checkpoint day, require a separate historical reconciliation.
+
+On the first refresh, the newest timestamped canjes snapshot in `DATA_DIR` or the
+project root supplies the existing history; its latest `Fecha` supplies the first
+checkpoint. Without an existing report (or with a header-only snapshot), the
+initial download starts on May 7, 2026. The seed must be a complete historical
+export, as produced by the old downloader.
+
+The checkpoint is stored in a hidden sheet in the same workbook and advances only
+after a validated download and successful atomic save, including empty exports.
+Failed downloads, invalid date ranges and changed columns preserve the previous
+workbook. Concurrent refreshes are rejected with HTTP 409. The dashboard and Excel
+download endpoint always use the cumulative file once it exists.
+
+Temporary downloads are removed after each run. After the first successful merge,
+old timestamped canjes snapshots in `DATA_DIR` are removed; unrelated workbooks and
+project-root seed files are left intact. XLSX cannot be appended to directly on
+disk, so saving uses a temporary rewrite of the cumulative workbook; allow working
+space for that rewrite and the incremental download. Memory use for deduplication
+is limited to the overlapping rows.
+
+For hosted use, point `DATA_DIR` at a persistent disk shared by the service's
+workers. The workbook itself carries the checkpoint across restarts. An ephemeral
+filesystem losing this file requires an initial full download again; the included
+Render blueprint does not provision a persistent disk.
+
+Run the regression tests from the repository root:
+
+```bash
+python -m unittest discover -s Backend/tests -v
+```
+
 ## Norte hourly email
 
 The scheduled Norte automation emails the newly generated workbook after every

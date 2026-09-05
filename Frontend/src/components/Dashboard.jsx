@@ -857,7 +857,7 @@ const Dashboard = () => {
               <VolumeView allClients={dashboardData.clients} storedCreds={storedCreds} />
             )}
             {activeView === 'waiters' && (
-              <WaitersView filePath={lastReport?.file_path} />
+              <WaitersView filePath={lastReport?.file_path} reportVersion={lastReport?.updated_at} />
             )}
             {activeView === 'ventas' && (
               <VentasView storedCreds={storedCreds} setStoredCreds={setStoredCreds} />

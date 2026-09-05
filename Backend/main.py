@@ -8,11 +8,13 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 import login
 import analytics
+import report_store
+from filelock import Timeout
 
 app = FastAPI(title="Report Extractor API")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DOWNLOAD_DIR = os.environ.get("DATA_DIR", "/app/data" if os.environ.get("RENDER") else os.path.join(BASE_DIR, "downloads"))
+DOWNLOAD_DIR = str(report_store.data_directory())
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 REPORT_MAX_AGE_MINUTES = 20
@@ -120,6 +122,9 @@ def _report_payload(file_path):
     }
 
 def _report_files():
+    canonical = os.path.join(DOWNLOAD_DIR, report_store.REPORT_FILENAME)
+    if os.path.isfile(canonical):
+        return [canonical]
     search_dirs = [DOWNLOAD_DIR, PROJECT_DIR]
     files = []
 
@@ -162,11 +167,13 @@ def extract_report():
         if file_path and os.path.exists(file_path):
             return {
                 "status": "success",
-                "message": "Report downloaded successfully.",
+                "message": "Canjes updated successfully.",
                 **_report_payload(file_path)
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to download report or timeout occurred.")
+    except Timeout:
+        raise HTTPException(status_code=409, detail="A canjes refresh is already in progress.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -226,7 +233,7 @@ def refresh_report(
             return {
                 "status": "success",
                 "source": "download",
-                "message": "Downloaded a fresh report.",
+                "message": "New records appended to the canjes workbook.",
                 **_report_payload(file_path),
             }
         raise HTTPException(
@@ -238,6 +245,8 @@ def refresh_report(
         )
     except HTTPException:
         raise
+    except Timeout:
+        raise HTTPException(status_code=409, detail="A canjes refresh is already in progress.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

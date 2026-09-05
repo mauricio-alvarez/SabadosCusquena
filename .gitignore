@@ -13,3 +13,5 @@ dist-ssr
 *.local.err
 /analysis
 /analysis_outputs
+.canjes-*
+**/__pycache__/
