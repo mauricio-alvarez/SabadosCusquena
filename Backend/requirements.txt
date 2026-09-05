@@ -6,3 +6,4 @@ uvicorn
 pandas
 openpyxl
 pyxlsb
+filelock
